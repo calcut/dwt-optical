@@ -4,7 +4,17 @@ import tables
 from datetime import datetime
 import os
 import re
+import h5py #used in some functions for speed or lower level access
 
+
+default_metadata = {
+    'sensor'            : None,
+    'element'           : None,
+    'fluid'             : None,
+    'repeat'            : None,
+    'timestamp'         : None,
+    'aux_metadata'      : None
+}
 
 # Write dataframe and a metadata object (e.g. dictionary) to an hdf5 file
 # Fixed format gives a much smaller file size 
@@ -16,14 +26,29 @@ def store(filename, hdfkey, df, metadata):
         raise ValueError(F'Error, node already exists in HDF5 file: {hdfkey}')
     else:
         store.put(hdfkey, df, format='fixed')
-        store.get_storer(hdfkey).attrs.metadata = metadata
+        # for key, val in metadata.items():
+        #     store.get_storer(hdfkey).attrs[key] = val 
     store.close()
+    #Attach metadata with h5py instead, to avoid pickling
+    attach_metadata(filename, hdfkey, metadata)
+
+
+def attach_metadata(filename, hdfkey, metadata):
+    with h5py.File(filename, 'a') as f:
+        for key, val in metadata.items():
+            f[hdfkey].attrs[key] = val
 
 # Load a dataframe from an hdf5 file, also return associated metadata
 def load(filename, hdfkey):
     store = pd.HDFStore(filename, mode='r')
     data = store[hdfkey]
-    metadata = store.get_storer(hdfkey).attrs.metadata
+    metadata = default_metadata
+    for key in metadata.keys():
+        try:
+            metadata[key] = store.get_storer(hdfkey).attrs[key]
+        except KeyError as e:
+            pass
+
     store.close()
     return data, metadata
 
@@ -41,55 +66,55 @@ def merge_dataframes(filename, nodelist):
             result = df
     return result
 
-# Returns a list of nodes with an attribute called metadata
-# Intended as an initial filter to remove irrelevant nodes (or sub nodes)
-def measurement_nodes(filename, hdfkey):
-    with tables.open_file(filename, 'r') as f:
-        nodelist = []
-        for node in f.walk_nodes(hdfkey):
-            if hasattr(node._v_attrs, 'metadata'):
-                nodelist.append(node._v_pathname)
-    return nodelist
+def filter_by_metadata(filename, metakey, metavalue=None, hdfkey='/', nodelist=[]):
 
-# Checks each node in a list for a key/value pair in the metadata.
-# Returns a filtered list containing only nodes with desired metadata.
-# Can be called recursively to filter for more than one key
-def filter_by_metadata(filename, key, value, nodelist):
-    with tables.open_file(filename, 'r') as f:
-        result = []
-        for node in nodelist:
-            node = f.get_node(node)
-            try:
-                if (node._v_attrs.metadata[key] == value ):
-                    result.append(node._v_pathname)
-            except Exception as e:
-                pass
-    return result
+    def visitor_func(name, obj):
+        if metakey in obj.attrs:
+            nodelist.append(name)
+            # nodelist.append(F"/{name}")
+
+    with h5py.File(filename, 'r') as f:
+
+        if not nodelist:
+            f[hdfkey].visititems(visitor_func)
+
+        if not metavalue:
+            return nodelist
+        else:
+            result = []
+            for node in nodelist:
+                obj = f[node]
+                try:
+                    if (obj.attrs[metakey] == metavalue ):
+                        result.append(obj.name)
+                except Exception as e:
+                    print(node)
+                    print(e)
+            return result
+
 
 def inspect(filename):
-    measurements = measurement_nodes(filename, '/')
-
-    # measurements = filter_by_metadata(filename, 'element_index', "A00", measurements)
-    # measurements = filter_by_metadata(filename, 'fluid', "water", measurements)
+    measurements = filter_by_metadata(filename, 'element')
 
     num = len(measurements)
-    fluids = set()
+    sensors = set()
     elements = set()
+    fluids = set()
     dates = set()
     data_lengths = set()
     reps = set()
 
     for node in measurements:
         data, metadata = load(filename, node)
+
+        sensors.add(metadata['sensor'])
+        elements.add(metadata['element'])
         fluids.add(metadata['fluid'])
-        elements.add(metadata['element_index'])
-        reps.add(metadata['repeat'])
-        try:
+        if metadata['repeat']:
+            reps.add(metadata['repeat'])
+        if metadata['timestamp']:
             time = datetime.fromtimestamp(metadata['timestamp'])
             dates.add(time.strftime('%Y_%m_%d'))
-        except KeyError:
-            #No timestamp in file
-            pass
 
         transmission_col = data.columns[1]
         data_len = len(data[transmission_col])
@@ -103,8 +128,9 @@ def inspect(filename):
     expected = len(fluids) * len(elements) * len(reps)
 
     print(F"Found {num} measurements out of {expected} expected permutations, including:\n"
-        F"{len(fluids)} fluids {sorted(fluids)}\n"
+        F"{len(sensors)} sensors {sorted(sensors)}\n"
         F"{len(elements)} elements {sorted(elements)}\n"
+        F"{len(fluids)} fluids {sorted(fluids)}\n"
         F"{len(reps)} repeats {sorted(reps)}\n"
         F"{len(dates)} dates {sorted(dates)}\n"
         F"{len(data_lengths)} Data lengths {sorted(data_lengths)}")
@@ -112,22 +138,21 @@ def inspect(filename):
 
 def export_dataframes(h5file, outfile, nodelist):
     # measurements = measurement_nodes(h5file, '/')
-
     elements = set()
-    with tables.open_file(h5file, 'r') as f:
+    with h5py.File(h5file, 'r') as f:
         for node in nodelist:
-            # data, metadata = load(h5file, node)
-            n = f.get_node(node)
+            obj = f[node]
             try:
-                elements.add(n._v_attrs.metadata['element_index'])
-            except:
-                print(F"Error, could not find 'element_index' in metadata for {node}")
+                elements.add(obj.attrs['element'])
+            except Exception as e:
+                print(node)
+                print(e)
 
     elements = sorted(elements)
 
     frames=[]
     for e in elements:
-        selection = filter_by_metadata(h5file, 'element_index', e, nodelist)
+        selection = filter_by_metadata(h5file, 'element', e, nodelist=nodelist)
         element_df = merge_dataframes(h5file, selection)
         element_df = element_df.transpose()
         iterables = [[F"Sensor {e}"], element_df.loc['wavelength']]
@@ -165,8 +190,8 @@ def import_dir_to_hdf(dir, regex, h5file, separator='\t', append=False):
         # If the element looks like an integer,
         # convert to a string with zero padding
         try: 
-            e = int(metadata['element_index'])
-            metadata['element_index'] = F"{e:02d}"
+            e = int(metadata['element'])
+            metadata['element'] = F"{e:02d}"
         except ValueError:
             #Otherwise, don't modify it
             pass
@@ -174,7 +199,7 @@ def import_dir_to_hdf(dir, regex, h5file, separator='\t', append=False):
         # Shorthand for some metadata values, to be used in Fstrings
         s = metadata['sensor']
         f = metadata['fluid']
-        e = metadata['element_index']
+        e = metadata['element']
 
         # Read the file contents into a dataframe
         df = pd.read_csv(os.path.join(dir, filename), sep=separator)
@@ -193,7 +218,7 @@ def import_dir_to_hdf(dir, regex, h5file, separator='\t', append=False):
 
             # update metadata to preserve info about the imported file
             if 'rotation' in metadata:
-                metadata['imported_as'] = F"Rotation{metadata['rotation']}_{r+1}"
+                metadata['aux_metadata']= F"imported_as : Rotation{metadata['rotation']}_{r+1}"
                 metadata.pop('rotation', None)
 
             # This loop tries to save the dataframe and metadata to the hdf5
