@@ -13,6 +13,7 @@ default_metadata = {
     'fluid'             : None,
     'repeat'            : None,
     'timestamp'         : None,
+    'import_date'       : None,
     'aux_metadata'      : None
 }
 
@@ -41,7 +42,7 @@ def attach_metadata(filename, hdfkey, metadata):
 # Load a dataframe from an hdf5 file, also return associated metadata
 def load(filename, hdfkey):
     store = pd.HDFStore(filename, mode='r')
-    data = store[hdfkey]
+    data = store.get(hdfkey)
     metadata = default_metadata
     for key in metadata.keys():
         try:
@@ -112,9 +113,8 @@ def inspect(filename):
         fluids.add(metadata['fluid'])
         if metadata['repeat']:
             reps.add(metadata['repeat'])
-        if metadata['timestamp']:
-            time = datetime.fromtimestamp(metadata['timestamp'])
-            dates.add(time.strftime('%Y_%m_%d'))
+        if metadata['import_date']:
+            dates.add(metadata['import_date'])
 
         transmission_col = data.columns[1]
         data_len = len(data[transmission_col])
@@ -136,7 +136,7 @@ def inspect(filename):
         F"{len(data_lengths)} Data lengths {sorted(data_lengths)}")
 
 
-def export_dataframes(h5file, outfile, nodelist):
+def export_dataframes(h5file, nodelist, outfile=None):
     # measurements = measurement_nodes(h5file, '/')
     elements = set()
     with h5py.File(h5file, 'r') as f:
@@ -155,7 +155,7 @@ def export_dataframes(h5file, outfile, nodelist):
         selection = filter_by_metadata(h5file, 'element', e, nodelist=nodelist)
         element_df = merge_dataframes(h5file, selection)
         element_df = element_df.transpose()
-        iterables = [[F"Sensor {e}"], element_df.loc['wavelength']]
+        iterables = [[F"Element {e}"], element_df.loc['wavelength']]
         col_ix = pd.MultiIndex.from_product(iterables)
         element_df.columns = col_ix
         frames.append(element_df)
@@ -163,7 +163,8 @@ def export_dataframes(h5file, outfile, nodelist):
 
     exportframe = pd.concat(frames, axis=1)
     exportframe.drop('wavelength', inplace=True)
-    exportframe.to_csv(outfile)
+    if outfile:
+        exportframe.to_csv(outfile)
     return exportframe
 
 
@@ -186,6 +187,7 @@ def import_dir_to_hdf(dir, regex, h5file, separator='\t', append=False):
 
         # Create a metadata dictionary with info extracted from filename
         metadata = match.groupdict()
+        metadata['import_date'] = import_date
 
         # If the element looks like an integer,
         # convert to a string with zero padding
