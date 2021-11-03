@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import re
 import shutil
+from IPython.display import display
 
 # from pandas.core.reshape.merge import merge_asof
 
@@ -91,14 +92,38 @@ def store(df, metadata, path='./raw'):
     meta_df.to_csv(f'{metapath}', index=True, sep='\t', na_rep='')
 
 
-# Extracts dataframes from file and merges them into a single dataframe
-# nodelist is a list of strings describing hdf paths
+# Extracts dataframes from files and merges them into a single dataframe
+# Requires a metadata frame to know which measurements to select
+# Columns are renamed to show only the relevant metadata
 # Outer join means that rows from all dataframes are preserved, and NaN is
 # filled where needed
-def merge_dataframes(filename, nodelist):
+def merge_dataframes(meta_df, path='./raw'):
     result = []
-    for node in nodelist:
-        df = pd.read_hdf(filename, node)
+    for row in meta_df.index:
+
+        # locate the datafile and read it in
+        subdir = meta_df.loc[row]['sensor']
+        datapath = os.path.join(path, subdir, f'{row}.tsv') 
+        df = pd.read_csv(datapath, sep='\t')
+
+        # Name the output columns based on metadata
+        col_names = ['wavelength']
+        for col in df.columns[1:]:
+            name = str()
+
+            # Ignore metadata that is the same for measurements
+            # i.e. only select columns with more than 1 unique value
+            valid_meta = meta_df.columns[meta_df.nunique() > 1]
+
+            # Ignore columns which aren't considered primary metadata
+            primary_metadata = ['date', 'sensor', 'fluid',' element']
+            valid_meta = valid_meta.intersection(primary_metadata)
+
+            for label in valid_meta:
+                name += f'{meta_df.loc[row][label]}_'
+            col_names.append(name[:-1])
+        df.columns = col_names
+
         if len(result) > 0:
             result = pd.merge(result, df, how='outer', on='wavelength')
         else:
@@ -134,33 +159,37 @@ def filter_by_metadata(metakey, metavalue, path='./raw', input_df=None, regex=Fa
 
 
 
-def export_dataframes(h5file, nodelist, outfile=None):
-    # measurements = measurement_nodes(h5file, '/')
-    elements = set()
-    with h5py.File(h5file, 'r') as f:
-        for node in nodelist:
-            obj = f[node]
-            try:
-                elements.add(obj.attrs['element'])
-            except Exception as e:
-                print(node)
-                print(e)
+def export_dataframes(index_df='index.tsv', path='./raw', outfile=None):
 
-    elements = sorted(elements)
+    if isinstance(index_df, pd.DataFrame):
+        pass
+    else:
+        metapath = os.path.join(path, "index.tsv")
+        if os.path.isfile(metapath):
+            index_df = pd.read_csv(metapath,
+                            sep='\t',
+                            index_col='index',
+                            parse_dates=['date', 'import_date'],
+                            dtype={'element' : str}
+                            )
+        else:
+            print('index.tsv file not found')
+            return
 
+    elements = sorted(index_df['element'].unique())
     frames=[]
     for e in elements:
-        selection = filter_by_metadata(h5file, 'element', e, nodelist=nodelist)
-        element_df = merge_dataframes(h5file, selection)
+        selection = filter_by_metadata('element', e, input_df=index_df)
+        element_df = merge_dataframes(selection, path=path)
         element_df = element_df.transpose()
         iterables = [[F"Element {e}"], element_df.loc['wavelength']]
         col_ix = pd.MultiIndex.from_product(iterables)
         element_df.columns = col_ix
+        element_df.drop('wavelength', inplace=True)
         frames.append(element_df)
 
 
     exportframe = pd.concat(frames, axis=1)
-    exportframe.drop('wavelength', inplace=True)
     if outfile:
         exportframe.to_csv(outfile)
     return exportframe
