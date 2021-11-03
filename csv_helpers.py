@@ -105,31 +105,30 @@ def merge_dataframes(filename, nodelist):
             result = df
     return result
 
-def filter_by_metadata(filename, metakey, metavalue=None, hdfkey='/', nodelist=[]):
+def filter_by_metadata(metakey, metavalue, path='./raw', input_df=None, regex=False):
+   
+    if isinstance(input_df, pd.DataFrame):
+        df = input_df
 
-    def visitor_func(name, obj):
-        if metakey in obj.attrs:
-            nodelist.append(name)
-            # nodelist.append(F"/{name}")
-
-    with h5py.File(filename, 'r') as f:
-
-        if not nodelist:
-            f[hdfkey].visititems(visitor_func)
-
-        if not metavalue:
-            return nodelist
+    else:
+        metapath = os.path.join(path, "index.tsv")
+        if os.path.isfile(metapath):
+            df = pd.read_csv(metapath,
+                            sep='\t',
+                            index_col='index',
+                            parse_dates=['date', 'import_date'],
+                            dtype={'element' : str}
+                            )
         else:
-            result = []
-            for node in nodelist:
-                obj = f[node]
-                try:
-                    if (obj.attrs[metakey] == metavalue ):
-                        result.append(obj.name)
-                except Exception as e:
-                    print(node)
-                    print(e)
-            return result
+            print('index.tsv file not found')
+            return
+
+    if regex:
+        regexdf = df[df[metakey].str.match(metavalue)]
+        return(regexdf)
+    else:
+        exactdf = df.loc[df[metakey] == metavalue]
+        return(exactdf)
 
 
 
