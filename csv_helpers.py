@@ -1,19 +1,16 @@
-# import numpy as np
 import pandas as pd
-# from datetime import datetime
 import os
 import re
 import shutil
 from IPython.display import display
 
-# from pandas.core.reshape.merge import merge_asof
-
 default_metadata = {
     'sensor'            : None,
     'element'           : None,
+    'chemistry'         : None,
     'fluid'             : None,
     'repeats'           : None,
-    'import_date'       : None,
+    'date'              : None,
 }
 
 def store(df, metadata, path='./raw'):

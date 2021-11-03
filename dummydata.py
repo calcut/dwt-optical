@@ -6,13 +6,15 @@ import h5_helpers as h5
 import csv_helpers as csv
 import string
 import shutil
+import random
 
 
 instrument = {
     'name'              : 'Lab_setup_02',
     'sensor'            : 'DUM01',
     'element_rows'      : 4,
-    'element_cols'      : 4,   
+    'element_cols'      : 4,
+    'chemistry_map'     : None,
     'light Source'      : 'Stellarnet LED White',
     'spectrometer'      : 'Stellarnet BlueWave VIS-25'
 }
@@ -29,6 +31,19 @@ defaults = {
     'repeats'           : 3,
 }
 
+def dummyChemistry(run):
+  
+    chemistry_map = {}
+    rows = run['instrument']['element_rows']
+    cols = run['instrument']['element_rows']
+    num_elements = rows * cols
+
+    elements = get_element_list(rows,cols)
+
+    for e in elements:
+        chemistry_map[e] = random.choice(chemistries_list)
+    return chemistry_map
+
 
 # Returns a list of element indicies for a X by Y sensor array
 # e.g. 2x2 would give [A01, A02, B01, B02]
@@ -40,6 +55,7 @@ def get_element_list(rows, cols):
 	for x, y in [(x,y) for x in col_list for y in row_list]:
 		element_list.append(F"{x}{y:02d}")
 	return element_list
+
 
 def dummyMeasurement(run):
     dummywavelength = list(np.arange(run['wavelength_range'][0], #start
@@ -110,10 +126,72 @@ def generate_tsv(run, append=True):
 
         for e in elements:
             metadata['element'] = str(e)
-
+            metadata['chemistry'] = run['instrument']['chemistry_map'][str(e)]
             for r in range(run['repeats']):
                 stamp = pd.Timestamp.utcnow().timestamp()
                 metadata['timestamp'] = stamp
                 df = dummyMeasurement(run)
                 df.rename(columns={"transmission" : F"{stamp}"}, inplace=True)
                 csv.store(df, metadata, path=run['output_dir'])
+
+chemistries_list = [
+ 'Hydrogen',
+ 'Helium',
+ 'Lithium',
+ 'Beryllium',
+ 'Boron',
+ 'Carbon',
+ 'Nitrogen',
+ 'Oxygen',
+ 'Fluorine',
+ 'Neon',
+ 'Sodium',
+ 'Magnesium',
+ 'Aluminium',
+ 'Silicon',
+ 'Phosphorus',
+ 'Sulfur',
+ 'Chlorine',
+ 'Argon',
+ 'Potassium',
+ 'Calcium',
+ 'Scandium',
+ 'Titanium',
+ 'Vanadium',
+ 'Chromium',
+ 'Manganese',
+ 'Iron',
+ 'Cobalt',
+ 'Nickel',
+ 'Copper',
+ 'Zinc',
+ 'Gallium',
+ 'Germanium',
+ 'Arsenic',
+ 'Selenium',
+ 'Bromine',
+ 'Krypton',
+ 'Rubidium',
+ 'Strontium',
+ 'Yttrium',
+ 'Zirconium',
+ 'Niobium',
+ 'Molybdenum',
+ 'Technetium',
+ 'Ruthenium',
+ 'Rhodium',
+ 'Palladium',
+ 'Silver',
+ 'Cadmium',
+ 'Indium',
+ 'Tin',
+ 'Antimony',
+ 'Tellurium',
+ 'Iodine',
+ 'Xenon',
+ 'Cesium',
+ 'Barium',
+ 'Lanthanum',
+ 'Cerium',
+ 'Praseodymium',
+ 'Neodymium']
