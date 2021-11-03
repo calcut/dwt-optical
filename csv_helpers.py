@@ -20,7 +20,7 @@ def store(df, metadata, path='./raw'):
 
     metapath = os.path.join(path, "index.tsv")
     if os.path.isfile(metapath):
-        meta_df = pd.read_csv(metapath, sep='\t', index_col='index')
+        meta_df = read_metadata(path)
     else:
         cols = default_metadata.keys()
         meta_df = pd.DataFrame(columns=cols)
@@ -87,6 +87,7 @@ def store(df, metadata, path='./raw'):
 
             
     meta_df.to_csv(f'{metapath}', index=True, sep='\t', na_rep='')
+    return datapath
 
 
 # Extracts dataframes from files and merges them into a single dataframe
@@ -138,7 +139,7 @@ def filter_by_metadata(metakey, metavalue, path='./raw', input_df=None, regex=Fa
             df = pd.read_csv(metapath,
                             sep='\t',
                             index_col='index',
-                            parse_dates=['date', 'import_date'],
+                            parse_dates=['date'],
                             dtype={'element' : str}
                             )
         else:
@@ -237,6 +238,36 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
             col_names.append(str(r+1))
         df.columns = col_names
 
-        store(df, metadata, output_dir)
+        datapath = store(df, metadata, output_dir)
+        print(f'imported {filename} to {datapath}')
+
+def read_metadata(path='raw'):
+    metapath = os.path.join(path, "index.tsv")
+    if os.path.isfile(metapath):
+        meta_df = pd.read_csv(metapath,
+                        sep='\t',
+                        index_col='index',
+                        parse_dates=['date'],
+                        dtype={'element' : str,
+                               'chemistry' : str
+                               }
+                        )
+    else:
+        print(f'Error, {metapath} not found')
+        return
+    return meta_df
+
+def apply_chem_map(chemistry_map, path):
+
+    metapath = os.path.join(path, "index.tsv")
+    meta_df = read_metadata(path)
+
+    for index, row in meta_df.iterrows():
+        try:
+            meta_df.at[index, 'chemistry'] = chemistry_map[row['element']]
+        except KeyError:
+            print(f"Error, element {row['element']} not found in chemistry map")
+    
+    meta_df.to_csv(metapath, index=True, sep='\t', na_rep='')
 
 
