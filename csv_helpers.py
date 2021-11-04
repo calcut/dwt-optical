@@ -247,7 +247,7 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
         reps = len(df.columns)-1
         col_names = ['wavelength']
         for r in range(reps):
-            col_names.append(str(r+1))
+            col_names.append(f'rep{r+1}')
         df.columns = col_names
 
         datapath = store(df, metadata, output_dir)
