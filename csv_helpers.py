@@ -11,7 +11,15 @@ default_metadata = {
     'fluid'             : None,
     'repeats'           : None,
     'date'              : None,
+    'hidden'            : False
 }
+
+primary_metadata = [
+    'date',
+    'sensor',
+    'element',
+    'fluid'
+]
 
 def store(df, metadata, path='./raw'):
 
@@ -114,7 +122,7 @@ def merge_dataframes(meta_df, path='./raw'):
             valid_meta = meta_df.columns[meta_df.nunique() > 1]
 
             # Ignore columns which aren't considered primary metadata
-            primary_metadata = ['date', 'sensor', 'fluid',' element']
+            # primary_metadata = ['date', 'sensor', 'fluid',' element']
             valid_meta = valid_meta.intersection(primary_metadata)
 
             for label in valid_meta:
@@ -157,31 +165,35 @@ def filter_by_metadata(metakey, metavalue, path='./raw', input_df=None, regex=Fa
 
 
 
-def export_dataframes(index_df='index.tsv', path='./raw', outfile=None):
+def export_dataframes(meta_df='index.tsv', path='./raw', outfile=None):
 
-    if isinstance(index_df, pd.DataFrame):
+    if isinstance(meta_df, pd.DataFrame):
         pass
     else:
-        metapath = os.path.join(path, "index.tsv")
-        if os.path.isfile(metapath):
-            index_df = pd.read_csv(metapath,
-                            sep='\t',
-                            index_col='index',
-                            parse_dates=['date', 'import_date'],
-                            dtype={'element' : str}
-                            )
-        else:
-            print('index.tsv file not found')
-            return
+        meta_df = read_metadata(path)
 
-    elements = sorted(index_df['element'].unique())
+    if not isOnetoMany(meta_df, 'chemistry', 'element'):
+        print("Info - At least 1 chemistry has multiple elements")
+
+    elements = sorted(meta_df['element'].unique())
     frames=[]
     for e in elements:
-        selection = filter_by_metadata('element', e, input_df=index_df)
+        selection = filter_by_metadata('element', e, input_df=meta_df)
         element_df = merge_dataframes(selection, path=path)
         element_df = element_df.transpose()
-        iterables = [[F"Element {e}"], element_df.loc['wavelength']]
-        col_ix = pd.MultiIndex.from_product(iterables)
+
+        chems = meta_df[meta_df['element'] == e]['chemistry'].drop_duplicates().tolist()
+        chem = chems[0]
+        if len(chems) > 1:
+            print(f'Error, multiple chemistries {chems} found for element {e}')
+            return
+        if pd.isnull(chem):
+            chem = 'unknown chemistry'
+
+        header_row_names = ['Chemistry', 'Element', 'Wavelength']
+        header_rows= [[f'{chem}'],[F'{e}'], element_df.loc['wavelength']]
+        col_ix = pd.MultiIndex.from_product(header_rows, names = header_row_names)
+
         element_df.columns = col_ix
         element_df.drop('wavelength', inplace=True)
         frames.append(element_df)
@@ -189,7 +201,7 @@ def export_dataframes(index_df='index.tsv', path='./raw', outfile=None):
 
     exportframe = pd.concat(frames, axis=1)
     if outfile:
-        exportframe.to_csv(outfile)
+        exportframe.to_csv(outfile, sep='\t')
     return exportframe
 
 
@@ -270,4 +282,23 @@ def apply_chem_map(chemistry_map, path):
     
     meta_df.to_csv(metapath, index=True, sep='\t', na_rep='')
 
+# Check if there is a 1:1 relationship between 2 columns
+# For example to check elements and chemistries match before export
+def isOnetoOne(df, col1, col2):
+    first = df.drop_duplicates([col1, col2]).groupby(col1)[col2].count().max()
+    second = df.drop_duplicates([col1, col2]).groupby(col2)[col1].count().max()
+    # Essentially this removes duplicates, then checks how many elements exist
+    # for each chemistry, and vice versa. If both results are 1, there is a 1:1
+    # relationship
 
+    return first + second == 2
+
+# Check if there is a 1:Many relationship between 2 columns
+# For example to check elements and chemistries match before export
+def isOnetoMany(df, col1, col_many):
+    first = df.drop_duplicates([col1, col_many]).groupby(col1)[col_many].count().max()
+    # Essentially this removes duplicates, then checks how many chemistries 
+    # exist for each element, if the result is one, there is a 1:many (or 1:1)
+    # relationship 
+
+    return first == 1
