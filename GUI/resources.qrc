@@ -1,0 +1,12 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="icons">
+        <file alias="penguin.png">animal-penguin.png</file>
+        <file alias="monkey.png">animal-monkey.png</file>
+        <file alias="full-spectrum.png">full-spectrum.png</file>
+    </qresource>
+    <qresource prefix="sensors">
+        <file alias="wellplate060.png">wellplate060.png</file>
+        <file alias="wellplate384.png">wellplate384.png</file>
+    </qresource>
+</RCC>

@@ -1,4 +1,9 @@
 test.hdf5
 export.csv
-__pycache__/dummydata.cpython-39.pyc
-__pycache__/h5_helpers.cpython-39.pyc
+.DS_Store
+dummydata
+*.pyc
+raw
+sampledata
+export.tsv
+~$*
