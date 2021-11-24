@@ -26,7 +26,7 @@ from PCAFunctions_17_11_21 import Do_PCA
 
 # DataSet should be the name of the folder that is being extracted from.
 
-DataSet="08_09_21_CreatineRepeats" 
+DataSet="run" 
 
 # Define what format the data will be in - Spectrawiz or Optosky
 
@@ -38,13 +38,13 @@ OptoSky_Select=False
 Smooth=True
 SmoothPoints=3
 
-Interpolate=True
+Interpolate=False
 SamplingRate=0.3
-Normalise=True
+Normalise=False
 
 # Choose overlaying plots
 
-OverlaySensors=True
+OverlaySensors=False
 OverlaySamples=False
 AllPlot=True
 
@@ -70,7 +70,13 @@ MinimaOrder=[]
 
 # Search Defined directory
 
-FileNames=os.listdir(DataSet);
+FileNames=os.listdir(DataSet)
+
+try:
+    FileNames.remove('.DS_Store')
+except:
+    print()
+    
 FileNamesEdit=FileNames[:]
 
 # Recognise sample and sensor names based off of defined data layout. 

@@ -50,6 +50,10 @@ def SpectraWiz(DataSet,SampleNames,Sensors,FileNames,Smooth,SmoothPoints,Normali
             HeightArray[i].append([])
                 
     FolderDir=os.listdir(DataSet)
+    try:
+        FileNames.remove('.DS_Store')
+    except:
+        print()
     NameArray=[0]*len(SampleNames)
     for i in range(len(SampleNames)):
         NameArray[i]=[]
@@ -92,11 +96,31 @@ def SpectraWiz(DataSet,SampleNames,Sensors,FileNames,Smooth,SmoothPoints,Normali
                     [WavArray,TransArray]=Interpolate(WavArray,TransArray,SamplingRate)
                 Wavelength=WavArray
                 
+                Flag1=0
+                Flag2=0
+                Cut1=[]
+                Cut2=[]
+                for i in range(len(TransArray)):
+                    Temp=Wavelength[i]
+                    if Temp>=450 and Flag1==0:
+                        Cut1=i
+                        Flag1=1
+                    if Temp>=900 and Flag2==0:
+                        Cut2=i
+                        Flag2=1
+                if not Cut1:
+                    Cut1=0
+                if not Cut2:
+                    Cut2=len(Wavelength)
+                Wavelength=Wavelength[Cut1:Cut2]
+                TransArray=TransArray[Cut1:Cut2]
+                        
+                
                 FWHMNum,Height,Baseline=FWHM(Wavelength,TransArray)
             
             # Cut at second differentials of polyfit at either side of lowest first
             
-                [WavelengthCut,TransArrayCut]=PolynomialBasedCut(WavArray,TransArray)
+                [WavelengthCut,TransArrayCut]=PolynomialBasedCut(Wavelength,TransArray)
                 [TransArrayCut,WavelengthCut]=Reframe(WavelengthCut,TransArrayCut)
             
             # Fit by extreme smoothing of the minima
@@ -116,7 +140,7 @@ def SpectraWiz(DataSet,SampleNames,Sensors,FileNames,Smooth,SmoothPoints,Normali
             FWHMArray[ArrayNum1][ArrayNum2].append(FWHMNum)
             HeightArray[ArrayNum1][ArrayNum2].append(Height)   
                 # Save Averages
-            WavelengthAverage=WavArray
+            WavelengthAverage=Wavelength
             if j==0:
                 AverageTrans=TransArray
             else:
