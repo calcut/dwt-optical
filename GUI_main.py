@@ -13,54 +13,7 @@ import GUI.resources_rc
 
 from GUI.mainwindow import Ui_MainWindow
 import lib.csv_helpers as csv
-
-class Communicate(QObject):
-    # class to define signals used to communicate between threads
-    # Primarily used to catch log messages and print them to the GUI
-    # has to inherit from QObject to be able to emit signals
-    appendLogText = Signal(str)
-
-
-class GUILogHandler(logging.Handler):
-
-    # A log handler to redirect log messages (particularly from worker threads)
-    # to the main GUI thread
-    def __init__(self, parent):
-        logging.Handler.__init__(self)
-        self.signals=Communicate()
-        self.signals.appendLogText.connect(parent.writeLog)
-        self.setLevel(logging.INFO)
-
-    def emit(self, record):
-        # When a new log record is received, send it to the main thread using
-        # the appendLogText signal, which will call the write_log() funciton.
-        msg = self.format(record)
-        self.signals.appendLogText.emit(msg)
-
-
-class CustomFormatter(logging.Formatter):
-
-    #Formats log messages as HTML with appropriate colours, for use when
-    #redirecting log messages to a GUI PlainTextEdit box
-
-    fmt = '%(levelname)s %(message)s'
-
-    def __init__(self):
-        super().__init__()
-        self.COLORS = {
-            logging.DEBUG: "<font color=\"Black\">",
-            logging.INFO: "<font color=\"SteelBlue\">",
-            logging.WARNING: "<font color=\"Orange\">",
-            logging.ERROR: "<font color=\"OrangeRed\">",
-            logging.CRITICAL: "<font color=\"Red\">",
-        }
-
-    def format(self, record):
-        formatter = logging.Formatter(self.fmt)
-        color = self.COLORS.get(record.levelno)
-        msg = formatter.format(record)
-        msg = color + msg + "</font>"
-        return msg
+from GUI.GUILogging import GUILogHandler
 
 class ImportWorker(QObject):
     finished = Signal()
@@ -93,7 +46,6 @@ class MainWindow(QMainWindow):
 
         # set up log handler for GUI
         gui_logHandler = GUILogHandler(self)
-        gui_logHandler.setFormatter(CustomFormatter())
         logger.addHandler(gui_logHandler)
 
         # set up log handler for Console
@@ -237,20 +189,17 @@ class MainWindow(QMainWindow):
         )
 
     @Slot(str)
-    # Defines where log messages should be displayed.
+    # Defines where log messages should be displayed in the GUI.
     def writeLog(self, log_text):
-        # self.ui.import_printbox.appendPlainText(log_text)
         self.ui.import_printbox.appendHtml(log_text)
 
 
 
 if __name__ == "__main__":
-    # logging.basicConfig(level=logging.INFO)
 
     orig_stdout = sys.stdout
     app = QApplication(sys.argv)
     w = MainWindow()
-    # sys.stdout = w
     app.setWindowIcon(QtGui.QIcon(":/icons/full-spectrum.png"))
     app.exec()
 
