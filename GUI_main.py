@@ -13,6 +13,7 @@ from GUI.mainwindow import Ui_MainWindow
 import lib.csv_helpers as csv
 from GUI.GUILogging import GUILogger
 from GUI.importTab import ImportTab
+from GUI.ExportTab import ExportTab
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -33,12 +34,23 @@ class MainWindow(QMainWindow):
         self.log = GUILogger(self)
 
         importFunction = csv.import_dir_to_csv # A bit awkward to to this way, maybe change?
-        self.importTab = ImportTab(importFunction)
+        importTab = ImportTab(importFunction)
+
+        exportFunction= csv.export_dataframes
+        exportTab = ExportTab(exportFunction)
+
+        setupTab = QWidget()
+        runTab = QWidget()
 
         # Add tab to the main tab widget, and give it a label
         tabWidget = QTabWidget(centralwidget)
-        tabWidget.addTab(self.importTab.tab, "")
-        tabWidget.setTabText(tabWidget.indexOf(self.importTab.tab), "Import")
+        tabWidget.addTab(setupTab, "Setup")
+        tabWidget.addTab(runTab, "Manual Run")
+        tabWidget.addTab(importTab.tab, "Import")
+        tabWidget.addTab(exportTab.tab, "Export")
+
+
+        # tabWidget.setTabText(tabWidget.indexOf(importTab.tab), "Import")
 
                 
         verticalLayout.addWidget(tabWidget)

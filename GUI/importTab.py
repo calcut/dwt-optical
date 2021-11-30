@@ -1,6 +1,6 @@
-from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot
-from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget,
-QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit)
+from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QWidget,
+QVBoxLayout, QFileDialog, QPushButton, QLabel)
 
 # import lib.csv_helpers as csv
 

@@ -1,7 +1,8 @@
 import logging
 from PySide6.QtGui import QFont
 from PySide6.QtCore import QObject, Signal, Slot
-from PySide6.QtWidgets import QPlainTextEdit, QVBoxLayout, QHBoxLayout, QPushButton
+from PySide6.QtWidgets import (QPlainTextEdit, QVBoxLayout, QHBoxLayout,
+    QPushButton, QLabel)
 
 class Communicate(QObject):
     # class to define signals used to communicate between threads
@@ -70,23 +71,22 @@ class GUILogger():
         font.setStyleHint(QFont.TypeWriter)
         font.setFamily('Monaco')
 
-        self.btn_clear = QPushButton("Clear")
-        self.btn_clear.clicked.connect(self.clearBox)
+        logLabel = QLabel("Log Output:")
+        btn_clear = QPushButton("Clear")
+        btn_clear.clicked.connect(self.clearBox)
 
         hbox_btn = QHBoxLayout()
         hbox_btn.addStretch()
-        hbox_btn.addWidget(self.btn_clear)
+        hbox_btn.addWidget(btn_clear)
 
         self.logBox = QPlainTextEdit()
         self.logBox.setFont(font)
         self.logBox.setLineWrapMode(QPlainTextEdit.NoWrap)
 
         self.logVbox = QVBoxLayout()
+        self.logVbox.addWidget(logLabel)
         self.logVbox.addWidget(self.logBox)
         self.logVbox.addLayout(hbox_btn)
-
-
-
 
         # This doesn't work, something to do with threads??
         # gui_logHandler.signals.appendLogText.connect(self.writeLog)
