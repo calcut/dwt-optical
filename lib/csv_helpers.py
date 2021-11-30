@@ -3,6 +3,10 @@ import os
 import re
 import shutil
 from IPython.display import display
+import logging
+
+# logging.basicConfig(level=logging.INFO)
+
 
 default_metadata = {
     'sensor'            : None,
@@ -208,7 +212,8 @@ def export_dataframes(meta_df='index.tsv', path='./raw', outfile=None):
 def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False):
 
     if not os.path.exists(input_dir):
-        print("Error, import folder not found")
+        logging.error('import folder not found')
+        # print("Error, import folder not found")
         return
 
     if not append:
@@ -219,7 +224,8 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
         
         match = re.search(regex, filename)
         if not match:
-            print(F"Warning regex not matched on filename: {filename}")
+            logging.warning(F"regex not matched on filename: {filename}")
+            # print(F"Warning regex not matched on filename: {filename}")
             continue
 
         # Create a metadata dictionary with info extracted from filename
@@ -251,7 +257,8 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
         df.columns = col_names
 
         datapath = store(df, metadata, output_dir)
-        print(f'imported {filename} to {datapath}')
+        # print(f'imported {filename} to {datapath}')
+        logging.info(f'imported {filename} to {datapath}')
 
 def read_metadata(path='raw'):
     metapath = os.path.join(path, "index.tsv")
