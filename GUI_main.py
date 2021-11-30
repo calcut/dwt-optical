@@ -14,44 +14,66 @@ import GUI.resources_rc
 from GUI.mainwindow import Ui_MainWindow
 import lib.csv_helpers as csv
 
-class MyLog(QObject):
-    # create a new Signal
-    # - have to be a static element
-    # - class  has to inherit from QObject to be able to emit signals
-    signal = Signal(str)
+class Communicate(QObject):
+    # class to define signals used to communicate between threads
+    # Primarily used to catch log messages and print them to the GUI
+    # has to inherit from QObject to be able to emit signals
+    appendLogText = Signal(str)
 
-    # not sure if it's necessary to implement this
-    def __init__(self):
-        super().__init__()
 
-class CustomLogHandler(logging.Handler):
-    # A log handler to redirect messages to a QT Widget in a thread safe manner
-    def __init__(self):
-        super().__init__()
-        self.log = MyLog()
+class GUILogHandler(logging.Handler):
 
-    
+    # A log handler to redirect log messages (particularly from worker threads)
+    # to the main GUI thread
+    def __init__(self, parent):
+        logging.Handler.__init__(self)
+        self.signals=Communicate()
+        self.signals.appendLogText.connect(parent.writeLog)
+        self.setLevel(logging.INFO)
+
     def emit(self, record):
+        # When a new log record is received, send it to the main thread using
+        # the appendLogText signal, which will call the write_log() funciton.
         msg = self.format(record)
-        self.log.signal.emit(msg)
+        self.signals.appendLogText.emit(msg)
 
-class Worker(QObject):
+
+class CustomFormatter(logging.Formatter):
+
+    #Formats log messages as HTML with appropriate colours, for use when
+    #redirecting log messages to a GUI PlainTextEdit box
+
+    fmt = '%(levelname)s %(message)s'
+
+    def __init__(self):
+        super().__init__()
+        self.COLORS = {
+            logging.DEBUG: "<font color=\"Black\">",
+            logging.INFO: "<font color=\"SteelBlue\">",
+            logging.WARNING: "<font color=\"Orange\">",
+            logging.ERROR: "<font color=\"OrangeRed\">",
+            logging.CRITICAL: "<font color=\"Red\">",
+        }
+
+    def format(self, record):
+        formatter = logging.Formatter(self.fmt)
+        color = self.COLORS.get(record.levelno)
+        msg = formatter.format(record)
+        msg = color + msg + "</font>"
+        return msg
+
+class ImportWorker(QObject):
     finished = Signal()
     progress = Signal(int)
 
-    def setup(self, input_dir, regex, output_dir):
+    def __init__(self, input_dir, regex, output_dir):
+        super().__init__()
         self.regex = regex
         self.input_dir = input_dir
         self.output_dir = output_dir
 
     def run(self):
-
         csv.import_dir_to_csv(self.input_dir, self.regex, self.output_dir, append=False)
-        """Long-running task."""
-        # for i in range(5):
-        #     sleep(1)
-        #     self.progress.emit(i + 1)
-        #     logging.warning(f"ding {i}")
         self.finished.emit()
 
 class MainWindow(QMainWindow):
@@ -60,24 +82,26 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.resize(1024, 768)
-
-        # self.logwidget = QPlainTextEdit()
-        # self.logwidget.setReadOnly(True)
-        # self.logwidget.setGeometry(20,300,800,100)
-
-
-        # set up log handler
-        self.logHandler = CustomLogHandler()
-        # self.logHandler.setFormatter(
-            # logging.Formatter('%(asctime)s - %(levelname)s - %(threadName)s - %(message)s'))
-        self.logHandler.setFormatter(
-            logging.Formatter('%(levelname)s %(message)s'))
-        logging.getLogger().setLevel(logging.DEBUG)
-        logging.getLogger().addHandler(self.logHandler)
-
-
+        self.setupLogging()
         self.importTab()
         self.show()
+
+    def setupLogging(self):
+        # Create a custom logger
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+
+        # set up log handler for GUI
+        gui_logHandler = GUILogHandler(self)
+        gui_logHandler.setFormatter(CustomFormatter())
+        logger.addHandler(gui_logHandler)
+
+        # set up log handler for Console
+        c_handler = logging.StreamHandler()
+        c_handler.setLevel(logging.DEBUG)
+        c_format = logging.Formatter('%(levelname)s - %(message)s')
+        c_handler.setFormatter(c_format)
+        logger.addHandler(c_handler)
 
     def generateTab(self):
 
@@ -145,15 +169,6 @@ class MainWindow(QMainWindow):
         self.ui.import_printbox.setFont(font)
         self.ui.import_printbox.setLineWrapMode(QPlainTextEdit.NoWrap)
 
-        # logTextBox = QTextEditLogger(self)
-        # # log to text box
-        # logTextBox.setFormatter(
-        #     logging.Formatter('%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s')
-        #     )
-        # logging.getLogger().addHandler(logTextBox)
-        # logging.getLogger().setLevel(logging.DEBUG)
-
-
         browse_input = QPushButton("Browse")
         browse_input.clicked.connect(self.get_input_dir)
 
@@ -207,50 +222,27 @@ class MainWindow(QMainWindow):
         self.ui.import_printbox.appendPlainText('Running Import')
 
         self.ui.thread = QThread()
-        self.ui.worker = Worker()
-        self.ui.worker.setup(input_dir, regex, output_dir)
+        self.ui.worker = ImportWorker(input_dir, regex, output_dir)
 
         self.ui.worker.moveToThread(self.ui.thread)
         self.ui.thread.started.connect(self.ui.worker.run)
         self.ui.worker.finished.connect(self.ui.thread.quit)
         self.ui.worker.finished.connect(self.ui.worker.deleteLater)
         self.ui.thread.finished.connect(self.ui.thread.deleteLater)
-        self.ui.worker.progress.connect(self.reportProgress)
         # Step 6: Start the thread
         self.ui.thread.start()
         self.ui.btn_import.setEnabled(False)
         self.ui.thread.finished.connect(
             lambda: self.ui.btn_import.setEnabled(True)
         )
-        # self.ui.worker.logHandler.log.signal.connect(self.write_log)
-        self.logHandler.log.signal.connect(self.write_log)
-        
-        # p = Process(target= csv.import_dir_to_csv, args=(input_dir, regex, output_dir), kwargs = {'append' : False})
-        # p.start()
-        # p.join()
-        # csv.import_dir_to_csv(input_dir, regex, output_dir, append=False)
 
-    def reportProgress(self, n):
-        self.ui.import_printbox.appendPlainText(f"Long-Running Step: {n}")
-        # self.stepLabel.setText
-
-    # define a new Slot, that receives a string
     @Slot(str)
-    def write_log(self, log_text):
-        self.ui.import_printbox.appendPlainText(log_text)
-        print('wrote log')
-        # self.logTextBox.centerCursor()  # scroll to the bottom
+    # Defines where log messages should be displayed.
+    def writeLog(self, log_text):
+        # self.ui.import_printbox.appendPlainText(log_text)
+        self.ui.import_printbox.appendHtml(log_text)
 
 
-    def write(self, message):
-        cursor = self.ui.import_printbox.textCursor()
-        if cursor.positionInBlock() > 0:
-            self.ui.import_printbox.insertPlainText('\n')
-        self.ui.import_printbox.insertPlainText(message.rstrip())
-
-    def flush(self):
-        # This prevents an error message related to capturing stdout
-        pass
 
 if __name__ == "__main__":
     # logging.basicConfig(level=logging.INFO)
