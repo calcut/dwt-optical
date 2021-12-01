@@ -7,3 +7,4 @@ raw
 sampledata
 export.tsv
 ~$*
+*.tsv

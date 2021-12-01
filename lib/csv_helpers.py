@@ -32,7 +32,7 @@ def store(df, metadata, path='./raw'):
 
     metapath = os.path.join(path, "index.tsv")
     if os.path.isfile(metapath):
-        meta_df = read_metadata(path)
+        meta_df = read_metadata(metapath)
     else:
         cols = default_metadata.keys()
         meta_df = pd.DataFrame(columns=cols)
@@ -63,14 +63,12 @@ def store(df, metadata, path='./raw'):
     # If file exists, read it, merge, then rewrite the data
     else:
         with open(datapath, 'r+') as f:
-            # print(F'Warning, file exists: {datapath}, appending columns')
             existing_df = pd.read_csv(f, sep='\t')
             df = pd.merge(df, existing_df, how='outer', on='wavelength')
 
             #relabel columns  -  Unless they are timestamped
             col_names = ['wavelength']
             n=0
-            # print(df.columns[1:])
             for col in df.columns[1:]:
                 n += 1
                 try:
@@ -155,7 +153,7 @@ def filter_by_metadata(metakey, metavalue, path='./raw', input_df=None, regex=Fa
                             dtype={'element' : str}
                             )
         else:
-            print('index.tsv file not found')
+            logging.error('index.tsv file not found')
             return
 
     if regex:
@@ -169,27 +167,29 @@ def filter_by_metadata(metakey, metavalue, path='./raw', input_df=None, regex=Fa
 
 
 
-def export_dataframes(meta_df='index.tsv', path='./raw', outfile=None):
+def export_dataframes(path='.', meta_df='index.tsv', outfile=None):
 
     if isinstance(meta_df, pd.DataFrame):
         pass
     else:
-        meta_df = read_metadata(path)
+        metapath = os.path.join(path, meta_df)
+        meta_df = read_metadata(metapath)
 
     if not isOnetoMany(meta_df, 'chemistry', 'element'):
-        print("Info - At least 1 chemistry has multiple elements")
+        logging.info("At least 1 chemistry has multiple elements")
 
     elements = sorted(meta_df['element'].unique())
     frames=[]
     for e in elements:
+        logging.info(f'merging element {e}')
         selection = filter_by_metadata('element', e, input_df=meta_df)
-        element_df = merge_dataframes(selection, path=path)
+        element_df = merge_dataframes(selection, path)
         element_df = element_df.transpose()
 
         chems = meta_df[meta_df['element'] == e]['chemistry'].drop_duplicates().tolist()
         chem = chems[0]
         if len(chems) > 1:
-            print(f'Error, multiple chemistries {chems} found for element {e}')
+            logging.error(f'Error, multiple chemistries {chems} found for element {e}')
             return
         if pd.isnull(chem):
             chem = 'unknown chemistry'
@@ -205,7 +205,9 @@ def export_dataframes(meta_df='index.tsv', path='./raw', outfile=None):
 
     exportframe = pd.concat(frames, axis=1)
     if outfile:
+        logging.info(f"Writing to {outfile} ...")
         exportframe.to_csv(outfile, sep='\t')
+        logging.info(f"Done")
     return exportframe
 
 
@@ -257,11 +259,9 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
         df.columns = col_names
 
         datapath = store(df, metadata, output_dir)
-        # print(f'imported {filename} to {datapath}')
         logging.info(f'imported {filename} to {datapath}')
 
-def read_metadata(path='raw'):
-    metapath = os.path.join(path, "index.tsv")
+def read_metadata(metapath):
     if os.path.isfile(metapath):
         meta_df = pd.read_csv(metapath,
                         sep='\t',
@@ -272,7 +272,7 @@ def read_metadata(path='raw'):
                                }
                         )
     else:
-        print(f'Error, {metapath} not found')
+        logging.error(f'{metapath} not found')
         return
     return meta_df
 
@@ -285,7 +285,7 @@ def apply_chem_map(chemistry_map, path):
         try:
             meta_df.at[index, 'chemistry'] = chemistry_map[row['element']]
         except KeyError:
-            print(f"Error, element {row['element']} not found in chemistry map")
+            logging.error(f"Element {row['element']} not found in chemistry map")
     
     meta_df.to_csv(metapath, index=True, sep='\t', na_rep='')
 

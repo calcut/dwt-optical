@@ -3,7 +3,7 @@ from time import sleep
 import logging
 
 from PySide6 import QtGui, QtWidgets
-from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot
+from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot, Qt
 from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget,
 QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget)
 
@@ -11,9 +11,9 @@ import GUI.resources_rc
 
 from GUI.mainwindow import Ui_MainWindow
 import lib.csv_helpers as csv
-from GUI.GUILogging import GUILogger
-from GUI.importTab import ImportTab
-from GUI.ExportTab import ExportTab
+from GUI_Logging import GUILogger
+from GUI_importTab import ImportTab
+from GUI_exportTab import ExportTab
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -34,30 +34,29 @@ class MainWindow(QMainWindow):
         self.log = GUILogger(self)
 
         importFunction = csv.import_dir_to_csv # A bit awkward to to this way, maybe change?
-        importTab = ImportTab(importFunction)
+        self.importTab = ImportTab(importFunction)
 
         exportFunction= csv.export_dataframes
-        exportTab = ExportTab(exportFunction)
+        self.exportTab = ExportTab(exportFunction)
 
-        setupTab = QWidget()
-        runTab = QWidget()
+        self.setupTab = QWidget()
+        self.runTab = QWidget()
 
         # Add tab to the main tab widget, and give it a label
         tabWidget = QTabWidget(centralwidget)
-        tabWidget.addTab(setupTab, "Setup")
-        tabWidget.addTab(runTab, "Manual Run")
-        tabWidget.addTab(importTab.tab, "Import")
-        tabWidget.addTab(exportTab.tab, "Export")
+        tabWidget.addTab(self.setupTab, "Setup")
+        tabWidget.addTab(self.runTab, "Manual Run")
+        tabWidget.addTab(self.importTab.tab, "Import")
+        tabWidget.addTab(self.exportTab.tab, "Export")
 
-
-        # tabWidget.setTabText(tabWidget.indexOf(importTab.tab), "Import")
-
-                
         verticalLayout.addWidget(tabWidget)
         verticalLayout.addLayout(self.log.logVbox)
 
-
         self.show()
+
+    def countClicks(self):
+        self.clicksCount += 1
+        self.clicksLabel.setText(f"Counting: {self.clicksCount} clicks")
 
     # This slot seems to work as expected here, but not when placed inside the
     # GUILogger class
@@ -100,9 +99,8 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
 
-    orig_stdout = sys.stdout
     app = QApplication(sys.argv)
     w = MainWindow()
     app.setWindowIcon(QtGui.QIcon(":/icons/full-spectrum.png"))
-    app.exec()
+    sys.exit(app.exec())
 

@@ -1,23 +1,27 @@
-from PySide6.QtCore import QObject, QThread, Signal, Slot
-from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QWidget,
+import sys
+from time import sleep
+import os
+from PySide6.QtCore import QObject, QThread, Signal, Slot, Qt
+from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget,
 QVBoxLayout, QFileDialog, QPushButton, QLabel)
+import logging
+from IPython.display import display
 
-# export lib.csv_helpers as csv
+import lib.csv_helpers as csv
 
 class ExportWorker(QObject):
     finished = Signal()
     progress = Signal(int)
 
-    def __init__(self, exportFunction, input_dir, selection, output_dir):
+    def __init__(self, path, meta_df, outfile):
         super().__init__()
-        self.exportFunction = exportFunction
-        self.selection = selection
-        self.input_dir = input_dir
-        self.output_dir = output_dir
+        self.path = path
+        self.meta_df = meta_df
+        self.outfile = outfile
 
     def run(self):
-        self.exportFunction(self.input_dir, self.selection, self.output_dir, append=False)
-        # export_dataframes(meta_df='index.tsv', path='./raw', outfile=None)
+        logging.info(f'running csv.export_dataframes with path={self.path} meta_df={self.meta_df}')
+        export = csv.export_dataframes(self.path, self.meta_df, self.outfile)
         self.finished.emit()
 
 class ExportTab():
@@ -26,8 +30,8 @@ class ExportTab():
 
         self.exportFunction = exportFunction
 
-        default_meta = '/Users/calum/git/Glasgow/dwt-optical/imported/index.tsv'
-        default_outfile = '/Users/calum/git/Glasgow/dwt-optical/export.tsv'
+        default_metafile = './imported/index.tsv'
+        default_outfile = './export.tsv'
         
         # New Widget (to be used as a tab)
         self.tab = QWidget()
@@ -45,7 +49,7 @@ class ExportTab():
         #     +"Other metadata can be captured and will be also be saved")
 
         self.tbox_meta = QLineEdit()
-        self.tbox_meta.setText(default_meta)
+        self.tbox_meta.setText(default_metafile)
         self.tbox_output = QLineEdit()
         self.tbox_output.setText(default_outfile)
         self.tbox_selection = QLineEdit()
@@ -81,23 +85,27 @@ class ExportTab():
         vbox.addWidget(self.tbox_selection)
         vbox.addLayout(hbox_run)
         vbox.addStretch()
-        
+
     def get_meta(self):
-        metafile = QFileDialog.getOpenFileName(self.tab, "Select Metadata index.tsv")
-        self.tbox_input.setText(metafile)
+        metafile, _ = QFileDialog.getOpenFileName(self.tab, "Metadata File:", filter ='(*.csv *.tsv)')
+        self.tbox_meta.setText(metafile)
 
     def get_output(self):
-        outfile = QFileDialog.getSaveFileName(self.tab, "Select Output File")
+        outfile = QFileDialog.getSaveFileName(self.tab, "Select Output File:")
         self.tbox_output.setText(outfile)
 
     def run_export(self):
-
+        print('run export')
         selection = self.tbox_selection.text()
-        input_dir = self.tbox_input.text()
-        output_dir = self.tbox_output.text()
+        meta_df = os.path.basename(self.tbox_meta.text())
+        path = os.path.dirname(self.tbox_meta.text())
+        outfile = self.tbox_output.text()
+
+        if outfile == '':
+            outfile = None
 
         self.thread = QThread()
-        self.worker = ExportWorker(self.exportFunction, input_dir, selection, output_dir)
+        self.worker = ExportWorker(path, meta_df, outfile)
 
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
@@ -110,6 +118,7 @@ class ExportTab():
         self.thread.finished.connect(
             lambda: self.btn_export.setEnabled(True)
         )
+
 
 
 
