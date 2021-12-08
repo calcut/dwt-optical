@@ -260,6 +260,7 @@ def read_metadata(metapath):
                                'chemistry' : str
                                }
                         )
+        logging.info(f'Loaded Metadata Index from {metapath}')
     else:
         logging.error(f'{metapath} not found')
         return

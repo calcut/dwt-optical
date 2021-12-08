@@ -1,10 +1,11 @@
 import sys
 from time import sleep
 import logging
+import os
 
 from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot, Qt
-from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget,
+from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget, QTableView,
 QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget)
 
 import GUI.resources_rc
@@ -36,8 +37,7 @@ class MainWindow(QMainWindow):
         importFunction = csv.import_dir_to_csv # A bit awkward to to this way, maybe change?
         self.importTab = ImportTab(importFunction)
 
-        exportFunction= csv.export_dataframes
-        self.exportTab = ExportTab(exportFunction)
+        self.exportTab = ExportTab()
 
         self.setupTab = QWidget()
         self.runTab = QWidget()
@@ -52,7 +52,21 @@ class MainWindow(QMainWindow):
         verticalLayout.addWidget(tabWidget)
         verticalLayout.addLayout(self.log.logVbox)
 
+       
+
+
+
+
+        # self.table.setModel(model)
+        
+
+        # verticalLayout.addLayout(view)
+
+
+
         self.show()
+        # self.raise_()
+        # self.table.raise_()
 
     def countClicks(self):
         self.clicksCount += 1
