@@ -138,33 +138,22 @@ def merge_dataframes(meta_df, path='./raw'):
             result = df
     return result
 
-def filter_by_metadata(metakey, metavalue, path='./raw', input_df=None, regex=False):
-   
-    if isinstance(input_df, pd.DataFrame):
-        df = input_df
-
-    else:
-        metapath = os.path.join(path, "index.tsv")
-        if os.path.isfile(metapath):
-            df = pd.read_csv(metapath,
-                            sep='\t',
-                            index_col='index',
-                            parse_dates=['date'],
-                            dtype={'element' : str}
-                            )
-        else:
-            logging.error('index.tsv file not found')
-            return
+def filter_by_metadata(metakey, metavalue, df, regex=False):
+    
+    try:
+        df[metakey]
+    except KeyError:
+        logging.error(f'Key "{metakey}" not found in dataframe')
+        return pd.DataFrame()
 
     if regex:
-        regexdf = df[df[metakey].str.match(metavalue)]
+        logging.info(f'filtering by metadata "{metakey}" containing "{metavalue}"')
+        regexdf = df[df[metakey].astype(str).str.contains(str(metavalue))]
         return(regexdf)
     else:
-        exactdf = df.loc[df[metakey] == metavalue]
+        logging.info(f'filtering by metadata "{metakey}" == "{metavalue}"')
+        exactdf = df.loc[df[metakey].astype(str) == str(metavalue)]
         return(exactdf)
-
-
-
 
 
 def export_dataframes(path='.', meta_df='index.tsv', outfile=None):
@@ -276,10 +265,9 @@ def read_metadata(metapath):
         return
     return meta_df
 
-def apply_chem_map(chemistry_map, path):
+def apply_chem_map(chemistry_map, metapath):
 
-    metapath = os.path.join(path, "index.tsv")
-    meta_df = read_metadata(path)
+    meta_df = read_metadata(metapath)
 
     for index, row in meta_df.iterrows():
         try:
