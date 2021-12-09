@@ -8,9 +8,6 @@ from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Sl
 from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget, QTableView,
 QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget)
 
-import GUI.resources_rc
-
-from GUI.mainwindow import Ui_MainWindow
 import lib.csv_helpers as csv
 from GUI_Logging import GUILogger
 from GUI_importTab import ImportTab
