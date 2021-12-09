@@ -8,3 +8,7 @@ sampledata
 export.tsv
 ~$*
 *.tsv
+build
+venv
+.qt_for_python
+dist
