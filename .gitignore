@@ -12,3 +12,4 @@ build
 venv
 .qt_for_python
 dist
+venv-windows
