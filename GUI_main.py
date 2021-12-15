@@ -6,7 +6,8 @@ import os
 from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot, Qt
 from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget, QTableView,
-QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget)
+QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget, QSplitter)
+from GUI_surfacesTab import SurfacesTab
 
 import lib.csv_helpers as csv
 from GUI_Logging import GUILogger
@@ -24,16 +25,16 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(centralwidget)
         self.resize(1024, 768)
 
-        verticalLayout = QVBoxLayout(centralwidget)
-        verticalLayout.setObjectName(u"verticalLayout")
+        vbox = QVBoxLayout(centralwidget)
+        vbox.setObjectName(u"verticalLayout")
+
+        splitter = QSplitter(Qt.Vertical)
 
 
 
         self.log = GUILogger(self)
-
-        importFunction = csv.import_dir_to_csv # A bit awkward to to this way, maybe change?
-        self.importTab = ImportTab(importFunction)
-
+        self.importTab = ImportTab()
+        self.surfacesTab = SurfacesTab()
         self.exportTab = ExportTab()
 
         self.setupTab = QWidget()
@@ -44,38 +45,15 @@ class MainWindow(QMainWindow):
         tabWidget.addTab(self.setupTab, "Setup")
         tabWidget.addTab(self.runTab, "Manual Run")
         tabWidget.addTab(self.importTab.tab, "Import")
+        tabWidget.addTab(self.surfacesTab.tab, "Surface Chemistry")
         tabWidget.addTab(self.exportTab.tab, "Export")
 
-        verticalLayout.addWidget(tabWidget)
-        verticalLayout.addLayout(self.log.logVbox)
 
-       
-
-
-
-
-        # self.table.setModel(model)
-        
-
-        # verticalLayout.addLayout(view)
-
-
+        splitter.addWidget(tabWidget)
+        splitter.addWidget(self.log)
+        vbox.addWidget(splitter)
 
         self.show()
-        # self.raise_()
-        # self.table.raise_()
-
-    def countClicks(self):
-        self.clicksCount += 1
-        self.clicksLabel.setText(f"Counting: {self.clicksCount} clicks")
-
-    # This slot seems to work as expected here, but not when placed inside the
-    # GUILogger class
-    # Defines where log messages should be displayed in the GUI.
-    @Slot(str)
-    def writeLog(self, log_text):
-        self.log.logBox.appendHtml(log_text)
-
 
 
     def generateTab(self):

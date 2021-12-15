@@ -1,5 +1,6 @@
 from time import sleep
 import os
+import sys
 import pandas as pd
 from PySide6.QtCore import QObject, QThread, Signal, Slot, Qt
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLineEdit, QWidget, QFrame,
@@ -45,9 +46,9 @@ class ExportTab(QWidget):
         self.tab.setObjectName(u"ExportTab")
 
         # Make a Vertical layout within the new tab
-        vbox = QVBoxLayout(self.tab)
+        self.vbox = QVBoxLayout(self.tab)
 
-        label_title = QLabel("Export data to large tsv table, ready for LDA processing")
+        label_title = QLabel("Exports data to large tsv table, ready for LDA processing")
         label_index = QLabel("Metadata Index File:")
         label_selection = QLabel("Selection to Export:")
         label_output = QLabel("Output File:")
@@ -108,16 +109,17 @@ class ExportTab(QWidget):
         hbox_run.addStretch()
         hbox_run.addWidget(self.btn_export)
 
-        vbox.addWidget(label_title)
-        vbox.addLayout(hbox_input)
-        vbox.addWidget(QHLine())
-        vbox.addWidget(label_selection)
-        vbox.addLayout(self.grid_sel)
-        vbox.addLayout(hbox_selection)
-        vbox.addWidget(QHLine())
-        vbox.addLayout(hbox_output)
-        vbox.addLayout(hbox_run)
-        vbox.addStretch()
+        self.vbox.addWidget(label_title)
+        self.vbox.addWidget(QHLine())
+        self.vbox.addLayout(hbox_input)
+        self.vbox.addWidget(QHLine())
+        self.vbox.addWidget(label_selection)
+        self.vbox.addLayout(self.grid_sel)
+        self.vbox.addLayout(hbox_selection)
+        self.vbox.addWidget(QHLine())
+        self.vbox.addLayout(hbox_output)
+        self.vbox.addLayout(hbox_run)
+        self.vbox.addStretch()
 
     def get_meta(self):
         metafile, _ = QFileDialog.getOpenFileName(self.tab, "Metadata File:", filter ='(*.csv *.tsv)')
@@ -247,7 +249,13 @@ class ExportTab(QWidget):
             outfile = None
 
         self.thread = QThread()
-        self.worker = ExportWorker(self.metapath, self.selection_df, outfile)
+        try:
+            logging.info(f"Exporting selected data from {self.metapath}")
+            self.worker = ExportWorker(self.metapath, self.selection_df, outfile)
+        except AttributeError:
+            logging.info(f"Exporting all data from {self.metapath}")
+            self.worker = ExportWorker(self.metapath, self.meta_df, outfile)
+            
 
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
@@ -279,6 +287,7 @@ class ExportTab(QWidget):
             keyCombo.addItems(items)
 
     def preview_meta(self):
+        self.update_meta_df()
         self.metaTable = MetaTable(self.meta_df, self.metapath)
         self.metaTable.show()
 
@@ -299,3 +308,11 @@ class ExportTab(QWidget):
         self.table.show()
 
 
+if __name__ == "__main__":
+
+    app = QApplication(sys.argv)
+    window = ExportTab()
+    window.setLayout(window.vbox)
+    window.resize(1024, 768)
+    window.show()
+    sys.exit(app.exec())

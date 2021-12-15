@@ -13,7 +13,7 @@ class MetaModel(QAbstractTableModel):
     def rowCount(self, parent=None):
         return self._data.shape[0]
 
-    def columnCount(self, parnet=None):
+    def columnCount(self, parent=None):
         return self._data.shape[1]
 
     def data(self, index, role=Qt.DisplayRole):
@@ -38,7 +38,7 @@ class ExportModel(QAbstractTableModel):
     def rowCount(self, parent=None):
         return self._data.shape[0]
 
-    def columnCount(self, parnet=None):
+    def columnCount(self, parent=None):
         return self._data.shape[1]
 
     def data(self, index, role=Qt.DisplayRole):
@@ -113,3 +113,52 @@ class ExportTable(QMainWindow):
 
         self.VBoxTable = QVBoxLayout(centralwidget)
         self.VBoxTable.addWidget(self.table)
+
+class SurfaceModel(QAbstractTableModel):
+
+    def __init__(self, data):
+        QAbstractTableModel.__init__(self)
+        self._data = data
+
+    def rowCount(self, parent=None):
+        return self._data.shape[0]
+
+    def columnCount(self, parent=None):
+        return self._data.shape[1]
+
+    def data(self, index, role=Qt.DisplayRole):
+        if index.isValid():
+            if role == Qt.DisplayRole or role == Qt.EditRole:
+                value = self._data.iloc[index.row(), index.column()]
+                return str(value)
+
+    def setData(self, index, value, role):
+        if role == Qt.EditRole:
+            self._data.iloc[index.row(),index.column()] = value
+            return True
+
+    def headerData(self, col, orientation, role):
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            return self._data.columns[col]
+        if orientation == Qt.Vertical and role == Qt.DisplayRole:
+            return self._data.index[col]
+        return None
+
+    def flags(self, index):
+        if self._data.columns[index.column()] == 'chemistry':
+            return Qt.ItemIsSelectable|Qt.ItemIsEnabled|Qt.ItemIsEditable
+        else:
+            return Qt.NoItemFlags
+
+
+class SurfaceTable(QTableView):
+
+    def __init__(self):
+        super().__init__()
+
+    def set_data(self, dataframe):
+        self.model = SurfaceModel(dataframe)
+        self.setModel(self.model)
+        # Unsure why sorting doesn't work
+        # self.setSortingEnabled(True)
+

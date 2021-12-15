@@ -1,30 +1,32 @@
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QWidget,
-QVBoxLayout, QFileDialog, QPushButton, QLabel)
+QVBoxLayout, QFileDialog, QPushButton, QLabel, QFrame)
 
-# import lib.csv_helpers as csv
+import lib.csv_helpers as csv
+
+class QHLine(QFrame):
+    def __init__(self):
+        super(QHLine, self).__init__()
+        self.setFrameShape(QFrame.HLine)
+        self.setFrameShadow(QFrame.Sunken)
 
 class ImportWorker(QObject):
     finished = Signal()
     progress = Signal(int)
 
-    def __init__(self, importFunction, input_dir, regex, output_dir):
+    def __init__(self, input_dir, regex, output_dir):
         super().__init__()
-        self.importFunction = importFunction
         self.regex = regex
         self.input_dir = input_dir
         self.output_dir = output_dir
 
     def run(self):
-        self.importFunction(self.input_dir, self.regex, self.output_dir, append=False)
-        # csv.import_dir_to_csv(self.input_dir, self.regex, self.output_dir, append=False)
+        csv.import_dir_to_csv(self.input_dir, self.regex, self.output_dir, append=False)
         self.finished.emit()
 
 class ImportTab():
 
-    def __init__(self, importFunction):
-
-        self.importFunction = importFunction
+    def __init__(self):
 
         default_regex = '(?P<sensor>.+)_Sensor(?P<element>.+)_(?P<fluid>.+)_Rotation(.+).txt'
         default_input = '/Users/calum/git/Glasgow/sampleData/combined'
@@ -77,6 +79,7 @@ class ImportTab():
         hbox_run.addWidget(self.btn_import)
 
         vbox.addWidget(label_title)
+        vbox.addWidget(QHLine())
         vbox.addLayout(hbox_input)
         vbox.addLayout(hbox_output)
         vbox.addWidget(label_regex)
@@ -99,7 +102,7 @@ class ImportTab():
         output_dir = self.tbox_output.text()
 
         self.thread = QThread()
-        self.worker = ImportWorker(self.importFunction, input_dir, regex, output_dir)
+        self.worker = ImportWorker(input_dir, regex, output_dir)
 
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)

@@ -2,7 +2,7 @@ import logging
 from PySide6.QtGui import QFont
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtWidgets import (QPlainTextEdit, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel)
+    QPushButton, QLabel, QWidget)
 
 class Communicate(QObject):
     # class to define signals used to communicate between threads
@@ -50,26 +50,27 @@ class CustomFormatter(logging.Formatter):
         formatter = logging.Formatter(self.fmt)
         color = self.COLORS.get(record.levelno)
         msg = formatter.format(record)
-        msg = color + msg + "</font>"
+        # 'pre' tag signifies pre-formatted text so doesnt remove tabs
+        msg = color + "<pre>" + msg + "</pre></font>"
         return msg
 
-class GUILogger():
+class GUILogger(QWidget):
 
     def __init__(self, parent):
         self.parent = parent
+        QWidget.__init__(self)
     # def setupLogging(self):
         # Use the Root Logger
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
 
         # set up log handler for GUI
-        gui_logHandler = GUILogHandler(self)
-        logger.addHandler(gui_logHandler)
-        # gui_logHandler.signals.appendLogText.connect(print('poo'))
+        self.gui_logHandler = GUILogHandler(self)
+        logger.addHandler(self.gui_logHandler)
 
-        font = QFont()
-        font.setStyleHint(QFont.TypeWriter)
-        font.setFamily('Monaco')
+        # font = QFont()
+        # font.setStyleHint(QFont.TypeWriter)
+        # font.setFamily('Monaco')
 
         logLabel = QLabel("Log Output:")
         btn_clear = QPushButton("Clear")
@@ -80,19 +81,17 @@ class GUILogger():
         hbox_btn.addWidget(btn_clear)
 
         self.logBox = QPlainTextEdit()
-        self.logBox.setFont(font)
+        # self.logBox.setFont(font)
         self.logBox.setLineWrapMode(QPlainTextEdit.NoWrap)
 
         self.logVbox = QVBoxLayout()
         self.logVbox.addWidget(logLabel)
         self.logVbox.addWidget(self.logBox)
         self.logVbox.addLayout(hbox_btn)
+        
+        self.setLayout(self.logVbox)
 
-        # This doesn't work, something to do with threads??
-        # gui_logHandler.signals.appendLogText.connect(self.writeLog)
-
-        # This does work
-        gui_logHandler.signals.appendLogText.connect(parent.writeLog)
+        self.gui_logHandler.signals.appendLogText.connect(self.writeLog)
 
         # set up log handler for Console
         c_handler = logging.StreamHandler()
@@ -103,10 +102,9 @@ class GUILogger():
 
 
     # Defines where log messages should be displayed in the GUI.
-    # This Doesnt work, something to do with threads? defined in parent instead
-    # @Slot(str)
-    # def writeLog(self, log_text):
-    #     self.logBox.appendHtml(log_text)
+    @Slot(str)
+    def writeLog(self, log_text):
+        self.logBox.appendHtml(log_text)
 
     def clearBox(self):
         self.logBox.setPlainText('')
