@@ -1,14 +1,10 @@
-from PySide6.QtCore import QObject, QThread, Signal, Slot
-from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QWidget,
-QVBoxLayout, QFileDialog, QPushButton, QLabel, QFrame)
-
+import sys
+from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget,
+    QVBoxLayout, QFileDialog, QPushButton, QLabel)
+import logging
+from GUI_commonWidgets import QHLine
 import lib.csv_helpers as csv
-
-class QHLine(QFrame):
-    def __init__(self):
-        super(QHLine, self).__init__()
-        self.setFrameShape(QFrame.HLine)
-        self.setFrameShadow(QFrame.Sunken)
 
 class ImportWorker(QObject):
     finished = Signal()
@@ -24,20 +20,18 @@ class ImportWorker(QObject):
         csv.import_dir_to_csv(self.input_dir, self.regex, self.output_dir, append=False)
         self.finished.emit()
 
-class ImportTab():
+class ImportTab(QWidget):
 
     def __init__(self):
+        QWidget.__init__(self)
+        self.setObjectName(u"ImportTab")
 
         default_regex = '(?P<sensor>.+)_Sensor(?P<element>.+)_(?P<fluid>.+)_Rotation(.+).txt'
         default_input = '/Users/calum/git/Glasgow/sampleData/combined'
         default_output = '/Users/calum/git/Glasgow/dwt-optical/imported'
         
-        # New Widget (to be used as a tab)
-        self.tab = QWidget()
-        self.tab.setObjectName(u"ImportTab")
-
         # Make a Vertical layout within the new tab
-        vbox = QVBoxLayout(self.tab)
+        vbox = QVBoxLayout()
 
         label_title = QLabel("Import existing csv/tsv files, extract metadata from filenames")
         label_input = QLabel("Input Directory:")
@@ -86,6 +80,8 @@ class ImportTab():
         vbox.addWidget(self.tbox_regex)
         vbox.addLayout(hbox_run)
         vbox.addStretch()
+
+        self.setLayout(vbox)
         
     def get_input_dir(self):
         dirname = QFileDialog.getExistingDirectory(self.tab, "Select Input Directory")
@@ -117,5 +113,14 @@ class ImportTab():
         )
 
 
+if __name__ == "__main__":
+
+    app = QApplication(sys.argv)
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    window = ImportTab()
+    window.resize(1024, 768)
+    window.show()
+    sys.exit(app.exec())
 
 

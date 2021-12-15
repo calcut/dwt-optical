@@ -65,7 +65,7 @@ class MetaTable(QMainWindow):
         centralwidget = QWidget()
         centralwidget.setObjectName(u"centralwidget")
         self.setCentralWidget(centralwidget)
-        self.resize(800, 600)
+        self.resize(950, 850)
         self.setWindowTitle(title)
 
         self.table = QTableView()
@@ -75,7 +75,6 @@ class MetaTable(QMainWindow):
         self.proxyModel.setSourceModel(self.model)
         self.proxyModel.setFilterKeyColumn(-1) #Use All Columns
 
-        # self.table.resize(800, 600)
         self.table.setSortingEnabled(True)
         self.table.setModel(self.proxyModel)
 
@@ -102,7 +101,7 @@ class ExportTable(QMainWindow):
         centralwidget = QWidget()
         centralwidget.setObjectName(u"centralwidget")
         self.setCentralWidget(centralwidget)
-        self.resize(800, 600)
+        self.resize(950, 850)
         self.setWindowTitle(title)
 
         self.table = QTableView()

@@ -7,105 +7,66 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
 QVBoxLayout, QFileDialog, QPushButton, QLabel, QTableWidget)
 import logging
 from GUI_tableView import MetaTable, SurfaceTable
+from GUI_commonWidgets import QHLine, MetaBrowse
 
 import lib.csv_helpers as csv
-
-class QHLine(QFrame):
-    def __init__(self):
-        super(QHLine, self).__init__()
-        self.setFrameShape(QFrame.HLine)
-        self.setFrameShadow(QFrame.Sunken)
 
 class SurfacesTab(QWidget):
 
     def __init__(self):
         QWidget.__init__(self)
-
+        self.setObjectName(u"SurfacesTab")
 
         default_metafile = './imported/index.tsv'
-        # default_outfile = './export.tsv'
-        # default_outfile = ''
 
         self.surfaceData = {
             'element'             : None,
             'chemistry'           : None
         }
         
-        # New Widget (to be used as a tab)
-        self.tab = QWidget()
-        self.tab.setObjectName(u"ExportTab")
+        vbox = QVBoxLayout()
 
-        # Make a Vertical layout within the new tab
-        self.vbox = QVBoxLayout(self.tab)
-
-        label_title = QLabel("Reads in a Metadata Index file and populates"
-            +" the 'chemistry' column based on the mapping defined below")
-        label_index = QLabel("Metadata Index File:")
+        label_title = QLabel("Reads in a Metadata Index file and updates"
+            +" the 'chemistry' column based on the mapping defined below"
+            +"\n\n[Functionality is currently quite limited, probably want to load/save mappings and possibly use a metadata filter]")
         label_mapping = QLabel("Mapping to Apply:")
-        # label_output = QLabel("Output File:")
 
-        self.tbox_meta = QLineEdit()
-        self.tbox_meta.editingFinished.connect(self.update_meta_df)
-        self.tbox_meta.setText(default_metafile)
-
-        browse_meta = QPushButton("Browse")
-        browse_meta.clicked.connect(self.get_meta)
-
-        btn_preview_meta = QPushButton("Preview")
-        btn_preview_meta.clicked.connect(self.preview_meta)
-
-        btn_preview_mapping = QPushButton("Preview")
+        # btn_preview_mapping = QPushButton("Preview")
         # btn_preview_mapping.clicked.connect(self.preview_mapping)
 
         btn_apply_mapping = QPushButton("Apply")
         btn_apply_mapping.clicked.connect(self.apply_mapping)
 
-        hbox_input = QHBoxLayout()
-        hbox_input.addWidget(label_index)
-        hbox_input.addWidget(self.tbox_meta)
-        hbox_input.addWidget(browse_meta)
-        hbox_input.addWidget(btn_preview_meta)
-
         self.surfaceTable = SurfaceTable()
-
-        # self.add_sel_row()
-        self.update_meta_df()
 
 
         hbox_mapping = QHBoxLayout()
         hbox_mapping.addStretch()
         hbox_mapping.addWidget(btn_apply_mapping)
-        hbox_mapping.addWidget(btn_preview_mapping)
+        # hbox_mapping.addWidget(btn_preview_mapping)
 
-        hbox_output = QHBoxLayout()
-        # hbox_output.addWidget(label_output)
-        # hbox_output.addWidget(self.tbox_output)
-        # hbox_output.addWidget(browse_output)
-        # hbox_output.addWidget(btn_preview_export)
+        self.metaBrowse = MetaBrowse()
+        # self.metaFilter = MetaFilter()
+        self.metaBrowse.new_meta_df.connect(self.metaChanged)
+        self.metaBrowse.update_meta_df()
 
-        self.vbox.addWidget(label_title)
-        self.vbox.addWidget(QHLine())
-        self.vbox.addLayout(hbox_input)
-        self.vbox.addWidget(QHLine())
-        self.vbox.addWidget(label_mapping)
-        self.vbox.addWidget(self.surfaceTable)
-        self.vbox.addLayout(hbox_mapping)
-        # self.vbox.addStretch()
-
-    def get_meta(self):
-        metafile, _ = QFileDialog.getOpenFileName(self.tab, "Metadata File:", filter ='(*.csv *.tsv)')
-        self.tbox_meta.setText(metafile)
-        self.update_meta_df()
+        vbox.addWidget(label_title)
+        vbox.addWidget(QHLine())
+        vbox.addWidget(self.metaBrowse)
+        vbox.addWidget(QHLine())
+        vbox.addWidget(label_mapping)
+        vbox.addWidget(self.surfaceTable)
+        vbox.addLayout(hbox_mapping)
+        # vbox.addStretch()
+        self.setLayout(vbox)
 
     def get_output(self):
         outfile = QFileDialog.getSaveFileName(self.tab, "Select Output File:")
         self.tbox_output.setText(outfile)
 
 
-    def update_meta_df(self):
-        self.metapath = os.path.abspath(self.tbox_meta.text())
-        if os.path.isfile(self.metapath):
-            self.meta_df = csv.read_metadata(self.metapath)
+    def metaChanged(self, meta_df):
+        self.meta_df = meta_df
         try:
             elements = sorted(self.meta_df['element'].unique())
             elements = [str(e) for e in elements]
@@ -130,12 +91,6 @@ class SurfacesTab(QWidget):
         self.surfaceTable.set_data(surface_df)
         # logging.debug(f'setting surface table with {surface_df}')
 
-
-    def preview_meta(self):
-        self.update_meta_df()
-        self.metaTable = MetaTable(self.meta_df, self.metapath)
-        self.metaTable.show()
-
     def apply_mapping(self, askfirst=True):
         self.surfaceData = self.surfaceTable.model._data
         logging.debug(f'About to apply\n{self.surfaceData}')
@@ -148,22 +103,6 @@ class SurfacesTab(QWidget):
             csv.apply_chem_map(self.surfaceData, self.metapath)
             self.update_meta_df()
 
-    # def preview_mapping(self):
-    #     title = 'Selected Data'
-    #     self.selectedTable = MetaTable(self.mapping_df, title)
-    #     self.selectedTable.show()
-
-    # def preview_export(self):
-    #     title = os.path.abspath(self.tbox_output.text())
-    #     try:
-    #         self.table = ExportTable(self.worker.export, title)
-    #     except AttributeError:
-    #         logging.error("Please run export first")
-    #     summary = self.worker.export.to_string(max_cols=15, max_rows=15)
-    #     for line in summary.splitlines():
-    #         logging.info(line) #This looks crap just now... maybe due to html parser
-    #     self.table.show()
-
 
 if __name__ == "__main__":
 
@@ -171,7 +110,6 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     window = SurfacesTab()
-    window.setLayout(window.vbox)
     window.resize(1024, 768)
     window.show()
     sys.exit(app.exec())

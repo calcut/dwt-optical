@@ -23,7 +23,7 @@ class MainWindow(QMainWindow):
         centralwidget = QWidget()
         centralwidget.setObjectName(u"centralwidget")
         self.setCentralWidget(centralwidget)
-        self.resize(1024, 768)
+        self.resize(1024, 900)
 
         vbox = QVBoxLayout(centralwidget)
         vbox.setObjectName(u"verticalLayout")
@@ -44,9 +44,9 @@ class MainWindow(QMainWindow):
         tabWidget = QTabWidget(centralwidget)
         tabWidget.addTab(self.setupTab, "Setup")
         tabWidget.addTab(self.runTab, "Manual Run")
-        tabWidget.addTab(self.importTab.tab, "Import")
-        tabWidget.addTab(self.surfacesTab.tab, "Surface Chemistry")
-        tabWidget.addTab(self.exportTab.tab, "Export")
+        tabWidget.addTab(self.importTab, "Import")
+        tabWidget.addTab(self.surfacesTab, "Surface Chemistry")
+        tabWidget.addTab(self.exportTab, "Export")
 
 
         splitter.addWidget(tabWidget)
