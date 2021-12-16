@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QVBoxLayout, QFileDialog, QPushButton, QLabel)
 import logging
 from GUI_tableView import MetaTable
+from GUI_plotCanvas import PlotCanvas
 import lib.csv_helpers as csv
 
 class QHLine(QFrame):
@@ -53,7 +54,7 @@ class MetaBrowse(QWidget):
         self.metapath = os.path.abspath(self.tbox_meta.text())
         if os.path.isfile(self.metapath):
             self.meta_df = csv.read_metadata(self.metapath)
-        self.new_meta_df.emit(self.meta_df)
+        self.new_meta_df.emit(self.metapath)
 
     def preview_meta(self):
         self.update_meta_df()
@@ -66,17 +67,21 @@ class MetaFilter(QWidget):
         QWidget.__init__(self)
 
         self.meta_df = None
+        self.metapath = None
 
         self.setObjectName(u"MetaFilter")
         vbox = QVBoxLayout()
 
         label = QLabel("Select/Filter from Metadata file:")
 
+        btn_apply_selection = QPushButton("Apply")
+        btn_apply_selection.clicked.connect(self.select_meta)
+
         btn_preview_selection = QPushButton("Preview")
         btn_preview_selection.clicked.connect(self.preview_selection)
 
-        btn_apply_selection = QPushButton("Apply")
-        btn_apply_selection.clicked.connect(self.select_meta)
+        btn_plot= QPushButton("Plot")
+        btn_plot.clicked.connect(self.plot_selection)
 
         self.grid_sel = QGridLayout()
         self.grid_sel.setContentsMargins(0, 0, 0, 0)
@@ -86,6 +91,7 @@ class MetaFilter(QWidget):
         hbox_selection.addStretch()
         hbox_selection.addWidget(btn_apply_selection)
         hbox_selection.addWidget(btn_preview_selection)
+        hbox_selection.addWidget(btn_plot)
 
         vbox.addWidget(label)
         vbox.addLayout(self.grid_sel)
@@ -198,8 +204,10 @@ class MetaFilter(QWidget):
         except KeyError:
             logging.debug(f'Key "{key}" not found in Metadata index file')
 
-    def metaChanged(self, meta_df):
-        self.meta_df = meta_df
+    def metaChanged(self, metapath):
+        self.metapath = metapath
+        self.meta_df = csv.read_metadata(metapath)
+
         # Update the 'key' combo boxes with fields from new meta_df 
         rows = self.grid_sel.rowCount()
         for row in range(rows):
@@ -221,6 +229,15 @@ class MetaFilter(QWidget):
         try:
             self.selectedTable = MetaTable(self.selection_df, title)
             self.selectedTable.show()
+        except AttributeError:
+            logging.error("Please Apply filter first")
+
+    def plot_selection(self):
+        # title = 'Selected Data'
+        try:
+            self.plot = PlotCanvas()
+            self.plot.set_data(self.selection_df, self.metapath)
+            self.plot.show()
         except AttributeError:
             logging.error("Please Apply filter first")
 

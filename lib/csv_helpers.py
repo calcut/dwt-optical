@@ -107,6 +107,19 @@ def store(df, metadata, path='./raw'):
 # filled where needed
 def merge_dataframes(meta_df, path='./raw'):
     result = []
+
+    # For re-labelling the merged dataframe:
+    # Ignore metadata that is the same for measurements
+    # i.e. only use columns with more than 1 unique value
+    individual_meta = meta_df.columns[meta_df.nunique() > 1]
+
+    # Ignore columns which aren't considered primary metadata
+    # primary_metadata = ['date', 'sensor', 'fluid',' element']
+    individual_meta = individual_meta.intersection(primary_metadata)
+
+    # Identify primary metadata that is common for all measurements
+    common_metadata = set(primary_metadata) - set(individual_meta)
+
     for row in meta_df.index:
 
         # locate the datafile and read it in
@@ -115,28 +128,35 @@ def merge_dataframes(meta_df, path='./raw'):
         df = pd.read_csv(datapath, sep='\t')
 
         # Name the output columns based on metadata
-        col_names = ['wavelength']
-        for col in df.columns[1:]:
-            name = str()
-
-            # Ignore metadata that is the same for measurements
-            # i.e. only select columns with more than 1 unique value
-            valid_meta = meta_df.columns[meta_df.nunique() > 1]
-
-            # Ignore columns which aren't considered primary metadata
-            # primary_metadata = ['date', 'sensor', 'fluid',' element']
-            valid_meta = valid_meta.intersection(primary_metadata)
-
-            for label in valid_meta:
-                name += f'{meta_df.loc[row][label]}_'
-            col_names.append(name[:-1])
-        df.columns = col_names
+        if len(individual_meta) > 0:
+            col_names = ['wavelength']
+            for col in df.columns[1:]:
+                name = str()
+                for label in individual_meta:
+                    name += f'{meta_df.loc[row][label]}_'
+                col_names.append(name[:-1])
+            df.columns = col_names
 
         if len(result) > 0:
             result = pd.merge(result, df, how='outer', on='wavelength')
         else:
             result = df
-    return result
+
+    title = str()
+    for field in common_metadata:
+        if field == 'date':
+            date = f"{meta_df.iloc[0][field].strftime('%Y-%m-%d')}"
+        else:
+            value = f'{meta_df.iloc[0][field]}'
+            title += f'{field}: {value}\n'
+   
+    if date:
+        title += date
+    else:
+        title = title[:-1]
+
+    return result, title
+    
 
 def filter_by_metadata(metakey, metavalue, df, regex=False):
     
@@ -171,7 +191,7 @@ def export_dataframes(path='.', meta_df='index.tsv', outfile=None):
     frames=[]
     for e in elements:
         logging.info(f'merging element {e}')
-        selection = filter_by_metadata('element', e, input_df=meta_df)
+        selection = filter_by_metadata('element', e, meta_df)
         element_df = merge_dataframes(selection, path)
         element_df = element_df.transpose()
 
@@ -247,6 +267,8 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
             col_names.append(f'rep{r+1}')
         df.columns = col_names
 
+        # todo, the 'store' function reads and writes the full metadata file
+        # each time, so definitely room for improvement here.
         datapath = store(df, metadata, output_dir)
         logging.info(f'imported {filename} to {datapath}')
 
@@ -260,7 +282,7 @@ def read_metadata(metapath):
                                'chemistry' : str
                                }
                         )
-        logging.info(f'Loaded Metadata Index from {metapath}')
+        logging.debug(f'Loaded Metadata Index from {metapath}')
     else:
         logging.error(f'{metapath} not found')
         return
@@ -269,10 +291,14 @@ def read_metadata(metapath):
 def apply_chem_map(chemistry_map, metapath):
 
     meta_df = read_metadata(metapath)
+    if isinstance(chemistry_map, pd.DataFrame):
+        chemistry_map = dict(chemistry_map.values)
 
     for index, row in meta_df.iterrows():
         try:
-            meta_df.at[index, 'chemistry'] = chemistry_map[row['element']]
+            chem = chemistry_map[row['element']]
+            meta_df.at[index, 'chemistry'] = chem
+            logging.info(f'Applying: {chem} to {index}')
         except KeyError:
             logging.error(f"Element {row['element']} not found in chemistry map")
     
