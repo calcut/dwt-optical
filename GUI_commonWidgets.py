@@ -1,13 +1,12 @@
 import os
 import sys
 import pandas as pd
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame,
     QVBoxLayout, QFileDialog, QPushButton, QLabel)
 import logging
 from GUI_tableView import MetaTable
-from GUI_plotCanvas import PlotCanvas
 import lib.csv_helpers as csv
 
 class QHLine(QFrame):
@@ -18,7 +17,7 @@ class QHLine(QFrame):
 
 class MetaBrowse(QWidget):
 
-    new_meta_df = Signal(pd.DataFrame)
+    new_metapath = Signal(str)
 
     def __init__(self):
         QWidget.__init__(self)
@@ -27,11 +26,14 @@ class MetaBrowse(QWidget):
 
         label_index = QLabel("Metadata Index File:")
 
+        btn_width = 80
         browse_meta = QPushButton("Browse")
         browse_meta.clicked.connect(self.get_meta)
+        browse_meta.setFixedWidth(btn_width)
 
         btn_preview_meta = QPushButton("Preview")
         btn_preview_meta.clicked.connect(self.preview_meta)
+        btn_preview_meta.setFixedWidth(btn_width)
 
         self.tbox_meta = QLineEdit()
         self.tbox_meta.editingFinished.connect(self.update_meta_df)
@@ -53,35 +55,33 @@ class MetaBrowse(QWidget):
     def update_meta_df(self):
         self.metapath = os.path.abspath(self.tbox_meta.text())
         if os.path.isfile(self.metapath):
-            self.meta_df = csv.read_metadata(self.metapath)
-        self.new_meta_df.emit(self.metapath)
+            self.new_metapath.emit(self.metapath)
 
     def preview_meta(self):
-        self.update_meta_df()
-        self.metaTable = MetaTable(self.meta_df, self.metapath)
+        meta_df = csv.read_metadata(self.metapath)
+        self.metaTable = MetaTable(meta_df, self.metapath)
         self.metaTable.show()
 
 class MetaFilter(QWidget):
 
+    new_selection_df = Signal(pd.DataFrame)
+
     def __init__(self):
         QWidget.__init__(self)
-
-        self.meta_df = None
-        self.metapath = None
 
         self.setObjectName(u"MetaFilter")
         vbox = QVBoxLayout()
 
         label = QLabel("Select/Filter from Metadata file:")
 
+        btn_width = 80
         btn_apply_selection = QPushButton("Apply")
         btn_apply_selection.clicked.connect(self.select_meta)
+        btn_apply_selection.setFixedWidth(btn_width)
 
         btn_preview_selection = QPushButton("Preview")
         btn_preview_selection.clicked.connect(self.preview_selection)
-
-        btn_plot= QPushButton("Plot")
-        btn_plot.clicked.connect(self.plot_selection)
+        btn_preview_selection.setFixedWidth(btn_width)
 
         self.grid_sel = QGridLayout()
         self.grid_sel.setContentsMargins(0, 0, 0, 0)
@@ -91,7 +91,6 @@ class MetaFilter(QWidget):
         hbox_selection.addStretch()
         hbox_selection.addWidget(btn_apply_selection)
         hbox_selection.addWidget(btn_preview_selection)
-        hbox_selection.addWidget(btn_plot)
 
         vbox.addWidget(label)
         vbox.addLayout(self.grid_sel)
@@ -135,18 +134,21 @@ class MetaFilter(QWidget):
                                              filtered_df,
                                              how = 'outer')
 
-        logging.info(f'{len(self.selection_df)} rows in selection after filtering')
+        logging.info(f'{len(self.selection_df)} metadata rows in selection')
+        self.new_selection_df.emit(self.selection_df)
         
     def add_sel_row(self):
         
         rows = self.grid_sel.rowCount()
         columns = self.grid_sel.columnCount()
+        btn_width = 80
 
         item = self.grid_sel.itemAtPosition(0, 0)
         if item is None:
             widget = QPushButton('Add Filter')
             widget.clicked.connect(self.add_sel_row)
-            self.grid_sel.addWidget(widget, 0, 4, 1, 1)
+            widget.setFixedWidth(btn_width)
+            self.grid_sel.addWidget(widget, 0, 4, 1, 1, alignment=Qt.AlignRight)
 
             self.grid_sel.addWidget(QLabel("Metadata Key"), 0, 1, 1, 1)
             self.grid_sel.addWidget(QLabel("Value"), 0, 2, 1, 1)
@@ -177,9 +179,10 @@ class MetaFilter(QWidget):
             self.grid_sel.addWidget(self.keyCombo, rows, 1, 1, 1)
             self.grid_sel.addWidget(self.valCombo, rows, 2, 1, 1)
             self.grid_sel.addWidget(QCheckBox(), rows, 3, 1, 1)
-            widget = QPushButton('Remove Filter')
+            widget = QPushButton('Remove')
             widget.clicked.connect(self.remove_sel_row)
-            self.grid_sel.addWidget(widget, rows, 4, 1, 1)
+            widget.setFixedWidth(btn_width)
+            self.grid_sel.addWidget(widget, rows, 4, 1, 1, alignment=Qt.AlignRight)
 
     def remove_sel_row(self):
             index = self.grid_sel.indexOf(self.sender())
@@ -204,8 +207,7 @@ class MetaFilter(QWidget):
         except KeyError:
             logging.debug(f'Key "{key}" not found in Metadata index file')
 
-    def metaChanged(self, metapath):
-        self.metapath = metapath
+    def metapath_changed(self, metapath):
         self.meta_df = csv.read_metadata(metapath)
 
         # Update the 'key' combo boxes with fields from new meta_df 
@@ -232,15 +234,6 @@ class MetaFilter(QWidget):
         except AttributeError:
             logging.error("Please Apply filter first")
 
-    def plot_selection(self):
-        # title = 'Selected Data'
-        try:
-            self.plot = PlotCanvas()
-            self.plot.set_data(self.selection_df, self.metapath)
-            self.plot.show()
-        except AttributeError:
-            logging.error("Please Apply filter first")
-
 if __name__ == "__main__":
 
     app = QApplication(sys.argv)
@@ -255,7 +248,7 @@ if __name__ == "__main__":
 
     metaBrowse = MetaBrowse()
     metaFilter = MetaFilter()
-    metaBrowse.new_meta_df.connect(metaFilter.metaChanged)
+    metaBrowse.new_metapath.connect(metaFilter.metapath_changed)
     metaBrowse.update_meta_df()
     
     vbox = QVBoxLayout()

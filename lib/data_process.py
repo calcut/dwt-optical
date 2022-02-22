@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
+import logging
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 
-def Interpolate(df, SamplingRate):
+def interpolate(df, SamplingRate):
 
     wl_min = df['wavelength'].min()
     wl_max = df['wavelength'].max()
@@ -14,9 +15,13 @@ def Interpolate(df, SamplingRate):
         if col == 'wavelength':
             result[col] = wavel_new
         else:
-            f= interp1d(df['wavelength'], df[col],
-                            'linear', fill_value='linear')
-            result[col] = f(wavel_new)
+            try:
+                f= interp1d(df['wavelength'], df[col],
+                                'linear', fill_value='linear')
+                result[col] = f(wavel_new)
+            except ValueError as e:
+                logging.error(e+"\nThis may be because multiple columns have identical names")
+
     return pd.DataFrame(result)
 
 def trim(df, wl_min, wl_max):
@@ -36,6 +41,7 @@ def normalise(df):
 
 def smooth(df, SmoothPoints=3):
     df = df.rolling(window=SmoothPoints).mean()
+    return df
 
 def plot(df):
     for col in df:

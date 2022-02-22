@@ -1,10 +1,10 @@
-from time import sleep
 import os
 import sys
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget,
     QVBoxLayout, QFileDialog, QPushButton, QLabel)
 import logging
+from GUI_dataProcess import DataProcess
 from GUI_tableView import ExportTable
 from GUI_commonWidgets import QHLine, MetaBrowse, MetaFilter
 import lib.csv_helpers as csv
@@ -15,13 +15,13 @@ class ExportWorker(QObject):
 
     def __init__(self, metapath, meta_df, outfile):
         super().__init__()
-        self.path = os.path.dirname(metapath)
+        self.datadir = os.path.dirname(metapath)
         self.meta_df = meta_df
         self.outfile = outfile
 
     def run(self):
-        logging.info(f'running csv.export_dataframes with path={self.path} meta_df=\n{self.meta_df}')
-        self.export = csv.export_dataframes(self.path, self.meta_df, self.outfile)
+        logging.info(f'running csv.export_dataframes with path={self.datadir} meta_df=\n{self.meta_df}')
+        self.export = csv.export_dataframes(self.datadir, self.meta_df, self.outfile)
         self.finished.emit()
 
 class ExportTab(QWidget):
@@ -42,14 +42,18 @@ class ExportTab(QWidget):
         self.tbox_output = QLineEdit()
         self.tbox_output.setText(default_outfile)
 
+        btn_width = 80
         browse_output = QPushButton("Browse")
         browse_output.clicked.connect(self.get_output)
+        browse_output.setFixedWidth(btn_width)
 
         self.btn_export = QPushButton("Export")
         self.btn_export.clicked.connect(self.run_export)
+        self.btn_export.setFixedWidth(btn_width)
 
         btn_preview_export= QPushButton("Preview")
         btn_preview_export.clicked.connect(self.preview_export)
+        self.btn_export.setFixedWidth(btn_width)
 
         hbox_output = QHBoxLayout()
         hbox_output.addWidget(label_output)
@@ -63,9 +67,13 @@ class ExportTab(QWidget):
 
         self.metaBrowse = MetaBrowse()
         self.metaFilter = MetaFilter()
-        self.metaBrowse.new_meta_df.connect(self.metaFilter.metaChanged)
+        self.dataProcess = DataProcess()
+        self.metaBrowse.new_metapath.connect(self.metaFilter.metapath_changed)
+        self.metaBrowse.new_metapath.connect(self.dataProcess.metapath_changed)
         self.metaBrowse.update_meta_df()
         self.metaFilter.add_sel_row()
+        self.metaFilter.new_selection_df.connect(self.dataProcess.selection_df_changed)
+        self.metaFilter.select_meta()
 
         vbox.addWidget(label_title)
         vbox.addWidget(QHLine())
@@ -73,11 +81,15 @@ class ExportTab(QWidget):
         vbox.addWidget(QHLine())
         vbox.addWidget(self.metaFilter)
         vbox.addWidget(QHLine())
+        vbox.addWidget(self.dataProcess)
+        vbox.addWidget(QHLine())
         vbox.addLayout(hbox_output)
-        vbox.addLayout(hbox_run)
+        vbox.addLayout(hbox_run)    
         vbox.addStretch()
 
         self.setLayout(vbox)
+
+
 
     def get_output(self):
         outfile = QFileDialog.getSaveFileName(self, "Select Output File:")

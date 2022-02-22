@@ -1,5 +1,4 @@
 import sys
-from time import sleep
 import logging
 import os
 
@@ -29,8 +28,6 @@ class MainWindow(QMainWindow):
         vbox.setObjectName(u"verticalLayout")
 
         splitter = QSplitter(Qt.Vertical)
-
-
 
         self.log = GUILogger(self)
         self.importTab = ImportTab()
