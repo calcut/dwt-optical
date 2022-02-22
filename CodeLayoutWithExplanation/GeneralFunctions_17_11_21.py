@@ -19,7 +19,7 @@ def FWHM(Wav,Trans):
     for i in range(30,len(Trans)):
         Value=Trans[i]
         if Value<=HM and flagdown==0:
-            flagdown=1;
+            flagdown=1
             Side1=Wav[i]
         if Value>=HM and flagdown==1 and flagup==0 and Wav[i]-Side1>10:
             flagup=1
