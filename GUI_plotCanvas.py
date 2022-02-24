@@ -151,14 +151,12 @@ class PlotCanvas(QtWidgets.QMainWindow):
 
         self.ax = self.canvas.axes
         
-
-        for legline in self.ax.legend().get_lines():
-            legline.set_picker(True)  # Enable picking on the legend lines.
-
-
+        if legend:
+            for legline in self.ax.legend().get_lines():
+                legline.set_picker(True)  # Enable picking on the legend lines.
 
 
-        crs = mplcursors.cursor(plot.canvas.axes, hover=True)
+        crs = mplcursors.cursor(self.canvas.axes, hover=True)
         # Uncomment to only print the label (not the XY values)
         # crs.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
 
