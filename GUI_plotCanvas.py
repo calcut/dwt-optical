@@ -59,37 +59,43 @@ class PlotCanvas(QtWidgets.QMainWindow):
         widget.setLayout(layout)
         self.setCentralWidget(widget)
 
+        self.pltline_dict = {} # Will map plot lines to legend lines.
+        self.legline_dict = {} # Will map legend lines to plot lines.
+
     def closeEvent(self, event):
         self.plot_visible = False
         event.accept()
 
     def onpick(self, event):
-        line = event.artist
-        if not isinstance(line, matplotlib.lines.Line2D):
-            print(f'picked non line object: {line}')
-        else:
-            print(f'picked line {line}')
+        picked_line = event.artist
+        if isinstance(picked_line, matplotlib.lines.Line2D):
+            # logging.debug(f'picked line object: {picked_line}')
+            # Convert a legend line to the original line
 
-            label = line.get_label()
-            color = line.get_color()
-            RGB = color[:-2]
+            # Want to find both the plotline and associated legend line
+            # This is done by trying to lookup in both dictionaries
+            try: 
+                legline = self.pltline_dict[picked_line]
+                pltline = picked_line
+                # logging.debug(f'got {legline} from plotline')
+            except KeyError:
+                pltline = self.legline_dict[picked_line]
+                legline = picked_line
+                # logging.debug(f'got {pltline} from legline')
+            except Exception as e:
+                print(e)
+                print('dict lookup failed')
+
             button = event.mouseevent.button
             if button == 1:
-                #  Left click shows the line and adds it to legend
-                line.set_color(RGB+'ff')
-                if label[0] == '_':
-                    line.set_label(label[1:])
+                #  Left click shows the line
+                pltline.set_alpha(1)
+                legline.set_alpha(1)
             if button == 3:
-                #  Right click grays out the line and hides from legend
-                print('greying out line')
-                line.set_color(RGB+'20')
-                if label[0] != '_':
-                    line.set_label('_'+label)
+                #  Right click grays out the line
+                pltline.set_alpha(0.1)
+                legline.set_alpha(0.1)
 
-            # Refresh the legend and canvas
-            # legend = self.ax.legend()
-            for legline in self.ax.legend().get_lines():
-                legline.set_picker(True)  # Enable picking on the legend lines.
             self.canvas.draw_idle()
 
     # def hover(self, event):
@@ -152,11 +158,17 @@ class PlotCanvas(QtWidgets.QMainWindow):
         self.ax = self.canvas.axes
         
         if legend:
-            for legline in self.ax.legend().get_lines():
+            for legline, pltline in zip(self.ax.legend().get_lines(), lines):
                 legline.set_picker(True)  # Enable picking on the legend lines.
+                legline.pickradius=5
+                # Keep 2 dictionaries to be able to identify  plot lines from their
+                # legend lines and vice versa
+                self.pltline_dict[pltline] = legline
+                self.legline_dict[legline] = pltline
 
-
-        crs = mplcursors.cursor(self.canvas.axes, hover=True)
+        # crs = mplcursors.cursor(self.canvas.axes, hover=True)
+        crs = mplcursors.cursor(self.canvas.axes)
+        
         # Uncomment to only print the label (not the XY values)
         # crs.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
 
