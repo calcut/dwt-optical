@@ -47,7 +47,7 @@ class SurfacesTab(QWidget):
 
         self.metaBrowse = MetaBrowse()
         # self.metaFilter = MetaFilter()
-        self.metaBrowse.new_meta_df.connect(self.metaChanged)
+        self.metaBrowse.new_metapath.connect(self.metapath_changed)
         self.metaBrowse.update_meta_df()
 
         vbox.addWidget(label_title)
@@ -65,8 +65,8 @@ class SurfacesTab(QWidget):
         self.tbox_output.setText(outfile)
 
 
-    def metaChanged(self, meta_df):
-        self.meta_df = meta_df
+    def metapath_changed(self, metapath):
+        self.meta_df = csv.read_metadata(metapath)
         try:
             elements = sorted(self.meta_df['element'].unique())
             elements = [str(e) for e in elements]
