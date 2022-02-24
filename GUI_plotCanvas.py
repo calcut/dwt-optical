@@ -65,10 +65,10 @@ class PlotCanvas(QtWidgets.QMainWindow):
 
     def onpick(self, event):
         line = event.artist
-        print(line)
         if not isinstance(line, matplotlib.lines.Line2D):
-            print(line)
+            print(f'picked non line object: {line}')
         else:
+            print(f'picked line {line}')
 
             label = line.get_label()
             color = line.get_color()
@@ -81,6 +81,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
                     line.set_label(label[1:])
             if button == 3:
                 #  Right click grays out the line and hides from legend
+                print('greying out line')
                 line.set_color(RGB+'20')
                 if label[0] != '_':
                     line.set_label('_'+label)
@@ -91,18 +92,18 @@ class PlotCanvas(QtWidgets.QMainWindow):
                 legline.set_picker(True)  # Enable picking on the legend lines.
             self.canvas.draw_idle()
 
-    def hover(self, event):
-        vis = self.annot.get_visible()
-        if event.inaxes == self.ax:
-            # cont, ind = span.contains(event)
-            # if cont:
-            self.annot.xy = (event.xdata, event.ydata)
-            self.annot.set_visible(True)
-            self.canvas.draw_idle()
-            # else:
-            if vis:
-                self.annot.set_visible(False)
-                self.canvas.draw_idle()
+    # def hover(self, event):
+    #     vis = self.annot.get_visible()
+    #     if event.inaxes == self.ax:
+    #         # cont, ind = span.contains(event)
+    #         # if cont:
+    #         self.annot.xy = (event.xdata, event.ydata)
+    #         self.annot.set_visible(True)
+    #         self.canvas.draw_idle()
+    #         # else:
+    #         if vis:
+    #             self.annot.set_visible(False)
+    #             self.canvas.draw_idle()
     
     def set_data(self, df, title=None, info=None):
         lines = len(df.columns) -1
@@ -140,7 +141,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
         self.plot_visible = True
 
 
-        lines = plot.canvas.axes.get_lines()
+        lines = self.canvas.axes.get_lines()
         for line in lines:
             print(line)
             line.set_picker(True)
@@ -148,7 +149,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
             color = line.get_color()
             line.set_color(color+'ff')
 
-        self.ax = plot.canvas.axes
+        self.ax = self.canvas.axes
         
 
         for legline in self.ax.legend().get_lines():
@@ -158,7 +159,8 @@ class PlotCanvas(QtWidgets.QMainWindow):
 
 
         crs = mplcursors.cursor(plot.canvas.axes, hover=True)
-        crs.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
+        # Uncomment to only print the label (not the XY values)
+        # crs.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
 
 if __name__ == "__main__":
 
