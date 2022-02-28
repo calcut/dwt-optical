@@ -34,6 +34,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
         # which defines a single set of axes as self.axes.
         self.canvas = MplCanvas(self, width=8, height=5, dpi=100)
         self.plot_visible = False
+        self.legend_visible = True
         # plot the pandas DataFrame, passing in the
         # matplotlib Canvas axes.
         # df.plot(ax=sc.axes)
@@ -72,29 +73,42 @@ class PlotCanvas(QtWidgets.QMainWindow):
             # logging.debug(f'picked line object: {picked_line}')
             # Convert a legend line to the original line
 
-            # Want to find both the plotline and associated legend line
-            # This is done by trying to lookup in both dictionaries
-            try: 
-                legline = self.pltline_dict[picked_line]
-                pltline = picked_line
-                # logging.debug(f'got {legline} from plotline')
-            except KeyError:
-                pltline = self.legline_dict[picked_line]
-                legline = picked_line
-                # logging.debug(f'got {pltline} from legline')
-            except Exception as e:
-                print(e)
-                print('dict lookup failed')
+            if self.legend_visible:
+                # Want to find both the plotline and associated legend line
+                # This is done by trying to lookup in both dictionaries
+                try: 
+                    legline = self.pltline_dict[picked_line]
+                    pltline = picked_line
+                    # logging.debug(f'got {legline} from plotline')
+                except KeyError:
+                    pltline = self.legline_dict[picked_line]
+                    legline = picked_line
+                    # logging.debug(f'got {pltline} from legline')
+                except Exception as e:
+                    print(e)
+                    print('dict lookup failed')
 
-            button = event.mouseevent.button
-            if button == 1:
-                #  Left click shows the line
-                pltline.set_alpha(1)
-                legline.set_alpha(1)
-            if button == 3:
-                #  Right click grays out the line
-                pltline.set_alpha(0.1)
-                legline.set_alpha(0.1)
+
+
+                button = event.mouseevent.button
+                if button == 1:
+                    #  Left click shows the line
+                    pltline.set_alpha(1)
+                    legline.set_alpha(1)
+                if button == 3:
+                    #  Right click grays out the line
+                    pltline.set_alpha(0.1)
+                    legline.set_alpha(0.1)
+            
+            else: 
+                button = event.mouseevent.button
+                if button == 1:
+                    #  Left click shows the line
+                    picked_line.set_alpha(1)
+
+                if button == 3:
+                    #  Right click grays out the line
+                    picked_line.set_alpha(0.1)
 
             self.canvas.draw_idle()
 
@@ -114,9 +128,9 @@ class PlotCanvas(QtWidgets.QMainWindow):
     def set_data(self, df, title=None, info=None):
         lines = len(df.columns) -1
         if lines > 15:
-            legend = False
+            self.legend_visible = False
         else:
-            legend = True
+            self.legend_visible = True
 
         if lines > 100:
             msg = QtWidgets.QMessageBox()
@@ -139,7 +153,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
                 x='wavelength', 
                 xlabel = 'Wavelength (nm)',
                 ylabel = 'Transmission (%)',
-                legend = legend)
+                legend = self.legend_visible)
         self.canvas.draw()
         self.canvas.mpl_connect('pick_event', self.onpick)
         # self.canvas.mpl_connect("motion_notify_event", self.hover)
@@ -149,7 +163,6 @@ class PlotCanvas(QtWidgets.QMainWindow):
 
         lines = self.canvas.axes.get_lines()
         for line in lines:
-            print(line)
             line.set_picker(True)
             line.pickradius=1
             color = line.get_color()
@@ -157,7 +170,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
 
         self.ax = self.canvas.axes
         
-        if legend:
+        if self.legend_visible:
             for legline, pltline in zip(self.ax.legend().get_lines(), lines):
                 legline.set_picker(True)  # Enable picking on the legend lines.
                 legline.pickradius=5
