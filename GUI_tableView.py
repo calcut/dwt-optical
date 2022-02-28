@@ -1,7 +1,7 @@
 
 import sys
 import pandas as pd
-from PySide6.QtWidgets import QLabel, QLineEdit, QMainWindow, QTableView, QWidget, QVBoxLayout, QTextEdit
+from PySide6.QtWidgets import QLabel, QLineEdit, QMainWindow, QTableView, QWidget, QVBoxLayout, QTextEdit, QHBoxLayout
 from PySide6.QtCore import QAbstractTableModel, Qt, QSortFilterProxyModel
 
 class MetaModel(QAbstractTableModel):
@@ -28,35 +28,7 @@ class MetaModel(QAbstractTableModel):
         if orientation == Qt.Vertical and role == Qt.DisplayRole:
             return self._data.index[col]
         return None
-
-class ExportModel(QAbstractTableModel):
-
-    def __init__(self, data):
-        QAbstractTableModel.__init__(self)
-        self._data = data
-
-    def rowCount(self, parent=None):
-        return self._data.shape[0]
-
-    def columnCount(self, parent=None):
-        return self._data.shape[1]
-
-    def data(self, index, role=Qt.DisplayRole):
-        if index.isValid():
-            if role == Qt.DisplayRole:
-                return str(self._data.iloc[index.row(), index.column()])
-        return None
-
-    def headerData(self, col, orientation, role):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return (f"{self._data.columns[col][0]}\n"
-                   +f"{self._data.columns[col][1]}\n"
-                   +f"{self._data.columns[col][2]}"
-            )
-        if orientation == Qt.Vertical and role == Qt.DisplayRole:
-            return self._data.index[col]
-        return None
-
+        
 class MetaTable(QMainWindow):
 
     def __init__(self, dataframe, title):
@@ -91,7 +63,33 @@ class MetaTable(QMainWindow):
     def updateFilter(self, text):
         self.proxyModel.setFilterWildcard(text)
 
+class ExportModel(QAbstractTableModel):
 
+    def __init__(self, data):
+        QAbstractTableModel.__init__(self)
+        self._data = data
+
+    def rowCount(self, parent=None):
+        return self._data.shape[0]
+
+    def columnCount(self, parent=None):
+        return self._data.shape[1]
+
+    def data(self, index, role=Qt.DisplayRole):
+        if index.isValid():
+            if role == Qt.DisplayRole:
+                return str(self._data.iloc[index.row(), index.column()])
+        return None
+
+    def headerData(self, col, orientation, role):
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            return (f"{self._data.columns[col][0]}\n"
+                   +f"{self._data.columns[col][1]}\n"
+                   +f"{self._data.columns[col][2]}"
+            )
+        if orientation == Qt.Vertical and role == Qt.DisplayRole:
+            return self._data.index[col]
+        return None
 
 class ExportTable(QMainWindow):
 
@@ -161,3 +159,54 @@ class SurfaceTable(QTableView):
         # Unsure why sorting doesn't work
         # self.setSortingEnabled(True)
 
+class PreviewModel(QAbstractTableModel):
+
+    def __init__(self, data):
+        QAbstractTableModel.__init__(self)
+        self._data = data
+
+    def rowCount(self, parent=None):
+        return self._data.shape[0]
+
+    def columnCount(self, parent=None):
+        return self._data.shape[1]
+
+    def data(self, index, role=Qt.DisplayRole):
+        if index.isValid():
+            if role == Qt.DisplayRole:
+                return str(self._data.iloc[index.row(), index.column()])
+        return None
+
+    def headerData(self, col, orientation, role):
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            return self._data.columns[col].replace('_', '\n')
+        if orientation == Qt.Vertical and role == Qt.DisplayRole:
+            return self._data.index[col]
+        return None
+
+class PreviewTable(QMainWindow):
+
+    def __init__(self, dataframe, title, common_info='', process_info=''):
+        super().__init__()
+
+        centralwidget = QWidget()
+        centralwidget.setObjectName(u"centralwidget")
+        self.setCentralWidget(centralwidget)
+        self.resize(950, 850)
+        self.setWindowTitle(title)
+
+        self.table = QTableView()
+        self.model = PreviewModel(dataframe)
+
+        self.table.setSortingEnabled(True)
+        self.table.setModel(self.model)
+
+        self.common_info = QLabel(f'Common Metadata:\n{common_info}')
+        self.process_info = QLabel(f'Process Info:\n{process_info}')
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.common_info)
+        hbox.addWidget(self.process_info)
+
+        self.VBoxTable = QVBoxLayout(centralwidget)
+        self.VBoxTable.addLayout(hbox)
+        self.VBoxTable.addWidget(self.table)
