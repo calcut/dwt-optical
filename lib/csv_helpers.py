@@ -176,7 +176,7 @@ def filter_by_metadata(metakey, metavalue, df, regex=False):
         return(exactdf)
 
 
-def export_dataframes(path='.', meta_df='index.tsv', outfile=None):
+def export_dataframes(path='.', meta_df='index.tsv', outfile=None, dp=None):
 
     if isinstance(meta_df, pd.DataFrame):
         pass
@@ -192,7 +192,12 @@ def export_dataframes(path='.', meta_df='index.tsv', outfile=None):
     for e in elements:
         logging.info(f'merging element {e}')
         selection = filter_by_metadata('element', e, meta_df)
-        element_df = merge_dataframes(selection, path)
+        element_df, title = merge_dataframes(selection, path)
+
+        #If a DataProcessor object has been provided, apply processing here.
+        if dp:
+            element_df = dp.process_dataframe(element_df)
+
         element_df = element_df.transpose()
 
         chems = meta_df[meta_df['element'] == e]['chemistry'].drop_duplicates().tolist()
@@ -201,7 +206,7 @@ def export_dataframes(path='.', meta_df='index.tsv', outfile=None):
             logging.error(f'Error, multiple chemistries {chems} found for element {e}')
             return
         if pd.isnull(chem):
-            chem = 'unknown chemistry'
+            chem = '-'
 
         header_row_names = ['Chemistry', 'Element', 'Wavelength']
         header_rows= [[f'{chem}'],[F'{e}'], element_df.loc['wavelength']]
