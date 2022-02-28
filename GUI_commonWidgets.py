@@ -130,9 +130,12 @@ class MetaFilter(QWidget):
                 filtered_df = csv.filter_by_metadata(key, value,
                      self.meta_df,
                      regex=wildcard)
+                self.selection_df.reset_index(inplace=True)
+                filtered_df.reset_index(inplace=True)
                 self.selection_df = pd.merge(self.selection_df,
                                              filtered_df,
                                              how = 'outer')
+                self.selection_df.set_index('index', verify_integrity=True, inplace=True)
 
         logging.info(f'{len(self.selection_df)} metadata rows in selection, '
             + f'with {self.selection_df["repeats"].sum()} total measurements')
