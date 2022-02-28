@@ -134,7 +134,9 @@ class MetaFilter(QWidget):
                                              filtered_df,
                                              how = 'outer')
 
-        logging.info(f'{len(self.selection_df)} metadata rows in selection')
+        logging.info(f'{len(self.selection_df)} metadata rows in selection, '
+            + f'with {self.selection_df["repeats"].sum()} total measurements')
+       
         self.new_selection_df.emit(self.selection_df)
         
     def add_sel_row(self):
