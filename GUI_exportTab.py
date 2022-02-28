@@ -13,15 +13,16 @@ class ExportWorker(QObject):
     finished = Signal()
     progress = Signal(int)
 
-    def __init__(self, metapath, meta_df, outfile):
+    def __init__(self, metapath, meta_df, outfile, data_proc=None):
         super().__init__()
         self.datadir = os.path.dirname(metapath)
         self.meta_df = meta_df
         self.outfile = outfile
+        self.data_proc = data_proc
 
     def run(self):
         logging.info(f'running csv.export_dataframes with path={self.datadir} meta_df=\n{self.meta_df}')
-        self.export = csv.export_dataframes(self.datadir, self.meta_df, self.outfile)
+        self.export = csv.export_dataframes(self.datadir, self.meta_df, self.outfile, dp=self.data_proc)
         self.finished.emit()
 
 class ExportTab(QWidget):
@@ -103,15 +104,11 @@ class ExportTab(QWidget):
             outfile = None
 
         self.thread = QThread()
-        try:
-            selection_df = self.metaFilter.selection_df
-            self.worker = ExportWorker(metapath, selection_df, outfile)
-            logging.info(f"Exporting selected data from {metapath}")
-        except AttributeError:
-            meta_df = self.metaBrowse.meta_df
-            self.worker = ExportWorker(metapath, meta_df, outfile)
-            logging.info(f"Exporting all data from {metapath}")            
 
+        selection_df = self.metaFilter.selection_df
+
+        self.worker = ExportWorker(metapath, selection_df, outfile, self.dataProcess.dp)
+        # self.worker = ExportWorker(metapath, selection_df, outfile)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.thread.quit)
