@@ -9,9 +9,9 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QVBoxLayout, QFileDialog, QPushButton, QLabel, QSpinBox)
 import logging
 from GUI_plotCanvas import PlotCanvas
-from GUI_tableView import ExportTable
+from GUI_tableView import PreviewTable
 import lib.csv_helpers as csv
-import lib.data_process as dp
+import lib.data_process
 
 
 class DataProcess(QWidget):
@@ -27,6 +27,8 @@ class DataProcess(QWidget):
         self.datadir = None
 
         self.plotcanvas = PlotCanvas()
+        self.selectedTable = None
+        self.dp = lib.data_process.DataProcessor()
 
         self.setObjectName(u"DataProcess")
         vbox = QVBoxLayout()
@@ -113,11 +115,15 @@ class DataProcess(QWidget):
         self.interpolate_sr_box.setStepType(QtWidgets.QAbstractSpinBox.StepType(1))
         self.grid.addWidget(self.interpolate_sr_box, row_interpolate, 3)
 
-    # def set_data_directly(self, df, title=None):
-    #     self.df = df
-    #     self.df_orig = self.df.copy()
-    #     self.title = title
-    #     self.title_orig = title
+        row_round = 4
+        self.round = QCheckBox()
+        self.grid.addWidget(self.round, row_round, 0)
+        self.grid.addWidget(QLabel("Round"), row_round, 1, alignment=Qt.AlignLeft)
+        self.grid.addWidget(QLabel("Decimal Places:"), row_round, 2, alignment=Qt.AlignRight)
+        self.round_box = QtWidgets.QSpinBox()
+        self.round_box.setValue(3)
+        self.round_box.setStepType(QtWidgets.QAbstractSpinBox.StepType(1))
+        self.grid.addWidget(self.round_box, row_round, 3)
 
     def set_data_from_selection_df(self):
         if self.selection_df is None:
@@ -149,51 +155,71 @@ class DataProcess(QWidget):
 
         if self.normalise.isChecked():
             logging.info('Normalising')
-            self.df = dp.normalise(self.df)
+            self.dp.apply_normalise = True
             self.process_info += 'Normalised\n'
+        else:
+            self.dp.apply_normalise = False
 
         if self.smooth.isChecked():
             smoothpoints = self.smoothpoints_box.value()
             logging.info(f'Smoothing using {smoothpoints} points')
-            self.df = dp.smooth(self.df, smoothpoints)
+            self.dp.smooth_points = smoothpoints
+            self.dp.apply_smooth = True
             self.process_info += f'Smoothed using {smoothpoints} points\n'
-
+        else:
+            self.dp.apply_smooth = False
 
         if self.trim.isChecked():
             wl_min = self.trim_min_box.value()
             wl_max = self.trim_max_box.value()
             logging.info(f'Trimming using wavelength from {wl_min} to {wl_max}')
-            self.df = dp.trim(self.df, wl_min, wl_max)
+            self.dp.wavelength_trim_min = wl_min
+            self.dp.wavelength_trim_max = wl_max
+            self.dp.apply_trim = True
             self.process_info += f'Wavelength Trimmed from {wl_min}nm to {wl_max}nm\n'
-
+        else:
+            self.dp.apply_trim = False
 
         if self.interpolate.isChecked():
             samplerate = self.interpolate_sr_box.value()
             logging.info(f'Interpolating to rate of {samplerate}nm')
-            self.df = dp.interpolate(self.df, samplerate)
+            self.dp.interpolate_sampling_rate = samplerate
+            self.dp.apply_interpolate = True
             self.process_info += f'Interploated to rate of {samplerate}nm\n'
-        
-        self.process_info = self.process_info[:-1]
+        else:
+            self.dp.apply_interpolate = False
 
+        if self.round.isChecked():
+            round_decimals = self.round_box.value()
+            logging.info(f'Rounding to {round_decimals} places')
+            self.dp.round_decimals = round_decimals
+            self.dp.apply_round = True
+            self.process_info += f'Rounded to {round_decimals} decimal places\n'
+        else:
+            self.dp.apply_round = False  
+
+        self.df = self.dp.process_dataframe(self.df)
+
+        # Drop the last newline
+        self.process_info = self.process_info[:-1]
 
         if self.plotcanvas.plot_visible:
             self.plotcanvas.set_data(self.df, self.title, self.process_info)
-
         
     def preview(self):
-        title = 'Processed Data'
-        try:
-            self.selectedTable = ExportTable(self.df, title)
-            self.selectedTable.show()
-        except AttributeError:
-            logging.error("Please select data first")
+        if self.df is None:
+            self.apply()
+
+        windowtitle = 'Processed Data'
+        print(self.df)
+        self.selectedTable = PreviewTable(self.df, windowtitle, 
+            common_info= self.title,
+            process_info= self.process_info)
+        self.selectedTable.show()
 
     def plot(self):
-        try:
-            self.plotcanvas.set_data(self.df, self.title, self.process_info)
-            # self.plotcanvas.show()
-        except AttributeError:
-            logging.error("Please Apply filter first")
+        self.apply() # Apply latest changes first
+        self.plotcanvas.set_data(self.df, self.title, self.process_info)
 
 if __name__ == "__main__":
 
