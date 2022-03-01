@@ -30,7 +30,7 @@ def store(df, metadata, path='./raw'):
     if not os.path.exists(path):
         os.makedirs(path)
 
-    metapath = os.path.join(path, "index.tsv")
+    metapath = os.path.join(path, "index.txt")
     if os.path.isfile(metapath):
         meta_df = read_metadata(metapath)
     else:
@@ -51,7 +51,7 @@ def store(df, metadata, path='./raw'):
     e = metadata['element']
 
     meas_id = F"{d}-{s}-{f}-{e}"
-    datapath = os.path.join(path, s, f'{meas_id}.tsv')
+    datapath = os.path.join(path, s, f'{meas_id}.txt')
 
     os.makedirs(os.path.dirname(datapath), exist_ok=True)
 
@@ -124,7 +124,7 @@ def merge_dataframes(meta_df, path='./raw'):
 
         # locate the datafile and read it in
         subdir = meta_df.loc[row]['sensor']
-        datapath = os.path.join(path, subdir, f'{row}.tsv') 
+        datapath = os.path.join(path, subdir, f'{row}.txt') 
         df = pd.read_csv(datapath, sep='\t')
 
         # Name the output columns based on metadata
@@ -134,7 +134,7 @@ def merge_dataframes(meta_df, path='./raw'):
                 name = str()
                 for label in individual_meta:
                     name += f'{meta_df.loc[row][label]}_'
-                col_names.append(name[:-1])
+                col_names.append(f'{name[:-1]}_{col}')
             df.columns = col_names
 
         if len(result) > 0:
@@ -158,25 +158,25 @@ def merge_dataframes(meta_df, path='./raw'):
     return result, title
     
 
-def filter_by_metadata(metakey, metavalue, df, regex=False):
+def select_from_metadata(metakey, metavalue, meta_df, regex=False):
     
     try:
-        df[metakey]
+        meta_df[metakey]
     except KeyError:
         logging.error(f'Key "{metakey}" not found in dataframe')
         return pd.DataFrame()
 
     if regex:
         logging.info(f'filtering by metadata "{metakey}" containing "{metavalue}"')
-        regexdf = df[df[metakey].astype(str).str.contains(str(metavalue))]
+        regexdf = meta_df[meta_df[metakey].astype(str).str.contains(str(metavalue))]
         return(regexdf)
     else:
         logging.info(f'filtering by metadata "{metakey}" == "{metavalue}"')
-        exactdf = df.loc[df[metakey].astype(str) == str(metavalue)]
+        exactdf = meta_df.loc[meta_df[metakey].astype(str) == str(metavalue)]
         return(exactdf)
 
 
-def export_dataframes(path='.', meta_df='index.tsv', outfile=None, dp=None):
+def export_dataframes(path='.', meta_df='index.txt', outfile=None, dp=None):
 
     if isinstance(meta_df, pd.DataFrame):
         pass
@@ -191,7 +191,7 @@ def export_dataframes(path='.', meta_df='index.tsv', outfile=None, dp=None):
     frames=[]
     for e in elements:
         logging.info(f'merging element {e}')
-        selection = filter_by_metadata('element', e, meta_df)
+        selection = select_from_metadata('element', e, meta_df)
         element_df, title = merge_dataframes(selection, path)
 
         #If a DataProcessor object has been provided, apply processing here.
@@ -241,7 +241,6 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
         match = re.search(regex, filename)
         if not match:
             logging.warning(F"regex not matched on filename: {filename}")
-            # print(F"Warning regex not matched on filename: {filename}")
             continue
 
         # Create a metadata dictionary with info extracted from filename
@@ -256,11 +255,6 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
             #Otherwise, don't modify it
             pass
 
-        # Shorthand for some metadata values, to be used in Fstrings
-        s = metadata['sensor']
-        f = metadata['fluid']
-        e = metadata['element']
-
         # Read the file contents into a dataframe
         df = pd.read_csv(os.path.join(input_dir, filename), sep=separator)
         
@@ -272,8 +266,8 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
             col_names.append(f'rep{r+1}')
         df.columns = col_names
 
-        # todo, the 'store' function reads and writes the full metadata file
-        # each time, so definitely room for improvement here.
+        # TODO, the 'store' function reads and writes the full metadata file
+        # each time, so room for improvement here.
         datapath = store(df, metadata, output_dir)
         logging.info(f'imported {filename} to {datapath}')
 
