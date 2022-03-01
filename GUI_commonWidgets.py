@@ -22,7 +22,7 @@ class MetaBrowse(QWidget):
     def __init__(self):
         QWidget.__init__(self)
 
-        default_metafile = './imported/index.tsv'
+        default_metafile = './imported/index.txt'
 
         label_index = QLabel("Metadata Index File:")
 
@@ -48,7 +48,7 @@ class MetaBrowse(QWidget):
         self.setLayout(hbox_input)
 
     def get_meta(self):
-        metafile, _ = QFileDialog.getOpenFileName(self, "Metadata File:", filter ='(*.csv *.tsv)')
+        metafile, _ = QFileDialog.getOpenFileName(self, "Metadata File:", filter ='(*.csv *.tsv *.txt)')
         self.tbox_meta.setText(metafile)
         self.update_meta_df()
 
@@ -123,11 +123,11 @@ class MetaFilter(QWidget):
             if key == '':
                 continue
             if logic == 'AND':
-                self.selection_df = csv.filter_by_metadata(key, value,
+                self.selection_df = csv.select_from_metadata(key, value,
                      self.selection_df,
                      regex=wildcard)
             if logic == 'OR':
-                filtered_df = csv.filter_by_metadata(key, value,
+                filtered_df = csv.select_from_metadata(key, value,
                      self.meta_df,
                      regex=wildcard)
                 self.selection_df.reset_index(inplace=True)

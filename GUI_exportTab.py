@@ -31,7 +31,7 @@ class ExportTab(QWidget):
         QWidget.__init__(self)
         self.setObjectName(u"ExportTab")
 
-        # default_outfile = './export.tsv'
+        # default_outfile = './export.txt'
         default_outfile = ''
 
         # Make a Vertical layout within the new tab

@@ -17,7 +17,7 @@ class SurfacesTab(QWidget):
         QWidget.__init__(self)
         self.setObjectName(u"SurfacesTab")
 
-        default_metafile = './imported/index.tsv'
+        default_metafile = './imported/index.txt'
 
         self.surfaceData = {
             'element'             : None,

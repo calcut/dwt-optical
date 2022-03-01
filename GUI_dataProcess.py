@@ -228,13 +228,13 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     window = DataProcess()
 
-    meta_tbox = './imported/index.tsv'
+    meta_tbox = './imported/index.txt'
 
     meta_df = csv.read_metadata(meta_tbox)
     metapath = os.path.abspath(meta_tbox)
     datadir = os.path.dirname(metapath)
-    selection_df = csv.filter_by_metadata('element', '01', meta_df)
-    selection_df = csv.filter_by_metadata('fluid', 'Beer', selection_df)
+    selection_df = csv.select_from_metadata('element', '01', meta_df)
+    selection_df = csv.select_from_metadata('fluid', 'Beer', selection_df)
     df, title = csv.merge_dataframes(selection_df, datadir)
 
     # window.set_data(df, title)
