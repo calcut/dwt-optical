@@ -33,11 +33,11 @@ class DataProcessor():
     def __init__(self):
 
         # Some defaults
-        self.interpolate_sampling_rate = 1.0
         self.smooth_points=3
         self.wavelength_trim_min = 540
         self.wavelength_trim_max = 730
         self.round_decimals = 3
+        self.interpolate_sampling_rate = 1.0
 
         self.apply_normalise = True
         self.apply_smooth = True
