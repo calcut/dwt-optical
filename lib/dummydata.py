@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 from datetime import datetime
-import h5_helpers as h5
-import csv_helpers as csv
+import lib.csv_helpers as csv
 import string
 import shutil
 import random
@@ -22,7 +21,6 @@ instrument = {
 # Set up parameters describing a run of measurements
 # Affects how much data is generated in the dummy data function
 defaults = {
-    'filename'          : 'test.hdf5',
     'output_dir'        : './dummydata',
     'instrument'        : instrument,
     'fluid_list'        : ['water', 'beer1', 'beer2'],
@@ -72,41 +70,7 @@ def dummyMeasurement(run):
     df = pd.DataFrame(data=dummycsv, dtype=np.float32)
     return df
 
-def fill_hdf(run):
-    #'run' is a dictionary of the same format as 'defaults'
-    metadata = {}
-    if os.path.exists(run['filename']):
-        os.remove(run['filename'])
-
-    if run['elements'] == 'all':
-        elements = get_element_list(instrument['element_rows'],instrument['element_cols'])
-    else:
-        elements = run['elements']
-
-    date = datetime.utcnow().strftime('%Y_%m_%d')
-    run['measuredOn'] = date
-
-    metadata['instrument'] = instrument['name']
-
-    for f in run['fluid_list']:
-        metadata['fluid'] = str(f)
-
-        for e in elements:
-            metadata['element_index'] = str(e)
-
-            for r in range(run['repeats']):
-                rep = r+1 # Start counting at 1 not 0
-                metadata['repeat'] = str(rep)
-
-                hdfkey = F"{instrument['name']}/_{date}/{f}/{e}_rep{rep}"
-                df = dummyMeasurement(run)
-                df.rename(columns={"transmission" : F"{f}_rep{rep}"}, inplace=True)
-                metadata['timestamp'] = datetime.timestamp(datetime.now())
-                h5.store(run['filename'], hdfkey, df, metadata)
-
-
-
-def generate_tsv(run, append=True):
+def generate_tsv(run, append=False):
     #'run' is a dictionary of the same format as 'defaults'
     metadata = {}
     if not append:
@@ -128,7 +92,7 @@ def generate_tsv(run, append=True):
             metadata['element'] = str(e)
             metadata['chemistry'] = run['instrument']['chemistry_map'][str(e)]
             for r in range(run['repeats']):
-                stamp = pd.Timestamp.utcnow().timestamp()
+                stamp = round(pd.Timestamp.utcnow().timestamp())
                 metadata['timestamp'] = stamp
                 df = dummyMeasurement(run)
                 df.rename(columns={"transmission" : F"{stamp}"}, inplace=True)
