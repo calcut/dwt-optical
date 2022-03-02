@@ -1,3 +1,4 @@
+from curses import meta
 import pandas as pd
 import os
 import re
@@ -5,27 +6,65 @@ import shutil
 from IPython.display import display
 import logging
 
-# logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 
 default_metadata = {
+
+    'index'             : None,
+    'date'              : None,
+    'instrument'        : None,
     'sensor'            : None,
     'element'           : None,
     'chemistry'         : None,
     'fluid'             : None,
     'repeats'           : None,
-    'date'              : None,
-    'hidden'            : False
+    'hidden'            : None,
+    'comment'           : None,
 }
 
+# Must be able to uniquely identify measurements
+# Any measurements with matching primary metadata are treated as repeats
 primary_metadata = [
-    'date',
-    'sensor',
+    'instrument',
+    'fluid',
     'element',
-    'fluid'
 ]
 
-def store(df, metadata, path='./raw'):
+instrument = {
+    'name'              : 'instrument01',
+    'sensor'            : 'DUM01',
+    'element_map'       : { 'A01': 'Barium',
+                            'A02': 'Bromine',
+                            'A03': 'Lanthanum',
+                            'A04': 'Titanium',
+                            'B01': 'Chromium',
+                            'B02': 'Arsenic',
+                            'B03': 'Krypton',
+                            'B04': 'Nitrogen',
+                            'C01': 'Fluorine',
+                            'C02': 'Manganese',
+                            'C03': 'Cadmium',
+                            'C04': 'Arsenic',
+                            'D01': 'Argon',
+                            'D02': 'Copper',
+                            'D03': 'Aluminium',
+                            'D04': 'Selenium',
+                            },
+    'light Source'      : 'Stellarnet LED White',
+    'spectrometer'      : 'Stellarnet BlueWave VIS-25',
+}
+
+setup = {
+    'output_dir'        : './dummydata',
+    'fluids'            : ['water', 'beer1', 'beer2'],
+    'elements'          : 'all',
+    'repeats'           : 3,
+    'wavelength_range'  : [400, 420, 0.5], #start, stop, step
+    'primary_metadata'  : ['instrument', 'element', 'fluid'],
+}
+
+def store(df, metadata, path='./raw', primary_keys=None):
 
     if not os.path.exists(path):
         os.makedirs(path)
@@ -45,23 +84,37 @@ def store(df, metadata, path='./raw'):
 
     metadata['date'] = date_obj.strftime('%Y-%m-%d')
 
+
     d = metadata['date']
     s = metadata['sensor']
     f = metadata['fluid']
     e = metadata['element']
 
-    meas_id = F"{d}-{s}-{f}-{e}"
+    # Allows overriding of default Primary Metadata as used for file naming
+    if primary_keys: 
+        meas_id = ''
+        for k in primary_keys:
+            meas_id += f'{metadata[k]}-'
+        meas_id = meas_id[:-1]
+
+    #Default Primary Metadata
+    else:
+        meas_id = F"{d}-{s}-{f}-{e}"
+
     datapath = os.path.join(path, s, f'{meas_id}.txt')
 
     os.makedirs(os.path.dirname(datapath), exist_ok=True)
 
     # Check if the file exists, then write the data 
     if not os.path.isfile(datapath):
+        logging.info(f'Saving data into new file {meas_id}.txt')
         with open(datapath, 'w') as f:
             df.to_csv(f, index=False, sep='\t', mode='w')
 
     # If file exists, read it, merge, then rewrite the data
     else:
+        logging.warning(f'Merging new data into existing file {meas_id}.txt')
+
         with open(datapath, 'r+') as f:
             existing_df = pd.read_csv(f, sep='\t')
             df = pd.merge(df, existing_df, how='outer', on='wavelength')
@@ -95,8 +148,7 @@ def store(df, metadata, path='./raw'):
         #     + f"updating rep count to {metadata['repeats']}")
         meta_df.at[meas_id, 'repeats'] = metadata['repeats']
 
-            
-    meta_df.to_csv(f'{metapath}', index=True, sep='\t', na_rep='')
+    meta_df.to_csv(f'{metapath}', index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
     return datapath
 
 
@@ -225,7 +277,7 @@ def export_dataframes(path='.', meta_df='index.txt', outfile=None, dp=None):
     return exportframe
 
 
-def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False):
+def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False, primary_keys=None):
 
     if not os.path.exists(input_dir):
         logging.error('import folder not found')
@@ -268,7 +320,7 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
 
         # TODO, the 'store' function reads and writes the full metadata file
         # each time, so room for improvement here.
-        datapath = store(df, metadata, output_dir)
+        datapath = store(df, metadata, output_dir, primary_keys)
         logging.info(f'imported {filename} to {datapath}')
 
 def read_metadata(metapath):
@@ -323,3 +375,157 @@ def isOnetoMany(df, col1, col_many):
     # relationship 
 
     return first == 1
+
+def generate_run_list(setup, instrument):
+    '''
+    For doing a bulk run of measurements.
+    This generates a list (dataframe) of metadata describing the measuremnts
+
+    Takes dictionaries called setup{} and instrument{} in the example format
+    provided. Measurement rows are generated for all permutations of fluids and
+    elements.
+    '''
+
+    # Create a blank table (really a dict of lists) with default headers
+    # NB It is bad practice to append to Dataframes, so will convert to
+    # dataframe at the end
+    run_list = default_metadata.copy()
+    for key in run_list.keys():
+        run_list[key] = []
+
+    # List of elements can be specified in the setup{}, or can use 'all'.
+    if setup['elements'] == 'all':
+        elements = instrument['element_map'].keys()
+    else:
+        elements = setup['elements']
+
+    # Build the run list, row by row
+    for f in setup['fluids']:
+        for e in elements:
+                row = {}
+                index = ''
+                row['date'] = 'Not Run Yet'
+                row['instrument'] = instrument['name']
+                row['sensor'] = instrument['sensor']
+                row['element'] = e
+                row['chemistry'] = instrument['element_map'][e]
+                row['fluid'] = f
+                row['repeats'] = setup['repeats']
+                row['hidden'] = False
+                row['comment'] = ''
+
+                # Build the index as a string based on primary metadata
+                for key in setup['primary_metadata']:
+                    index += f'{row[key]}-'
+                row['index'] = (index[:-1])
+
+                for key in row.keys():
+                    run_list[key].append(row[key])
+
+    # Convert to dataframe now (avoids iteratively appending to the dataframe)
+    run_df = pd.DataFrame(run_list)
+    
+    # Specify that the 'index' column should be treated as the index
+    run_df = run_df.set_index('index')
+
+    return run_df
+
+def write_df_txt(df, datapath, merge=True):
+    '''
+    df is the new data frame to be saved / merged in
+    datapath should be the full path including the .txt filename
+
+    returns the total number of measurements in datapath after the merge
+    '''
+
+    os.makedirs(os.path.dirname(datapath), exist_ok=True)
+
+    # Check if the file exists, then write the data 
+    if not os.path.isfile(datapath):
+        logging.info(f'Saving into new file {datapath}')
+        df.to_csv(datapath, index=False, sep='\t', mode='w')
+        n = len(df.columns) -1
+
+    # If file exists, read it, merge, then rewrite the data
+    else:
+        if merge:
+            logging.info(f'Merging into existing {datapath}')
+
+            with open(datapath, 'r+') as f:
+                existing_df = pd.read_csv(f, sep='\t')
+
+                df = pd.merge(df, existing_df, how='outer', on='wavelength')
+
+                #relabel columns  -  Unless they are timestamped
+                col_names = ['wavelength']
+                n=0
+                for col in df.columns[1:]:
+                    n += 1
+                    try:
+                        pd.Timestamp(float(col), unit='s')
+                        col_names.append(col)
+                    except ValueError:
+                        # col_names.append(f'rep{col}')
+                        col_names.append(f"rep{n:02d}")
+                df.columns = col_names
+                    
+                f.seek(0,0)
+                df.to_csv(f, index=False, sep='\t', mode='w')
+        else:
+            logging.warning(f'{datapath} exists, and merge=False, did not write')
+            n = 0 
+    return n
+
+def write_meta_df_txt(meta_df, metapath, merge=True):
+    
+    if not os.path.isfile(metapath):
+        logging.info(f'Saving into new file {metapath}')
+        meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
+
+    # If file exists, read it, merge, then rewrite the data
+    else:
+        if merge:
+            logging.info(f'Merging into existing {metapath}')
+
+            with open(metapath, 'r+') as f:
+                existing_df = read_metadata(metapath)
+                meta_df = pd.merge(meta_df, existing_df, how='outer', indicator=True)
+                print(meta_df)
+                f.seek(0,0)
+                meta_df.to_csv(f, index=False, sep='\t', mode='w')
+        else:
+            logging.warning(f'{metapath} exists, and merge=False, did not write')
+
+def bulk_measurement(setup, run_df, measure_func):
+    '''
+    For doing a bulk run of measurements.
+    This iterates through a run list (run_df), calling measure_func for each
+    repeat of each row.
+
+    Data is saved into .txt files named according the index of the row in the
+    run_df. The output directory is defined in setup{}
+
+    the date column in run_df is populated, and then saved as index.txt in the
+    output directory
+    '''
+    for index, row in run_df.iterrows():
+        df = pd.DataFrame()
+        for rep in range(row['repeats']):
+            single_df = measure_func(setup, row)
+            if len(df > 0):
+                df = pd.merge(df, single_df, how='outer', on='wavelength')
+            else:
+                df = single_df
+
+        datapath = os.path.join(setup['output_dir'], row['fluid'], f'{index}.txt')
+        total_reps = write_df_txt(df, datapath)
+
+        # Update the date and repeats columns in the run_df
+        run_df.at[index, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+        run_df.at[index, 'repeats'] = total_reps
+
+    # Set date column to be correct time for merging with existing files
+    run_df['date'] = run_df['date'].astype('datetime64')
+    metapath = os.path.join(setup['output_dir'], 'index.txt')
+    
+    write_meta_df_txt(run_df, metapath)
