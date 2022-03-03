@@ -57,6 +57,7 @@ instrument = {
 
 setup = {
     'output_dir'        : './dummydata',
+    'subdirs'           : ['fluid'], #Directory structure for data.txt files
     'fluids'            : ['water', 'beer1', 'beer2'],
     'elements'          : 'all',
     'repeats'           : 3,
@@ -152,12 +153,15 @@ def store(df, metadata, path='./raw', primary_keys=None):
     return datapath
 
 
-# Extracts dataframes from files and merges them into a single dataframe
-# Requires a metadata frame to know which measurements to select
-# Columns are renamed to show only the relevant metadata
-# Outer join means that rows from all dataframes are preserved, and NaN is
-# filled where needed
+
 def merge_dataframes(meta_df, path='./raw'):
+    '''
+    Extracts dataframes from files and merges them into a single dataframe
+    Requires a metadata frame to know which measurements to select
+    Columns are renamed to show only the relevant metadata
+    Outer join means that rows from all dataframes are preserved, and NaN is
+    filled where needed
+    '''
     result = []
 
     # For re-labelling the merged dataframe:
@@ -166,7 +170,6 @@ def merge_dataframes(meta_df, path='./raw'):
     individual_meta = meta_df.columns[meta_df.nunique() > 1]
 
     # Ignore columns which aren't considered primary metadata
-    # primary_metadata = ['date', 'sensor', 'fluid',' element']
     individual_meta = individual_meta.intersection(primary_metadata)
 
     # Identify primary metadata that is common for all measurements
@@ -426,6 +429,7 @@ def generate_run_list(setup, instrument):
                 for col in row.keys():
                     run_list[col].append(row[col])
 
+    # Convert the lists into pandas series with appropriate datatypes
     for col in run_list.keys():
         run_list[col] = pd.Series(run_list[col], dtype=default_metadata[col])
 
@@ -433,13 +437,13 @@ def generate_run_list(setup, instrument):
     run_df = pd.DataFrame(run_list)
 
     # Specify that the 'index' column should be treated as the index
-    run_df = run_df.set_index('index')
+    run_df.set_index('index', inplace=True)
 
     return run_df
 
 def write_df_txt(df, datapath, merge=True):
     '''
-    df is the new data frame to be saved / merged in
+    df is the new data frame to be saved / merged
     datapath should be the full path including the .txt filename
     '''
 
@@ -505,17 +509,17 @@ def write_meta_df_txt(meta_df, metapath, merge=True, subdirs='fluid'):
 
                 # Deal with 'repeat' counts by actually opening the data files
                 # and counting the columns. Seems heavy handed but will
-                # ensure they don't get out of sync!
+                # ensure they don't get out of sync.
                 path = os.path.dirname(metapath)
-                for index in meta_df.index:
-                    if index in existing_df.index:
-                        subdir = meta_df.loc[index][subdirs] #Typically 'fluid'
-                        datapath = os.path.join(path, subdir, f'{index}.txt')
+                for row in meta_df.index:
+                    if row in existing_df.index:
+                        subdir = meta_df.loc[row][subdirs] #Typically 'fluid'
+                        datapath = os.path.join(path, subdir, f'{row}.txt')
                         with open(datapath, 'r') as d:
                             df = pd.read_csv(d, sep='\t')
                         reps = len(df.columns) -1
-                        meta_df.at[index, 'repeats'] = reps
-                        existing_df.at[index, 'repeats'] = reps
+                        meta_df.at[row, 'repeats'] = reps
+                        existing_df.at[row, 'repeats'] = reps
 
                 meta_df.reset_index(inplace=True)
                 existing_df.reset_index(inplace=True)
@@ -591,11 +595,11 @@ def bulk_merge(input_metapath, output_metapath, delete_input=False,
 
     meta_df = read_metadata(input_metapath)
 
-    for index in meta_df.index:
-        in_subdir = meta_df.loc[index][in_subdirs]
-        out_subdir = meta_df.loc[index][out_subdirs]
-        input_datapath = os.path.join(input_path, in_subdir, f'{index}.txt')
-        output_datapath = os.path.join(output_path, out_subdir, f'{index}.txt')
+    for row in meta_df.index:
+        in_subdir = meta_df.loc[row][in_subdirs]
+        out_subdir = meta_df.loc[row][out_subdirs]
+        input_datapath = os.path.join(input_path, in_subdir, f'{row}.txt')
+        output_datapath = os.path.join(output_path, out_subdir, f'{row}.txt')
         with open(input_datapath, 'r') as f:
             df = pd.read_csv(f, sep='\t')
 
