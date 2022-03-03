@@ -10,17 +10,17 @@ logging.basicConfig(level=logging.INFO)
 
 
 default_metadata = {
-
-    'index'             : None,
-    'date'              : None,
-    'instrument'        : None,
-    'sensor'            : None,
-    'element'           : None,
-    'chemistry'         : None,
-    'fluid'             : None,
-    'repeats'           : None,
-    'hidden'            : None,
-    'comment'           : None,
+    # Column              Datatype
+    'index'             : 'string',
+    'date'              : 'datetime64[ns]',
+    'instrument'        : 'string',
+    'sensor'            : 'string',
+    'element'           : 'string',
+    'chemistry'         : 'string',
+    'fluid'             : 'string',
+    'repeats'           : 'Int64',
+    'hidden'            : 'boolean',
+    'comment'           : 'string',
 }
 
 # Must be able to uniquely identify measurements
@@ -101,7 +101,7 @@ def store(df, metadata, path='./raw', primary_keys=None):
     else:
         meas_id = F"{d}-{s}-{f}-{e}"
 
-    datapath = os.path.join(path, s, f'{meas_id}.txt')
+    datapath = os.path.join(path, f, f'{meas_id}.txt')
 
     os.makedirs(os.path.dirname(datapath), exist_ok=True)
 
@@ -325,13 +325,17 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
 
 def read_metadata(metapath):
     if os.path.isfile(metapath):
+
+        # Import the metadata and apply the appropriate datatypes 
+        # 'date' needs to be treated separately using parse_dates
+        dtypes = default_metadata.copy()
+        dtypes.pop('date')
+
         meta_df = pd.read_csv(metapath,
                         sep='\t',
                         index_col='index',
                         parse_dates=['date'],
-                        dtype={'element' : str,
-                               'chemistry' : str
-                               }
+                        dtype=dtypes,
                         )
         logging.debug(f'Loaded Metadata Index from {metapath}')
     else:
@@ -390,8 +394,8 @@ def generate_run_list(setup, instrument):
     # NB It is bad practice to append to Dataframes, so will convert to
     # dataframe at the end
     run_list = default_metadata.copy()
-    for key in run_list.keys():
-        run_list[key] = []
+    for col in run_list.keys():
+        run_list[col] = []
 
     # List of elements can be specified in the setup{}, or can use 'all'.
     if setup['elements'] == 'all':
@@ -404,7 +408,7 @@ def generate_run_list(setup, instrument):
         for e in elements:
                 row = {}
                 index = ''
-                row['date'] = 'Not Run Yet'
+                row['date'] = pd.NaT
                 row['instrument'] = instrument['name']
                 row['sensor'] = instrument['sensor']
                 row['element'] = e
@@ -412,19 +416,22 @@ def generate_run_list(setup, instrument):
                 row['fluid'] = f
                 row['repeats'] = setup['repeats']
                 row['hidden'] = False
-                row['comment'] = ''
+                row['comment'] = pd.NA
 
                 # Build the index as a string based on primary metadata
                 for key in setup['primary_metadata']:
                     index += f'{row[key]}-'
                 row['index'] = (index[:-1])
 
-                for key in row.keys():
-                    run_list[key].append(row[key])
+                for col in row.keys():
+                    run_list[col].append(row[col])
+
+    for col in run_list.keys():
+        run_list[col] = pd.Series(run_list[col], dtype=default_metadata[col])
 
     # Convert to dataframe now (avoids iteratively appending to the dataframe)
     run_df = pd.DataFrame(run_list)
-    
+
     # Specify that the 'index' column should be treated as the index
     run_df = run_df.set_index('index')
 
@@ -434,8 +441,6 @@ def write_df_txt(df, datapath, merge=True):
     '''
     df is the new data frame to be saved / merged in
     datapath should be the full path including the .txt filename
-
-    returns the total number of measurements in datapath after the merge
     '''
 
     os.makedirs(os.path.dirname(datapath), exist_ok=True)
@@ -444,7 +449,6 @@ def write_df_txt(df, datapath, merge=True):
     if not os.path.isfile(datapath):
         logging.info(f'Saving into new file {datapath}')
         df.to_csv(datapath, index=False, sep='\t', mode='w')
-        n = len(df.columns) -1
 
     # If file exists, read it, merge, then rewrite the data
     else:
@@ -473,11 +477,20 @@ def write_df_txt(df, datapath, merge=True):
                 df.to_csv(f, index=False, sep='\t', mode='w')
         else:
             logging.warning(f'{datapath} exists, and merge=False, did not write')
-            n = 0 
-    return n
 
-def write_meta_df_txt(meta_df, metapath, merge=True):
-    
+def write_meta_df_txt(meta_df, metapath, merge=True, subdirs='fluid'):
+    '''
+    Writes a meta_df to metapath (index.txt)
+    If file exists will try to merge them. The merge will fail if 2 rows have
+    identical index names, but different data in the columns. 
+
+    An exception is for the 'repeats' column, where it opens the data files to
+    check how many repeats are actually present.
+
+    NB - To get the correct repeat count, any new data files must be
+    written/merged before this function is run.
+    '''
+
     if not os.path.isfile(metapath):
         logging.info(f'Saving into new file {metapath}')
         meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
@@ -489,14 +502,43 @@ def write_meta_df_txt(meta_df, metapath, merge=True):
 
             with open(metapath, 'r+') as f:
                 existing_df = read_metadata(metapath)
-                meta_df = pd.merge(meta_df, existing_df, how='outer', indicator=True)
-                print(meta_df)
+
+                # Deal with 'repeat' counts by actually opening the data files
+                # and counting the columns. Seems heavy handed but will
+                # ensure they don't get out of sync!
+                path = os.path.dirname(metapath)
+                for index in meta_df.index:
+                    if index in existing_df.index:
+                        subdir = meta_df.loc[index][subdirs] #Typically 'fluid'
+                        datapath = os.path.join(path, subdir, f'{index}.txt')
+                        with open(datapath, 'r') as d:
+                            df = pd.read_csv(d, sep='\t')
+                        reps = len(df.columns) -1
+                        meta_df.at[index, 'repeats'] = reps
+                        existing_df.at[index, 'repeats'] = reps
+
+                meta_df.reset_index(inplace=True)
+                existing_df.reset_index(inplace=True)
+
+                meta_df = pd.merge(meta_df, existing_df, how='outer')
+
+                # Specify that the 'index' column should be treated as the
+                # index. If the merge has not worked correctly this will fail
+                # due to duplicate index keys. Likely to happen if the primary
+                # metadata is not enough to uniquely identify mesurements.
+                try:
+                    meta_df.set_index('index', verify_integrity=True, inplace=True)
+                except ValueError as e:
+                    logging.error('Could not merge meta_df')
+                    logging.error(e.args)
+                    display(meta_df)
+
                 f.seek(0,0)
-                meta_df.to_csv(f, index=False, sep='\t', mode='w')
+                meta_df.to_csv(f'{metapath}', index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
         else:
             logging.warning(f'{metapath} exists, and merge=False, did not write')
 
-def bulk_measurement(setup, run_df, measure_func):
+def bulk_measurement(setup, run_df, measure_func, subdirs='fluid'):
     '''
     For doing a bulk run of measurements.
     This iterates through a run list (run_df), calling measure_func for each
@@ -517,15 +559,49 @@ def bulk_measurement(setup, run_df, measure_func):
             else:
                 df = single_df
 
-        datapath = os.path.join(setup['output_dir'], row['fluid'], f'{index}.txt')
-        total_reps = write_df_txt(df, datapath)
+        datapath = os.path.join(setup['output_dir'], row[subdirs], f'{index}.txt')
+        write_df_txt(df, datapath)
 
-        # Update the date and repeats columns in the run_df
+        # Update the date column in the run_df
         run_df.at[index, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
-        run_df.at[index, 'repeats'] = total_reps
 
     # Set date column to be correct time for merging with existing files
-    run_df['date'] = run_df['date'].astype('datetime64')
+    # run_df['date'] = run_df['date'].astype('datetime64')
     metapath = os.path.join(setup['output_dir'], 'index.txt')
     
     write_meta_df_txt(run_df, metapath)
+
+def bulk_merge(input_metapath, output_metapath, delete_input=False, 
+                in_subdirs='fluid', out_subdirs='fluid'):
+    '''
+    For doing a bulk copy/merge of one data directory to another.
+    
+    Also useful for modifying a folder structure from e.g. grouped by 'fluid'
+    subdirectories to grouped by 'sensor' subdirectories
+
+    This iterates through an input index.txt, reading in each datafile and
+    writing it to the output directory structure, merging with existing files
+    where appropriate.
+
+    The index.txt file is also written/merged with any existing one.
+    '''
+
+    input_path = os.path.dirname(input_metapath)
+    output_path = os.path.dirname(output_metapath)
+
+    meta_df = read_metadata(input_metapath)
+
+    for index in meta_df.index:
+        in_subdir = meta_df.loc[index][in_subdirs]
+        out_subdir = meta_df.loc[index][out_subdirs]
+        input_datapath = os.path.join(input_path, in_subdir, f'{index}.txt')
+        output_datapath = os.path.join(output_path, out_subdir, f'{index}.txt')
+        with open(input_datapath, 'r') as f:
+            df = pd.read_csv(f, sep='\t')
+
+        write_df_txt(df, output_datapath)
+    
+    write_meta_df_txt(meta_df, output_metapath)
+
+    if delete_input:
+        shutil.rmtree(input_path)
