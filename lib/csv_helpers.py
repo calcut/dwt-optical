@@ -1,5 +1,7 @@
+from cProfile import run
 from curses import meta
 import pandas as pd
+import numpy as np
 import os
 import re
 import shutil
@@ -9,27 +11,13 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 
-default_metadata = {
-    # Column              Datatype
-    'index'             : 'string',
-    'date'              : 'datetime64[ns]',
-    'instrument'        : 'string',
-    'sensor'            : 'string',
-    'element'           : 'string',
-    'chemistry'         : 'string',
-    'fluid'             : 'string',
-    'repeats'           : 'Int64',
-    'hidden'            : 'boolean',
-    'comment'           : 'string',
-}
-
-# Must be able to uniquely identify measurements
-# Any measurements with matching primary metadata are treated as repeats
-primary_metadata = [
-    'instrument',
-    'fluid',
-    'element',
-]
+# # Must be able to uniquely identify measurements
+# # Any measurements with matching primary metadata are treated as repeats
+# primary_metadata = [
+#     'instrument',
+#     'fluid',
+#     'element',
+# ]
 
 instrument = {
     'name'              : 'instrument01',
@@ -56,14 +44,74 @@ instrument = {
 }
 
 setup = {
-    'output_dir'        : './dummydata',
-    'subdirs'           : ['fluid'], #Directory structure for data.txt files
+    'working_dir'       : './dummydata',
+    'metafile'          : 'index.txt',
+    'subdirs'           : ['sensor', 'fluid'], #Directory structure for data.txt files
+    'instrument'        : instrument,
     'fluids'            : ['water', 'beer1', 'beer2'],
     'elements'          : 'all',
     'repeats'           : 3,
     'wavelength_range'  : [400, 420, 0.5], #start, stop, step
     'primary_metadata'  : ['instrument', 'element', 'fluid'],
 }
+
+default_metadata = {
+    # Column              Datatype
+    'index'             : 'string',
+    'date'              : 'datetime64[ns]',
+    'instrument'        : 'string',
+    'sensor'            : 'string',
+    'element'           : 'string',
+    'chemistry'         : 'string',
+    'fluid'             : 'string',
+    'repeats'           : 'Int64',
+    'hidden'            : 'boolean',
+    'comment'           : 'string',
+}
+
+def dummyMeasurement(setup, row):
+    
+
+    #For a real instrument, may wish to adjust/move based on row['element']
+
+    dummywavelength = list(np.arange(setup['wavelength_range'][0], #start
+                                    setup['wavelength_range'][1],  #stop
+                                    setup['wavelength_range'][2])) #step
+
+    size = len(dummywavelength)
+    dummydata = list(np.random.random_sample(size))
+    dummycsv = {'wavelength' : dummywavelength, 'transmission' : dummydata}
+    df = pd.DataFrame(data=dummycsv, dtype=np.float32)
+
+    timestamp = pd.Timestamp.utcnow().timestamp()
+    df.rename(columns={"transmission" : timestamp }, inplace=True)
+    return df
+
+def simple_measurement(setup, element, fluid, measure_func):
+    
+    run_dict = {
+        'date'          : pd.Timestamp.utcnow().strftime('%Y-%m-%d'),
+        'instrument'    : setup['instrument']['name'],
+        'sensor'        : setup['instrument']['sensor'],
+        'element'       : element,
+        'chemistry'     : setup['instrument']['element_map'][element],
+        'fluid'         : fluid,
+        'repeats'       : 1,
+        'hidden'        : False,
+        'comment'       : pd.NA,
+    }
+    index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
+    run_dict['index'] = index
+
+    # Convert pandas series with default datatypes
+    for col in run_dict.keys():
+        run_dict[col] = pd.Series([run_dict[col]], dtype=default_metadata[col])
+        
+    run_df = pd.DataFrame(run_dict)
+    run_df.set_index('index', inplace=True)
+
+    run_measure(setup, run_df, measure_func)
+
 
 def store(df, metadata, path='./raw', primary_keys=None):
 
@@ -325,6 +373,7 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
         # each time, so room for improvement here.
         datapath = store(df, metadata, output_dir, primary_keys)
         logging.info(f'imported {filename} to {datapath}')
+    write_meta_df_txt(meta_df, )
 
 def read_metadata(metapath):
     if os.path.isfile(metapath):
@@ -422,9 +471,7 @@ def generate_run_list(setup, instrument):
                 row['comment'] = pd.NA
 
                 # Build the index as a string based on primary metadata
-                for key in setup['primary_metadata']:
-                    index += f'{row[key]}-'
-                row['index'] = (index[:-1])
+                row['index'] = '-'.join(row[p] for p in setup['primary_metadata'])
 
                 for col in row.keys():
                     run_list[col].append(row[col])
@@ -482,7 +529,7 @@ def write_df_txt(df, datapath, merge=True):
         else:
             logging.warning(f'{datapath} exists, and merge=False, did not write')
 
-def write_meta_df_txt(meta_df, metapath, merge=True, subdirs='fluid'):
+def write_meta_df_txt(setup, meta_df, merge=True):
     '''
     Writes a meta_df to metapath (index.txt)
     If file exists will try to merge them. The merge will fail if 2 rows have
@@ -494,6 +541,7 @@ def write_meta_df_txt(meta_df, metapath, merge=True, subdirs='fluid'):
     NB - To get the correct repeat count, any new data files must be
     written/merged before this function is run.
     '''
+    metapath = os.path.join(setup['working_dir'], setup['metafile'])
 
     if not os.path.isfile(metapath):
         logging.info(f'Saving into new file {metapath}')
@@ -513,7 +561,10 @@ def write_meta_df_txt(meta_df, metapath, merge=True, subdirs='fluid'):
                 path = os.path.dirname(metapath)
                 for row in meta_df.index:
                     if row in existing_df.index:
-                        subdir = meta_df.loc[row][subdirs] #Typically 'fluid'
+                        subdir=[]
+                        for s in setup['subdirs']:
+                            subdir.append(meta_df.loc[row][s])
+                        subdir = os.path.join(*subdir)
                         datapath = os.path.join(path, subdir, f'{row}.txt')
                         with open(datapath, 'r') as d:
                             df = pd.read_csv(d, sep='\t')
@@ -524,7 +575,7 @@ def write_meta_df_txt(meta_df, metapath, merge=True, subdirs='fluid'):
                 meta_df.reset_index(inplace=True)
                 existing_df.reset_index(inplace=True)
 
-                meta_df = pd.merge(meta_df, existing_df, how='outer')
+                meta_df = pd.merge(meta_df, existing_df, how='outer') # TODO Change this to concat******************************
 
                 # Specify that the 'index' column should be treated as the
                 # index. If the merge has not worked correctly this will fail
@@ -542,7 +593,7 @@ def write_meta_df_txt(meta_df, metapath, merge=True, subdirs='fluid'):
         else:
             logging.warning(f'{metapath} exists, and merge=False, did not write')
 
-def bulk_measurement(setup, run_df, measure_func, subdirs='fluid'):
+def run_measure(setup, run_df, measure_func):
     '''
     For doing a bulk run of measurements.
     This iterates through a run list (run_df), calling measure_func for each
@@ -557,23 +608,23 @@ def bulk_measurement(setup, run_df, measure_func, subdirs='fluid'):
     for index, row in run_df.iterrows():
         df = pd.DataFrame()
         for rep in range(row['repeats']):
-            single_df = measure_func(setup, row)
-            if len(df > 0):
-                df = pd.merge(df, single_df, how='outer', on='wavelength')
-            else:
-                df = single_df
+            # Construct the data path
+            subdir=[]
+            for s in setup['subdirs']:
+                subdir.append(row[s])
+            subdir = os.path.join(*subdir)
+            datapath = os.path.join(setup['working_dir'], subdir, f'{index}.txt')
+        
+            # call the measure function to get data
+            df = measure_func(setup, row)
 
-        datapath = os.path.join(setup['output_dir'], row[subdirs], f'{index}.txt')
-        write_df_txt(df, datapath)
+            # write the df to txt file
+            write_df_txt(df, datapath)
 
         # Update the date column in the run_df
         run_df.at[index, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
-
-    # Set date column to be correct time for merging with existing files
-    # run_df['date'] = run_df['date'].astype('datetime64')
-    metapath = os.path.join(setup['output_dir'], 'index.txt')
     
-    write_meta_df_txt(run_df, metapath)
+    write_meta_df_txt(setup, run_df)
 
 def bulk_merge(input_metapath, output_metapath, delete_input=False, 
                 in_subdirs='fluid', out_subdirs='fluid'):
