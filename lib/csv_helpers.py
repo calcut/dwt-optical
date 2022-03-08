@@ -1,5 +1,6 @@
 from cProfile import run
 from curses import meta
+from sys import meta_path
 import pandas as pd
 import numpy as np
 import os
@@ -11,67 +12,53 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 
-# # Must be able to uniquely identify measurements
-# # Any measurements with matching primary metadata are treated as repeats
-# primary_metadata = [
-#     'instrument',
-#     'fluid',
-#     'element',
-# ]
-
-instrument = {
+# Example of an instrument data structure
+instrument = { 
     'name'              : 'instrument01',
     'sensor'            : 'DUM01',
-    'element_map'       : { 'A01': 'Barium',
-                            'A02': 'Bromine',
-                            'A03': 'Lanthanum',
-                            'A04': 'Titanium',
-                            'B01': 'Chromium',
-                            'B02': 'Arsenic',
-                            'B03': 'Krypton',
-                            'B04': 'Nitrogen',
-                            'C01': 'Fluorine',
-                            'C02': 'Manganese',
-                            'C03': 'Cadmium',
-                            'C04': 'Arsenic',
-                            'D01': 'Argon',
-                            'D02': 'Copper',
-                            'D03': 'Aluminium',
-                            'D04': 'Selenium',
+    'element_map'       : { 
+                        #Element : #Surface
+                            'A01': 'Al',        # Aluminium
+                            'A02': 'Au',        # Gold
+                            'B01': 'Al-HMDS',   # Aluminium Hexamethyldisilazane
+                            'B02': 'Au-DT',     # Gold 1-decanethiol
+                            'C01': 'Al-PEG',    # Aluminium 2-[methoxy(polyethyleneoxy)6–9propyl] trimethoxysilane
+                            'C02': 'Au-PFDT',   # Gold perfluoro-1-decanethiol
                             },
     'light Source'      : 'Stellarnet LED White',
     'spectrometer'      : 'Stellarnet BlueWave VIS-25',
 }
 
+# Example of a setup data structure
 setup = {
-    'working_dir'       : './dummydata',
     'metafile'          : 'index.txt',
+    'path'              : 'dummydata',
     'subdirs'           : ['sensor', 'fluid'], #Directory structure for data.txt files
-    'instrument'        : instrument,
-    'fluids'            : ['water', 'beer1', 'beer2'],
+    'fluids'            : ['waterA', 'waterB', 'waterC'],
     'elements'          : 'all',
     'repeats'           : 3,
     'wavelength_range'  : [400, 420, 0.5], #start, stop, step
     'primary_metadata'  : ['instrument', 'element', 'fluid'],
+    'comment'           : '', #To be added to the metadata
+    'instrument'        : instrument,
 }
 
 default_metadata = {
-    # Column              Datatype
+    # Column            : #Datatype
     'index'             : 'string',
     'date'              : 'datetime64[ns]',
     'instrument'        : 'string',
     'sensor'            : 'string',
     'element'           : 'string',
-    'chemistry'         : 'string',
+    'surface'           : 'string',
     'fluid'             : 'string',
     'repeats'           : 'Int64',
     'hidden'            : 'boolean',
     'comment'           : 'string',
 }
 
-def dummyMeasurement(setup, row):
+def dummy_measurement(setup, row):
     
-
     #For a real instrument, may wish to adjust/move based on row['element']
 
     dummywavelength = list(np.arange(setup['wavelength_range'][0], #start
@@ -94,7 +81,7 @@ def simple_measurement(setup, element, fluid, measure_func):
         'instrument'    : setup['instrument']['name'],
         'sensor'        : setup['instrument']['sensor'],
         'element'       : element,
-        'chemistry'     : setup['instrument']['element_map'][element],
+        'surface'       : setup['instrument']['element_map'][element],
         'fluid'         : fluid,
         'repeats'       : 1,
         'hidden'        : False,
@@ -103,106 +90,33 @@ def simple_measurement(setup, element, fluid, measure_func):
     index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
     run_dict['index'] = index
 
-    # Convert pandas series with default datatypes
+    # Convert to pandas series, which allows datatype to be specified
     for col in run_dict.keys():
         run_dict[col] = pd.Series([run_dict[col]], dtype=default_metadata[col])
         
+    # Convert to dataframe, this enables it to be concatenated with an existing
+    # meta_df
     run_df = pd.DataFrame(run_dict)
     run_df.set_index('index', inplace=True)
+
 
     run_measure(setup, run_df, measure_func)
 
 
-def store(df, metadata, path='./raw', primary_keys=None):
-
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-    metapath = os.path.join(path, "index.txt")
-    if os.path.isfile(metapath):
-        meta_df = read_metadata(metapath)
-    else:
-        cols = default_metadata.keys()
-        meta_df = pd.DataFrame(columns=cols)
-        meta_df.index.name = "index"
-
-    try:
-        date_obj = pd.Timestamp.fromtimestamp(metadata['timestamp'])
-    except KeyError:
-        date_obj = pd.Timestamp.utcnow()
-
-    metadata['date'] = date_obj.strftime('%Y-%m-%d')
-
-
-    d = metadata['date']
-    s = metadata['sensor']
-    f = metadata['fluid']
-    e = metadata['element']
-
-    # Allows overriding of default Primary Metadata as used for file naming
-    if primary_keys: 
-        meas_id = ''
-        for k in primary_keys:
-            meas_id += f'{metadata[k]}-'
-        meas_id = meas_id[:-1]
-
-    #Default Primary Metadata
-    else:
-        meas_id = F"{d}-{s}-{f}-{e}"
-
-    datapath = os.path.join(path, f, f'{meas_id}.txt')
-
-    os.makedirs(os.path.dirname(datapath), exist_ok=True)
-
-    # Check if the file exists, then write the data 
-    if not os.path.isfile(datapath):
-        logging.info(f'Saving data into new file {meas_id}.txt')
-        with open(datapath, 'w') as f:
-            df.to_csv(f, index=False, sep='\t', mode='w')
-
-    # If file exists, read it, merge, then rewrite the data
-    else:
-        logging.warning(f'Merging new data into existing file {meas_id}.txt')
-
-        with open(datapath, 'r+') as f:
-            existing_df = pd.read_csv(f, sep='\t')
-            df = pd.merge(df, existing_df, how='outer', on='wavelength')
-
-            #relabel columns  -  Unless they are timestamped
-            col_names = ['wavelength']
-            n=0
-            for col in df.columns[1:]:
-                n += 1
-                try:
-                    pd.Timestamp(float(col), unit='s')
-                    col_names.append(col)
-                except ValueError:
-                    # col_names.append(f'rep{col}')
-                    col_names.append(f"rep{n:02d}")
-            df.columns = col_names
-                
-            f.seek(0,0)
-            df.to_csv(f, index=False, sep='\t', mode='w')
-
-    metadata['repeats'] = len(df.columns) - 1
-    metadata.pop('timestamp', None)
-
-# Update the Metadata Index File
-    try:
-        new_row= pd.Series(data=metadata, name=meas_id)
-        meta_df = meta_df.append(new_row, ignore_index=False, verify_integrity=True)
-        # break
-    except ValueError as err:
-        # print(f"Warning, {meas_id} already exists in {metapath}, "
-        #     + f"updating rep count to {metadata['repeats']}")
-        meta_df.at[meas_id, 'repeats'] = metadata['repeats']
-
-    meta_df.to_csv(f'{metapath}', index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
+def find_datapath(setup, meta_df, row_index):
+    '''
+    Extrapolates the path to the actual data file, using the subdirectories
+    specified in setup{}
+    '''
+    subdir=[]
+    for s in setup['subdirs']:
+        subdir.append(meta_df.loc[row_index][s])
+    subdir = os.path.join(*subdir)
+    datapath = os.path.join(setup['path'], subdir, f'{row_index}.txt')
     return datapath
 
 
-
-def merge_dataframes(meta_df, path='./raw'):
+def merge_dataframes(setup, meta_df):
     '''
     Extracts dataframes from files and merges them into a single dataframe
     Requires a metadata frame to know which measurements to select
@@ -212,34 +126,38 @@ def merge_dataframes(meta_df, path='./raw'):
     '''
     result = []
 
+    primary_meta = setup['primary_metadata']
+
     # For re-labelling the merged dataframe:
     # Ignore metadata that is the same for measurements
     # i.e. only use columns with more than 1 unique value
     individual_meta = meta_df.columns[meta_df.nunique() > 1]
 
     # Ignore columns which aren't considered primary metadata
-    individual_meta = individual_meta.intersection(primary_metadata)
+    individual_meta = individual_meta.intersection(primary_meta)
 
     # Identify primary metadata that is common for all measurements
-    common_metadata = set(primary_metadata) - set(individual_meta)
+    common_metadata = set(primary_meta) - set(individual_meta)
 
     for row in meta_df.index:
 
         # locate the datafile and read it in
-        subdir = meta_df.loc[row]['sensor']
-        datapath = os.path.join(path, subdir, f'{row}.txt') 
+        datapath = find_datapath(setup, meta_df, row)
         df = pd.read_csv(datapath, sep='\t')
 
         # Name the output columns based on metadata
-        if len(individual_meta) > 0:
-            col_names = ['wavelength']
-            for col in df.columns[1:]:
-                name = str()
-                for label in individual_meta:
-                    name += f'{meta_df.loc[row][label]}_'
-                col_names.append(f'{name[:-1]}_{col}')
-            df.columns = col_names
+        col_names = ['wavelength']
+        n=0
+        for col in df.columns[1:]:
+            n += 1
+            if len(individual_meta) > 0:
+                name = '_'.join(meta_df.loc[row][i] for i in individual_meta)
+                col_names.append(f'{name}_rep{n:02d}')
+            else:
+                col_names.append(f'rep{n:02d}')
+        df.columns = col_names
 
+        # Accumulate the dataframes in a large 'result' dataframe
         if len(result) > 0:
             result = pd.merge(result, df, how='outer', on='wavelength')
         else:
@@ -287,9 +205,6 @@ def export_dataframes(path='.', meta_df='index.txt', outfile=None, dp=None):
         metapath = os.path.join(path, meta_df)
         meta_df = read_metadata(metapath)
 
-    if not isOnetoMany(meta_df, 'chemistry', 'element'):
-        logging.info("At least 1 chemistry has multiple elements")
-
     elements = sorted(meta_df['element'].unique())
     frames=[]
     for e in elements:
@@ -303,16 +218,16 @@ def export_dataframes(path='.', meta_df='index.txt', outfile=None, dp=None):
 
         element_df = element_df.transpose()
 
-        chems = meta_df[meta_df['element'] == e]['chemistry'].drop_duplicates().tolist()
-        chem = chems[0]
-        if len(chems) > 1:
-            logging.error(f'Error, multiple chemistries {chems} found for element {e}')
+        surfaces = meta_df[meta_df['element'] == e]['surface'].drop_duplicates().tolist()
+        surface = surfaces[0]
+        if len(surfaces) > 1:
+            logging.error(f'Error, multiple surfaces {surfaces} found for element {e}')
             return
-        if pd.isnull(chem):
-            chem = '-'
+        # if pd.isnull(surface):
+        #     surface = 'NA'
 
-        header_row_names = ['Chemistry', 'Element', 'Wavelength']
-        header_rows= [[f'{chem}'],[F'{e}'], element_df.loc['wavelength']]
+        header_row_names = ['Surface', 'Element', 'Wavelength']
+        header_rows= [[f'{surface}'],[F'{e}'], element_df.loc['wavelength']]
         col_ix = pd.MultiIndex.from_product(header_rows, names = header_row_names)
 
         element_df.columns = col_ix
@@ -323,21 +238,49 @@ def export_dataframes(path='.', meta_df='index.txt', outfile=None, dp=None):
     exportframe = pd.concat(frames, axis=1)
     if outfile:
         logging.info(f"Writing to {outfile} ...")
-        exportframe.to_csv(outfile, sep='\t')
+        exportframe.to_csv(outfile, sep='\t', na_rep='NA')
         logging.info(f"Done")
     return exportframe
 
 
-def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False, primary_keys=None):
+def import_dir_to_csv(setup, input_dir, regex, separator='\t'):
+
+    '''
+    regex can optionally identify the following fields:
+        'date'      
+        'instrument'
+        'sensor'    
+        'element'   
+        'surface'   
+        'fluid'     
+        'repeats'   
+        'hidden'    
+        'comment'   
+
+    If they aren't identified by the regex, they should be present in the
+    setup{} dictionary, e.g:
+
+    setup{ 
+        'metafile'          : 'index.txt',
+        'path'              : 'dummydata',
+        'subdirs'           : ['sensor', 'fluid'],
+        'elements'          : ['xxx']
+        'fluids'            : ['xxx']
+        'primary_metadata'  : ['instrument', 'element', 'fluid'],
+        'instrument'        : {
+                                'name'  : 'xxxxx'
+                                'sensor : 'xxxxx'
+                                'element_map' : {'xxx' : 'surface-XX'}
+                               }
+        }
+    '''
+
+    metapath = os.path.join(setup['path'], setup['metafile'])
+    meta_df = read_metadata(metapath)
 
     if not os.path.exists(input_dir):
         logging.error('import folder not found')
-        # print("Error, import folder not found")
         return
-
-    if not append:
-        if os.path.exists(output_dir):
-            shutil.rmtree(output_dir)
 
     for filename in sorted(os.listdir(input_dir)):
         
@@ -347,16 +290,47 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
             continue
 
         # Create a metadata dictionary with info extracted from filename
-        metadata = match.groupdict()
+        run_dict = match.groupdict()
 
         # If the element looks like an integer,
         # convert to a string with zero padding
         try: 
-            e = int(metadata['element'])
-            metadata['element'] = F"{e:02d}"
+            e = int(run_dict['element'])
+            run_dict['element'] = F"{e:02d}"
         except ValueError:
             #Otherwise, don't modify it
             pass
+
+        if 'date' not in run_dict:
+            run_dict['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+
+        if 'instrument' not in run_dict:
+            run_dict['instrument'] = setup['instrument']['name']
+
+        if 'sensor' not in run_dict:
+            run_dict['sensor'] = setup['instrument']['sensor']
+
+        if 'element' not in run_dict:
+            run_dict['element'] = setup['elements'][0]
+
+        if 'surface' not in run_dict:
+            run_dict['surface'] = setup['instrument']['element_map'][run_dict['element']]
+
+        if 'fluid' not in run_dict:
+            run_dict['fluid'] = setup['fluids'][0]
+
+        index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
+        run_dict['index'] = index
+        run_dict['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+
+        # Convert to pandas series, which allows datatype to be specified
+        for col in run_dict.keys():
+            run_dict[col] = pd.Series([run_dict[col]], dtype=default_metadata[col])
+            
+        # Convert to dataframe, this enables it to be concatenated with an existing
+        # meta_df
+        run_df = pd.DataFrame(run_dict)
+        run_df.set_index('index', inplace=True)
 
         # Read the file contents into a dataframe
         df = pd.read_csv(os.path.join(input_dir, filename), sep=separator)
@@ -366,14 +340,18 @@ def import_dir_to_csv(input_dir, regex, output_dir, separator='\t', append=False
         reps = len(df.columns)-1
         col_names = ['wavelength']
         for r in range(reps):
-            col_names.append(f'rep{r+1}')
+            col_names.append(f'rep{r+1:02d}')
         df.columns = col_names
 
-        # TODO, the 'store' function reads and writes the full metadata file
-        # each time, so room for improvement here.
-        datapath = store(df, metadata, output_dir, primary_keys)
-        logging.info(f'imported {filename} to {datapath}')
-    write_meta_df_txt(meta_df, )
+        datapath = find_datapath(setup, run_df, index)
+        print(datapath)
+
+        # write_df_txt(df, )
+        # # TODO, the 'store' function reads and writes the full metadata file
+        # # each time, so room for improvement here.
+        # datapath = store(df, metadata, output_dir, primary_keys)
+        # logging.info(f'imported {filename} to {datapath}')
+    # write_meta_df_txt(meta_df, )
 
 def read_metadata(metapath):
     if os.path.isfile(metapath):
@@ -395,51 +373,30 @@ def read_metadata(metapath):
         return
     return meta_df
 
-def apply_chem_map(chemistry_map, metapath):
+def apply_surface_map(setup):
 
+    metapath = os.path.join(setup['path'], setup['metafile'])
     meta_df = read_metadata(metapath)
-    if isinstance(chemistry_map, pd.DataFrame):
-        chemistry_map = dict(chemistry_map.values)
+
+    map = setup['instrument']['element_map']
 
     for index, row in meta_df.iterrows():
         try:
-            chem = chemistry_map[row['element']]
-            meta_df.at[index, 'chemistry'] = chem
-            logging.info(f'Applying: {chem} to {index}')
+            surface = map[row['element']]
+            meta_df.at[index, 'surface'] = surface
+            logging.info(f'Applying: {surface} to {index}')
         except KeyError:
-            logging.error(f"Element {row['element']} not found in chemistry map")
+            logging.error(f"Element {row['element']} not found in surface map")
     
-    meta_df.to_csv(metapath, index=True, sep='\t', na_rep='')
+    meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
 
-# Check if there is a 1:1 relationship between 2 columns
-# For example to check elements and chemistries match before export
-def isOnetoOne(df, col1, col2):
-    first = df.drop_duplicates([col1, col2]).groupby(col1)[col2].count().max()
-    second = df.drop_duplicates([col1, col2]).groupby(col2)[col1].count().max()
-    # Essentially this removes duplicates, then checks how many elements exist
-    # for each chemistry, and vice versa. If both results are 1, there is a 1:1
-    # relationship
-
-    return first + second == 2
-
-# Check if there is a 1:Many relationship between 2 columns
-# For example to check elements and chemistries match before export
-def isOnetoMany(df, col1, col_many):
-    first = df.drop_duplicates([col1, col_many]).groupby(col1)[col_many].count().max()
-    # Essentially this removes duplicates, then checks how many chemistries 
-    # exist for each element, if the result is one, there is a 1:many (or 1:1)
-    # relationship 
-
-    return first == 1
-
-def generate_run_list(setup, instrument):
+def generate_run_df(setup):
     '''
     For doing a bulk run of measurements.
     This generates a list (dataframe) of metadata describing the measuremnts
 
-    Takes dictionaries called setup{} and instrument{} in the example format
-    provided. Measurement rows are generated for all permutations of fluids and
-    elements.
+    Measurement rows are generated for all permutations of fluids and
+    elements provided in the setup{}
     '''
 
     # Create a blank table (really a dict of lists) with default headers
@@ -459,12 +416,11 @@ def generate_run_list(setup, instrument):
     for f in setup['fluids']:
         for e in elements:
                 row = {}
-                index = ''
                 row['date'] = pd.NaT
                 row['instrument'] = instrument['name']
                 row['sensor'] = instrument['sensor']
                 row['element'] = e
-                row['chemistry'] = instrument['element_map'][e]
+                row['surface'] = instrument['element_map'][e]
                 row['fluid'] = f
                 row['repeats'] = setup['repeats']
                 row['hidden'] = False
@@ -541,7 +497,7 @@ def write_meta_df_txt(setup, meta_df, merge=True):
     NB - To get the correct repeat count, any new data files must be
     written/merged before this function is run.
     '''
-    metapath = os.path.join(setup['working_dir'], setup['metafile'])
+    metapath = os.path.join(setup['path'], setup['metafile'])
 
     if not os.path.isfile(metapath):
         logging.info(f'Saving into new file {metapath}')
@@ -561,11 +517,7 @@ def write_meta_df_txt(setup, meta_df, merge=True):
                 path = os.path.dirname(metapath)
                 for row in meta_df.index:
                     if row in existing_df.index:
-                        subdir=[]
-                        for s in setup['subdirs']:
-                            subdir.append(meta_df.loc[row][s])
-                        subdir = os.path.join(*subdir)
-                        datapath = os.path.join(path, subdir, f'{row}.txt')
+                        datapath = find_datapath(setup, meta_df, row)
                         with open(datapath, 'r') as d:
                             df = pd.read_csv(d, sep='\t')
                         reps = len(df.columns) -1
@@ -605,24 +557,19 @@ def run_measure(setup, run_df, measure_func):
     the date column in run_df is populated, and then saved as index.txt in the
     output directory
     '''
-    for index, row in run_df.iterrows():
+    for row in run_df.index:
         df = pd.DataFrame()
-        for rep in range(row['repeats']):
+        for rep in range(run_df.loc[row]['repeats']):
             # Construct the data path
-            subdir=[]
-            for s in setup['subdirs']:
-                subdir.append(row[s])
-            subdir = os.path.join(*subdir)
-            datapath = os.path.join(setup['working_dir'], subdir, f'{index}.txt')
-        
+            datapath = find_datapath(setup, run_df, row)
             # call the measure function to get data
-            df = measure_func(setup, row)
+            df = measure_func(setup, run_df.loc[row])
 
             # write the df to txt file
             write_df_txt(df, datapath)
 
         # Update the date column in the run_df
-        run_df.at[index, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+        run_df.at[row, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
     
     write_meta_df_txt(setup, run_df)
 
