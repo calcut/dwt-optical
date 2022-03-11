@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import os
 import re
+import json
 import shutil
 from IPython.display import display
 import logging
@@ -43,7 +44,7 @@ setup = {
     'instrument'        : instrument,
 }
 
-default_metadata = {
+metadata_columns = {
     # Column            : #Datatype
     'index'             : 'string',
     'date'              : 'datetime64[ns]',
@@ -53,7 +54,6 @@ default_metadata = {
     'surface'           : 'string',
     'fluid'             : 'string',
     'repeats'           : 'Int64',
-    'hidden'            : 'boolean',
     'comment'           : 'string',
 }
 
@@ -84,7 +84,6 @@ def simple_measurement(setup, element, fluid, measure_func):
         'surface'       : setup['instrument']['element_map'][element],
         'fluid'         : fluid,
         'repeats'       : 1,
-        'hidden'        : False,
         'comment'       : pd.NA,
     }
     index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
@@ -92,7 +91,8 @@ def simple_measurement(setup, element, fluid, measure_func):
 
     # Convert to pandas series, which allows datatype to be specified
     for col in run_dict.keys():
-        run_dict[col] = pd.Series([run_dict[col]], dtype=default_metadata[col])
+        run_dict[col] = pd.Series([run_dict[col]], dtype=metadata_columns[col])
+        # run_dict[col] = pd.Series([run_dict[col]], dtype=str)
         
     # Convert to dataframe, this enables it to be concatenated with an existing
     # meta_df
@@ -165,16 +165,9 @@ def merge_dataframes(setup, meta_df):
 
     title = str()
     for field in common_metadata:
-        if field == 'date':
-            date = f"{meta_df.iloc[0][field].strftime('%Y-%m-%d')}"
-        else:
-            value = f'{meta_df.iloc[0][field]}'
-            title += f'{field}: {value}\n'
-   
-    if date:
-        title += date
-    else:
-        title = title[:-1]
+        value = f'{meta_df.iloc[0][field]}'
+        title += f'{field}: {value}\n'
+    title = title[:-1]
 
     return result, title
     
@@ -197,12 +190,12 @@ def select_from_metadata(metakey, metavalue, meta_df, regex=False):
         return(exactdf)
 
 
-def export_dataframes(path='.', meta_df='index.txt', outfile=None, dp=None):
+def export_dataframes(setup, meta_df=None, outfile=None, dp=None):
 
     if isinstance(meta_df, pd.DataFrame):
         pass
     else:
-        metapath = os.path.join(path, meta_df)
+        metapath = os.path.join(setup['path'], meta_df)
         meta_df = read_metadata(metapath)
 
     elements = sorted(meta_df['element'].unique())
@@ -210,7 +203,7 @@ def export_dataframes(path='.', meta_df='index.txt', outfile=None, dp=None):
     for e in elements:
         logging.info(f'merging element {e}')
         selection = select_from_metadata('element', e, meta_df)
-        element_df, title = merge_dataframes(selection, path)
+        element_df, title = merge_dataframes(setup, selection)
 
         #If a DataProcessor object has been provided, apply processing here.
         if dp:
@@ -223,8 +216,6 @@ def export_dataframes(path='.', meta_df='index.txt', outfile=None, dp=None):
         if len(surfaces) > 1:
             logging.error(f'Error, multiple surfaces {surfaces} found for element {e}')
             return
-        # if pd.isnull(surface):
-        #     surface = 'NA'
 
         header_row_names = ['Surface', 'Element', 'Wavelength']
         header_rows= [[f'{surface}'],[F'{e}'], element_df.loc['wavelength']]
@@ -254,7 +245,6 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t'):
         'surface'   
         'fluid'     
         'repeats'   
-        'hidden'    
         'comment'   
 
     If they aren't identified by the regex, they should be present in the
@@ -274,9 +264,6 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t'):
                                }
         }
     '''
-
-    metapath = os.path.join(setup['path'], setup['metafile'])
-    meta_df = read_metadata(metapath)
 
     if not os.path.exists(input_dir):
         logging.error('import folder not found')
@@ -319,14 +306,20 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t'):
         if 'fluid' not in run_dict:
             run_dict['fluid'] = setup['fluids'][0]
 
+        run_dict['repeats'] = pd.NA #Will be modified in write_meta_df_txt()
+
         index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
         run_dict['index'] = index
         run_dict['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
 
-        # Convert to pandas series, which allows datatype to be specified
+        # Convert to pandas series, which allows dtype to be specified/forced as str
         for col in run_dict.keys():
-            run_dict[col] = pd.Series([run_dict[col]], dtype=default_metadata[col])
-            
+            try:
+                run_dict[col] = pd.Series([run_dict[col]], dtype=metadata_columns[col])
+            except:
+                run_dict[col] = pd.Series([run_dict[col]])
+                logging.info(f'No dtype specified for {col}, using {run_dict[col].dtype}')
+
         # Convert to dataframe, this enables it to be concatenated with an existing
         # meta_df
         run_df = pd.DataFrame(run_dict)
@@ -344,7 +337,9 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t'):
         df.columns = col_names
 
         datapath = find_datapath(setup, run_df, index)
-        print(datapath)
+
+        write_df_txt(df, datapath)
+        write_meta_df_txt(setup, run_df)
 
         # write_df_txt(df, )
         # # TODO, the 'store' function reads and writes the full metadata file
@@ -358,15 +353,22 @@ def read_metadata(metapath):
 
         # Import the metadata and apply the appropriate datatypes 
         # 'date' needs to be treated separately using parse_dates
-        dtypes = default_metadata.copy()
+        dtypes = metadata_columns.copy()
         dtypes.pop('date')
 
         meta_df = pd.read_csv(metapath,
                         sep='\t',
                         index_col='index',
                         parse_dates=['date'],
+                        # dtype=str, #Use str as default dtype, otherwise can have problems with merging
                         dtype=dtypes,
                         )
+        # try:
+        #     meta_df['repeats'] = meta_df['repeats'].astype['Int64']
+        # except:
+        #     logging.warning(f'No repeats column found in {metapath}')
+
+        
         logging.debug(f'Loaded Metadata Index from {metapath}')
     else:
         logging.error(f'{metapath} not found')
@@ -402,7 +404,7 @@ def generate_run_df(setup):
     # Create a blank table (really a dict of lists) with default headers
     # NB It is bad practice to append to Dataframes, so will convert to
     # dataframe at the end
-    run_list = default_metadata.copy()
+    run_list = metadata_columns.copy()
     for col in run_list.keys():
         run_list[col] = []
 
@@ -423,7 +425,6 @@ def generate_run_df(setup):
                 row['surface'] = instrument['element_map'][e]
                 row['fluid'] = f
                 row['repeats'] = setup['repeats']
-                row['hidden'] = False
                 row['comment'] = pd.NA
 
                 # Build the index as a string based on primary metadata
@@ -434,7 +435,8 @@ def generate_run_df(setup):
 
     # Convert the lists into pandas series with appropriate datatypes
     for col in run_list.keys():
-        run_list[col] = pd.Series(run_list[col], dtype=default_metadata[col])
+        run_list[col] = pd.Series(run_list[col], dtype=metadata_columns[col])
+        # run_list[col] = pd.Series(run_list[col], dtype=str)
 
     # Convert to dataframe now (avoids iteratively appending to the dataframe)
     run_df = pd.DataFrame(run_list)
@@ -485,6 +487,7 @@ def write_df_txt(df, datapath, merge=True):
         else:
             logging.warning(f'{datapath} exists, and merge=False, did not write')
 
+
 def write_meta_df_txt(setup, meta_df, merge=True):
     '''
     Writes a meta_df to metapath (index.txt)
@@ -501,49 +504,84 @@ def write_meta_df_txt(setup, meta_df, merge=True):
 
     if not os.path.isfile(metapath):
         logging.info(f'Saving into new file {metapath}')
-        meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
 
     # If file exists, read it, merge, then rewrite the data
     else:
-        if merge:
+        if not merge:
+            logging.warning(f'{metapath} exists, and merge=False, did not write')
+            return
+        else:
             logging.info(f'Merging into existing {metapath}')
 
             with open(metapath, 'r+') as f:
                 existing_df = read_metadata(metapath)
+                
+            for row in meta_df.index:
+                if row in existing_df.index:
+                    # zero out the repeat count for a clean merge, will restore later
+                    meta_df.at[row, 'repeats'] = pd.NA
+                    existing_df.at[row, 'repeats'] = pd.NA
 
-                # Deal with 'repeat' counts by actually opening the data files
-                # and counting the columns. Seems heavy handed but will
-                # ensure they don't get out of sync.
-                path = os.path.dirname(metapath)
-                for row in meta_df.index:
-                    if row in existing_df.index:
-                        datapath = find_datapath(setup, meta_df, row)
-                        with open(datapath, 'r') as d:
-                            df = pd.read_csv(d, sep='\t')
-                        reps = len(df.columns) -1
-                        meta_df.at[row, 'repeats'] = reps
-                        existing_df.at[row, 'repeats'] = reps
+                    # Also set the date modified to 'now'
+                    date = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+                    meta_df.at[row, 'date'] = date
+                    existing_df.at[row, 'date'] = date
+                    
+            meta_df = pd.concat([existing_df, meta_df])
+            
+            # It is OK to drop duplicates (that match in every column),
+            # NB, the repeat and date columns have been dealt with already
+            meta_df.drop_duplicates(inplace=True)
 
-                meta_df.reset_index(inplace=True)
-                existing_df.reset_index(inplace=True)
+            dup_count = 0
+            for dup in meta_df[meta_df.index.duplicated()].index:
+                dup_count += 1
+                display(meta_df.loc[dup])
 
-                meta_df = pd.merge(meta_df, existing_df, how='outer') # TODO Change this to concat******************************
+            if dup_count > 0:
+                logging.warning(f'{dup_count} duplicate index values detected, cannot write metadata file')
+                logging.warning("This is likely to occur if setup['primary_metadata'] can't uniquely identify measurements")
+                return
 
-                # Specify that the 'index' column should be treated as the
-                # index. If the merge has not worked correctly this will fail
-                # due to duplicate index keys. Likely to happen if the primary
-                # metadata is not enough to uniquely identify mesurements.
-                try:
-                    meta_df.set_index('index', verify_integrity=True, inplace=True)
-                except ValueError as e:
-                    logging.error('Could not merge meta_df')
-                    logging.error(e.args)
-                    display(meta_df)
+            # Deal with NA 'repeat' counts by actually opening the data files
+            # and counting the columns. Seems heavy handed but will
+            # ensure they don't get out of sync.
+            for row in meta_df[meta_df['repeats'].isnull()].index:
+                datapath = find_datapath(setup, meta_df, row)
+                with open(datapath, 'r') as d:
+                    df = pd.read_csv(d, sep='\t')
+                reps = len(df.columns) -1
+                meta_df.at[row, 'repeats'] = reps
+        
+    meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
 
-                f.seek(0,0)
-                meta_df.to_csv(f'{metapath}', index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
-        else:
-            logging.warning(f'{metapath} exists, and merge=False, did not write')
+def write_setup_json(setup):
+
+    #Don't need to save the full instrument data, just the name
+    setup_mod = setup.copy()
+    setup_mod['instrument'] = setup['instrument']['name']
+
+    date = pd.Timestamp.utcnow().strftime('%Y-%m-%d_%H%M%S')
+    setup_path = os.path.join(setup['path'], 'setups', f"{date}-setup.json")
+    os.makedirs(os.path.dirname(setup_path), exist_ok=True)
+
+    if not os.path.isfile(setup_path):
+        with open(setup_path, 'w') as f:
+            json.dump(setup_mod, f, ensure_ascii=False, indent=3)
+    else:
+        logging.warning('File exists, did not write')
+
+def write_instrument_json(setup):
+
+    instrument_path = os.path.join(setup['path'], 'instruments', f"{setup['instrument']['name']}.json")
+    os.makedirs(os.path.dirname(instrument_path), exist_ok=True)
+
+    if not os.path.isfile(instrument_path):
+        with open(instrument_path, 'w') as f:
+            json.dump(setup['instrument'], f, ensure_ascii=False, indent=3)
+    else:
+        logging.warning('File exists, did not write')
+
 
 def run_measure(setup, run_df, measure_func):
     '''
