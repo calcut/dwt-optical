@@ -7,6 +7,7 @@ import os
 import re
 import json
 import shutil
+import copy
 from IPython.display import display
 import logging
 
@@ -31,7 +32,7 @@ instrument = {
 }
 
 # Example of a setup data structure
-setup = {
+default_setup = {
     'metafile'          : 'index.txt',
     'path'              : 'dummydata',
     'subdirs'           : ['sensor', 'fluid'], #Directory structure for data.txt files
@@ -56,6 +57,10 @@ metadata_columns = {
     'repeats'           : 'Int64',
     'comment'           : 'string',
 }
+
+def get_default_setup():
+    new_setup = copy.deepcopy(default_setup)
+    return new_setup
 
 def dummy_measurement(setup, row):
     
@@ -101,6 +106,10 @@ def simple_measurement(setup, element, fluid, measure_func):
 
 
     run_measure(setup, run_df, measure_func)
+
+    datapath = find_datapath(setup, run_df, index)
+    df = pd.read_csv(datapath, sep='\t')
+    return df
 
 
 def find_datapath(setup, meta_df, row_index):
@@ -195,8 +204,7 @@ def export_dataframes(setup, meta_df=None, outfile=None, dp=None):
     if isinstance(meta_df, pd.DataFrame):
         pass
     else:
-        metapath = os.path.join(setup['path'], meta_df)
-        meta_df = read_metadata(metapath)
+        meta_df = read_metadata(setup)
 
     elements = sorted(meta_df['element'].unique())
     frames=[]
@@ -348,7 +356,10 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t'):
         # logging.info(f'imported {filename} to {datapath}')
     # write_meta_df_txt(meta_df, )
 
-def read_metadata(metapath):
+def read_metadata(setup=default_setup):
+
+    metapath = os.path.join(setup['path'], setup['metafile'])
+
     if os.path.isfile(metapath):
 
         # Import the metadata and apply the appropriate datatypes 
@@ -360,15 +371,8 @@ def read_metadata(metapath):
                         sep='\t',
                         index_col='index',
                         parse_dates=['date'],
-                        # dtype=str, #Use str as default dtype, otherwise can have problems with merging
                         dtype=dtypes,
                         )
-        # try:
-        #     meta_df['repeats'] = meta_df['repeats'].astype['Int64']
-        # except:
-        #     logging.warning(f'No repeats column found in {metapath}')
-
-        
         logging.debug(f'Loaded Metadata Index from {metapath}')
     else:
         logging.error(f'{metapath} not found')
@@ -377,8 +381,7 @@ def read_metadata(metapath):
 
 def apply_surface_map(setup):
 
-    metapath = os.path.join(setup['path'], setup['metafile'])
-    meta_df = read_metadata(metapath)
+    meta_df = read_metadata(setup)
 
     map = setup['instrument']['element_map']
 
@@ -390,6 +393,7 @@ def apply_surface_map(setup):
         except KeyError:
             logging.error(f"Element {row['element']} not found in surface map")
     
+    metapath = os.path.join(setup['path'], setup['metafile'])
     meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
 
 def generate_run_df(setup):
@@ -467,7 +471,7 @@ def write_df_txt(df, datapath, merge=True):
             with open(datapath, 'r+') as f:
                 existing_df = pd.read_csv(f, sep='\t')
 
-                df = pd.merge(df, existing_df, how='outer', on='wavelength')
+                df = pd.merge(existing_df, df, how='outer', on='wavelength', sort=True)
 
                 #relabel columns  -  Unless they are timestamped
                 col_names = ['wavelength']
@@ -514,7 +518,7 @@ def write_meta_df_txt(setup, meta_df, merge=True):
             logging.info(f'Merging into existing {metapath}')
 
             with open(metapath, 'r+') as f:
-                existing_df = read_metadata(metapath)
+                existing_df = read_metadata(setup)
                 
             for row in meta_df.index:
                 if row in existing_df.index:
@@ -611,9 +615,11 @@ def run_measure(setup, run_df, measure_func):
     
     write_meta_df_txt(setup, run_df)
 
-def bulk_merge(input_metapath, output_metapath, delete_input=False, 
+def bulk_merge(setup, input_metapath, output_metapath, delete_input=False, 
                 in_subdirs='fluid', out_subdirs='fluid'):
     '''
+    CURRENTLY BROKEN, needs adapted for setup{} dictionary
+
     For doing a bulk copy/merge of one data directory to another.
     
     Also useful for modifying a folder structure from e.g. grouped by 'fluid'
@@ -629,7 +635,7 @@ def bulk_merge(input_metapath, output_metapath, delete_input=False,
     input_path = os.path.dirname(input_metapath)
     output_path = os.path.dirname(output_metapath)
 
-    meta_df = read_metadata(input_metapath)
+    meta_df = read_metadata(setup)
 
     for row in meta_df.index:
         in_subdir = meta_df.loc[row][in_subdirs]
