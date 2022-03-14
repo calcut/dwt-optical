@@ -586,6 +586,18 @@ def write_instrument_json(setup):
     else:
         logging.warning('File exists, did not write')
 
+def read_setup_json(path):
+
+    with open(path) as setup_json:
+        setup = json.load(setup_json)
+
+    setupdir = os.path.dirname(path)
+    instrument_path = os.path.join(setupdir, 'instruments', f"{setup['instrument']}.json")
+    with open(instrument_path) as instrument_json:
+        setup['instrument'] = json.load(instrument_json)    
+
+    return setup
+
 
 def run_measure(setup, run_df, measure_func):
     '''
