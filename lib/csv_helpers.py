@@ -35,7 +35,7 @@ instrument = {
 default_setup = {
     'metafile'          : 'index.txt',
     'path'              : 'dummydata',
-    'subdirs'           : ['sensor', 'fluid'], #Directory structure for data.txt files
+    'subdirs'           : ['instrument', 'fluid'], #Directory structure for data.txt files
     'fluids'            : ['waterA', 'waterB', 'waterC'],
     'elements'          : 'all',
     'repeats'           : 3,
@@ -615,39 +615,43 @@ def run_measure(setup, run_df, measure_func):
     
     write_meta_df_txt(setup, run_df)
 
-def bulk_merge(setup, input_metapath, output_metapath, delete_input=False, 
-                in_subdirs='fluid', out_subdirs='fluid'):
+def bulk_process(setup_in, setup_out, delete_input=False, merge_out=False):
     '''
-    CURRENTLY BROKEN, needs adapted for setup{} dictionary
-
     For doing a bulk copy/merge of one data directory to another.
     
     Also useful for modifying a folder structure from e.g. grouped by 'fluid'
     subdirectories to grouped by 'sensor' subdirectories
 
+    Can be used to detect any missing data files
+
     This iterates through an input index.txt, reading in each datafile and
     writing it to the output directory structure, merging with existing files
     where appropriate.
 
-    The index.txt file is also written/merged with any existing one.
+    The output files can optionally be merged with an existing ones.
+
+    TODO, add handling to deal with input and output root paths being the same
+    TODO, add data processing option?
     '''
 
-    input_path = os.path.dirname(input_metapath)
-    output_path = os.path.dirname(output_metapath)
-
-    meta_df = read_metadata(setup)
+    meta_df = read_metadata(setup_in)
 
     for row in meta_df.index:
-        in_subdir = meta_df.loc[row][in_subdirs]
-        out_subdir = meta_df.loc[row][out_subdirs]
-        input_datapath = os.path.join(input_path, in_subdir, f'{row}.txt')
-        output_datapath = os.path.join(output_path, out_subdir, f'{row}.txt')
-        with open(input_datapath, 'r') as f:
-            df = pd.read_csv(f, sep='\t')
+        datapath_in = find_datapath(setup_in, meta_df, row)
+        datapath_out = find_datapath(setup_out, meta_df, row)
 
-        write_df_txt(df, output_datapath)
+        try:
+            with open(datapath_in, 'r') as f:
+                df = pd.read_csv(f, sep='\t')
+            write_df_txt(df, datapath_out, merge=merge_out)
+
+        except FileNotFoundError as e:
+            logging.error(f"{e}"
+                +"\nRow will be removed from output metadata file"
+                +"\nCheck that setup_in['subdirs'] is set correctly")
+            meta_df.drop(index=row, inplace=True)
     
-    write_meta_df_txt(meta_df, output_metapath)
+    write_meta_df_txt(setup_out, meta_df, merge=merge_out)
 
     if delete_input:
-        shutil.rmtree(input_path)
+        shutil.rmtree(setup_in['path'])
