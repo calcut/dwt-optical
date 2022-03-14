@@ -24,7 +24,7 @@ class DataProcess(QWidget):
         self.process_info = None
 
         self.selection_df = None
-        self.datadir = None
+        self.setup = None
 
         self.plotcanvas = PlotCanvas()
         self.selectedTable = None
@@ -130,13 +130,13 @@ class DataProcess(QWidget):
             logging.error('Please select data first')
         else:
             logging.info('Merging selected data into single dataframe')
-            self.df, self.title = csv.merge_dataframes(self.selection_df, self.datadir)
+            self.df, self.title = csv.merge_dataframes(self.setup, self.selection_df)
             self.df_orig = self.df.copy()
             self.title_orig = self.title
             logging.info(f'Selected data contains {len(self.df.columns)-1} measurements')
 
-    def metapath_changed(self, metapath):
-        self.datadir = os.path.dirname(metapath)
+    def setup_changed(self, setup):
+        self.setup = setup
 
     def selection_df_changed(self, selection_df):
         self.df = None
@@ -228,18 +228,16 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     window = DataProcess()
 
-    meta_tbox = './imported/index.txt'
+    setup = csv.get_default_setup()
 
-    meta_df = csv.read_metadata(meta_tbox)
-    metapath = os.path.abspath(meta_tbox)
-    datadir = os.path.dirname(metapath)
+    meta_df = csv.read_metadata(setup)
     selection_df = csv.select_from_metadata('element', '01', meta_df)
     selection_df = csv.select_from_metadata('fluid', 'Beer', selection_df)
-    df, title = csv.merge_dataframes(selection_df, datadir)
+    df, title = csv.merge_dataframes(setup, selection_df)
 
     # window.set_data(df, title)
     window.selection_df = selection_df
-    window.datadir = os.path.dirname(metapath) 
+    window.setup = setup
     window.resize(1024, 768)
     window.show()
     sys.exit(app.exec())

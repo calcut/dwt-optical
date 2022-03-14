@@ -1,8 +1,84 @@
 
 import sys
 import pandas as pd
-from PySide6.QtWidgets import QLabel, QLineEdit, QMainWindow, QTableView, QWidget, QVBoxLayout, QTextEdit, QHBoxLayout
+from PySide6.QtWidgets import QLabel, QLineEdit, QMainWindow, QTableWidget, QTableWidgetItem, QTableView, QWidget, QVBoxLayout, QTextEdit, QHBoxLayout
 from PySide6.QtCore import QAbstractTableModel, Qt, QSortFilterProxyModel
+import os
+
+class SetupTable(QMainWindow):
+
+    def __init__(self, setup, title):
+        super().__init__()
+
+        centralwidget = QWidget()
+        centralwidget.setObjectName(u"centralwidget")
+        self.setCentralWidget(centralwidget)
+        self.resize(960, 480)
+        self.setWindowTitle(title)
+
+        setup_table = QTableWidget()
+        instrument_table = QTableWidget()
+        element_table = QTableWidget()
+
+        # Create the table with necessary properties
+        setup_table.setColumnCount(1)
+        setup_table.setRowCount(len(setup))
+
+        instrument_table.setColumnCount(1)
+        instrument_table.setRowCount(len(setup['instrument']))
+        
+        element_table.setColumnCount(1)
+        element_table.setRowCount(len(setup['instrument']['element_map']))
+
+        for row, key in enumerate(setup):
+            if not key == 'instrument':
+                value = setup[key]
+            else:
+                value = '-->'
+            setup_table.setItem(row, 0, QTableWidgetItem(str(value)))
+        path, filename = os.path.split(title)
+        setup_table.setHorizontalHeaderLabels([filename])
+        setup_table.setVerticalHeaderLabels(setup.keys())
+
+        instrument = setup['instrument']
+        for row, key in enumerate(instrument):
+            if not key == 'element_map':
+                value = instrument[key]
+            else: value = '-->'
+            instrument_table.setItem(row, 0, QTableWidgetItem(str(value)))
+
+        instrument_table.setHorizontalHeaderLabels(['instrument'])
+        instrument_table.setVerticalHeaderLabels(instrument.keys())
+
+        element_map = instrument['element_map']
+
+        for row, key in enumerate(element_map):
+            value = element_map[key]
+            element_table.setItem(row, 0, QTableWidgetItem(str(value)))
+
+        element_table.setHorizontalHeaderLabels(['element map'])
+        element_table.setVerticalHeaderLabels(element_map.keys())
+
+        setup_table.resizeColumnsToContents()
+        setup_table.resizeRowsToContents()
+        instrument_table.resizeColumnsToContents()
+        instrument_table.resizeRowsToContents()
+        element_table.resizeColumnsToContents()
+        element_table.resizeRowsToContents()
+
+        self.hbox = QHBoxLayout()
+        self.hbox.addWidget(setup_table, stretch=setup_table.columnWidth(0))
+        self.hbox.addWidget(instrument_table, stretch=instrument_table.columnWidth(0))
+        self.hbox.addWidget(element_table, stretch=element_table.columnWidth(0))
+
+        self.label_filter = QLabel("Test Label")
+        self.VBoxTable = QVBoxLayout(centralwidget)
+        self.VBoxTable.addWidget(self.label_filter)
+        self.VBoxTable.addLayout(self.hbox)
+        self.VBoxTable.addWidget(self.label_filter)
+        # self.setCentralWidget(setup_table)
+
+
 
 class MetaModel(QAbstractTableModel):
 

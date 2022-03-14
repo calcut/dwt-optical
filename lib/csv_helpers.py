@@ -566,7 +566,7 @@ def write_setup_json(setup):
     setup_mod['instrument'] = setup['instrument']['name']
 
     date = pd.Timestamp.utcnow().strftime('%Y-%m-%d_%H%M%S')
-    setup_path = os.path.join(setup['path'], 'setups', f"{date}-setup.json")
+    setup_path = os.path.join('setups', f"{date}-setup.json")
     os.makedirs(os.path.dirname(setup_path), exist_ok=True)
 
     if not os.path.isfile(setup_path):
@@ -577,7 +577,7 @@ def write_setup_json(setup):
 
 def write_instrument_json(setup):
 
-    instrument_path = os.path.join(setup['path'], 'instruments', f"{setup['instrument']['name']}.json")
+    instrument_path = os.path.join('setups', 'instruments', f"{setup['instrument']['name']}.json")
     os.makedirs(os.path.dirname(instrument_path), exist_ok=True)
 
     if not os.path.isfile(instrument_path):

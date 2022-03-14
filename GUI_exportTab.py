@@ -6,23 +6,23 @@ from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget,
 import logging
 from GUI_dataProcess import DataProcess
 from GUI_tableView import ExportTable
-from GUI_commonWidgets import QHLine, MetaBrowse, MetaFilter
+from GUI_commonWidgets import QHLine, SetupBrowse, MetaFilter
 import lib.csv_helpers as csv
 
 class ExportWorker(QObject):
     finished = Signal()
     progress = Signal(int)
 
-    def __init__(self, metapath, meta_df, outfile, data_proc=None):
+    def __init__(self, setup, meta_df, outfile, data_proc=None):
         super().__init__()
-        self.datadir = os.path.dirname(metapath)
+        self.setup = setup
         self.meta_df = meta_df
         self.outfile = outfile
         self.data_proc = data_proc
 
     def run(self):
-        logging.info(f'running csv.export_dataframes with path={self.datadir} meta_df=\n{self.meta_df}')
-        self.export = csv.export_dataframes(self.datadir, self.meta_df, self.outfile, dp=self.data_proc)
+        logging.info(f"running csv.export_dataframes with path={self.setup['path']} meta_df=\n{self.meta_df}")
+        self.export = csv.export_dataframes(self.setup, self.meta_df, self.outfile, dp=self.data_proc)
         self.finished.emit()
 
 class ExportTab(QWidget):
@@ -66,19 +66,19 @@ class ExportTab(QWidget):
         hbox_run.addStretch()
         hbox_run.addWidget(self.btn_export)
 
-        self.metaBrowse = MetaBrowse()
+        self.setupBrowse = SetupBrowse()
         self.metaFilter = MetaFilter()
         self.dataProcess = DataProcess()
-        self.metaBrowse.new_metapath.connect(self.metaFilter.metapath_changed)
-        self.metaBrowse.new_metapath.connect(self.dataProcess.metapath_changed)
-        self.metaBrowse.update_meta_df()
+        self.setupBrowse.new_setup.connect(self.metaFilter.setup_changed)
+        self.setupBrowse.new_setup.connect(self.dataProcess.setup_changed)
+        self.setupBrowse.update_setup_json()
         self.metaFilter.add_sel_row()
         self.metaFilter.new_selection_df.connect(self.dataProcess.selection_df_changed)
         self.metaFilter.select_meta()
 
         vbox.addWidget(label_title)
         vbox.addWidget(QHLine())
-        vbox.addWidget(self.metaBrowse)
+        vbox.addWidget(self.setupBrowse)
         vbox.addWidget(QHLine())
         vbox.addWidget(self.metaFilter)
         vbox.addWidget(QHLine())
@@ -98,7 +98,7 @@ class ExportTab(QWidget):
 
     def run_export(self):
         outfile = self.tbox_output.text()
-        metapath = self.metaBrowse.metapath
+        setup = self.setupBrowse.setup
 
         if outfile == '':
             outfile = None
@@ -107,8 +107,7 @@ class ExportTab(QWidget):
 
         selection_df = self.metaFilter.selection_df
 
-        self.worker = ExportWorker(metapath, selection_df, outfile, self.dataProcess.dp)
-        # self.worker = ExportWorker(metapath, selection_df, outfile)
+        self.worker = ExportWorker(setup, selection_df, outfile, self.dataProcess.dp)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.thread.quit)

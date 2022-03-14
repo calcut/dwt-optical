@@ -6,7 +6,9 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame,
     QVBoxLayout, QFileDialog, QPushButton, QLabel)
 import logging
+import json
 from GUI_tableView import MetaTable
+from GUI_tableView import SetupTable
 import lib.csv_helpers as csv
 
 class QHLine(QFrame):
@@ -15,52 +17,105 @@ class QHLine(QFrame):
         self.setFrameShape(QFrame.HLine)
         self.setFrameShadow(QFrame.Sunken)
 
-class MetaBrowse(QWidget):
 
-    new_metapath = Signal(str)
+class SetupBrowse(QWidget):
+
+    new_setup = Signal(dict)
 
     def __init__(self):
         QWidget.__init__(self)
 
-        default_metafile = './imported/index.txt'
+        # default_metafile = './dummydata/defa.txt'
 
-        label_index = QLabel("Metadata Index File:")
+        label_index = QLabel("Setup File:")
 
         btn_width = 80
-        browse_meta = QPushButton("Browse")
-        browse_meta.clicked.connect(self.get_meta)
-        browse_meta.setFixedWidth(btn_width)
+        browse_setup = QPushButton("Browse")
+        browse_setup.clicked.connect(self.get_setup)
+        browse_setup.setFixedWidth(btn_width)
 
-        btn_preview_meta = QPushButton("Preview")
-        btn_preview_meta.clicked.connect(self.preview_meta)
-        btn_preview_meta.setFixedWidth(btn_width)
+        btn_preview_setup = QPushButton("Preview")
+        btn_preview_setup.clicked.connect(self.preview_setup)
+        btn_preview_setup.setFixedWidth(btn_width)
 
-        self.tbox_meta = QLineEdit()
-        self.tbox_meta.editingFinished.connect(self.update_meta_df)
-        self.tbox_meta.setText(default_metafile)
+        self.tbox_setup = QLineEdit()
+        self.tbox_setup.editingFinished.connect(self.update_setup_json)
+        self.tbox_setup.setText('setups/default-setup.json')
 
         hbox_input = QHBoxLayout()
         hbox_input.addWidget(label_index)
-        hbox_input.addWidget(self.tbox_meta)
-        hbox_input.addWidget(browse_meta)
-        hbox_input.addWidget(btn_preview_meta)
+        hbox_input.addWidget(self.tbox_setup)
+        hbox_input.addWidget(browse_setup)
+        hbox_input.addWidget(btn_preview_setup)
 
         self.setLayout(hbox_input)
 
-    def get_meta(self):
-        metafile, _ = QFileDialog.getOpenFileName(self, "Metadata File:", filter ='(*.csv *.tsv *.txt)')
-        self.tbox_meta.setText(metafile)
-        self.update_meta_df()
+    def get_setup(self):
+        self.setuppath, _ = QFileDialog.getOpenFileName(self, "Setup File:", filter ='(*.json)')
+        self.tbox_setup.setText(self.setuppath)
+        self.update_setup_json()
 
-    def update_meta_df(self):
-        self.metapath = os.path.abspath(self.tbox_meta.text())
-        if os.path.isfile(self.metapath):
-            self.new_metapath.emit(self.metapath)
+    def update_setup_json(self):
+        self.setuppath = self.tbox_setup.text()
+        if os.path.isfile(self.setuppath):
+            self.setup = csv.read_setup_json(self.setuppath)
+            self.new_setup.emit(self.setup)
+        else:
+            logging.error('No Setup File found')
 
-    def preview_meta(self):
-        meta_df = csv.read_metadata(self.metapath)
-        self.metaTable = MetaTable(meta_df, self.metapath)
-        self.metaTable.show()
+    def preview_setup(self):
+        self.setupTable = SetupTable(self.setup, self.setuppath)
+        self.setupTable.show()
+
+# class MetaBrowse(QWidget):
+
+#     new_metapath = Signal(str)
+
+#     def __init__(self, setup):
+#         QWidget.__init__(self)
+
+#         self.setup = setup
+
+#         # default_metafile = './imported/index.txt'
+
+#         label_index = QLabel("Metadata Index File:")
+
+#         btn_width = 80
+#         browse_meta = QPushButton("Browse")
+#         browse_meta.clicked.connect(self.get_meta)
+#         browse_meta.setFixedWidth(btn_width)
+
+#         btn_preview_meta = QPushButton("Preview")
+#         btn_preview_meta.clicked.connect(self.preview_meta)
+#         btn_preview_meta.setFixedWidth(btn_width)
+
+#         self.tbox_meta = QLineEdit()
+#         self.tbox_meta.editingFinished.connect(self.update_meta_df)
+#         self.tbox_meta.setText()
+
+#         hbox_input = QHBoxLayout()
+#         hbox_input.addWidget(label_index)
+#         hbox_input.addWidget(self.tbox_meta)
+#         hbox_input.addWidget(browse_meta)
+#         hbox_input.addWidget(btn_preview_meta)
+
+#         self.setLayout(hbox_input)
+
+#     # def get_meta(self):
+#     #     metafile, _ = QFileDialog.getOpenFileName(self, "Metadata File:", filter ='(*.csv *.tsv *.txt)')
+#     #     self.tbox_meta.setText(metafile)
+#     #     self.update_meta_df()
+
+#     def update_meta_df(self):
+#         self.metapath = os.path.join(self.setup['path'], self.setup['metafile'])
+#         # self.metapath = os.path.abspath(self.tbox_meta.text())
+#         if os.path.isfile(self.metapath):
+#             self.new_metapath.emit(self.metapath)
+
+#     def preview_meta(self):
+#         meta_df = csv.read_metadata(self.metapath)
+#         self.metaTable = MetaTable(meta_df, self.metapath)
+#         self.metaTable.show()
 
 class MetaFilter(QWidget):
 
@@ -212,8 +267,11 @@ class MetaFilter(QWidget):
         except KeyError:
             logging.debug(f'Key "{key}" not found in Metadata index file')
 
-    def metapath_changed(self, metapath):
-        self.meta_df = csv.read_metadata(metapath)
+    def setup_changed(self, setup):
+
+        print('MetaFilter : got new setup ')
+        self.meta_df = csv.read_metadata(setup)
+
 
         # Update the 'key' combo boxes with fields from new meta_df 
         rows = self.grid_sel.rowCount()
