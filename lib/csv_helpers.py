@@ -242,7 +242,7 @@ def export_dataframes(setup, meta_df=None, outfile=None, dp=None):
     return exportframe
 
 
-def import_dir_to_csv(setup, input_dir, regex, separator='\t'):
+def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
 
     '''
     regex can optionally identify the following fields:
@@ -346,8 +346,8 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t'):
 
         datapath = find_datapath(setup, run_df, index)
 
-        write_df_txt(df, datapath)
-        write_meta_df_txt(setup, run_df)
+        write_df_txt(df, datapath, merge=merge)
+        write_meta_df_txt(setup, run_df, merge=merge)
 
         # write_df_txt(df, )
         # # TODO, the 'store' function reads and writes the full metadata file

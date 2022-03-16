@@ -6,7 +6,7 @@ from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot, Qt
 from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget, QTableView,
 QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget, QSplitter)
-from GUI_surfacesTab import SurfacesTab
+# from GUI_surfacesTab import SurfacesTab
 
 import lib.csv_helpers as csv
 from GUI_Logging import GUILogger
@@ -31,7 +31,7 @@ class MainWindow(QMainWindow):
 
         self.log = GUILogger(self)
         self.importTab = ImportTab()
-        self.surfacesTab = SurfacesTab()
+        # self.surfacesTab = SurfacesTab()
         self.exportTab = ExportTab()
 
         self.setupTab = QWidget()
@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         tabWidget.addTab(self.setupTab, "Setup")
         tabWidget.addTab(self.runTab, "Manual Run")
         tabWidget.addTab(self.importTab, "Import")
-        tabWidget.addTab(self.surfacesTab, "Surface Chemistry")
+        # tabWidget.addTab(self.surfacesTab, "Surface Chemistry")
         tabWidget.addTab(self.exportTab, "Export")
 
 

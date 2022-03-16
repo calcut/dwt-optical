@@ -269,7 +269,7 @@ class MetaFilter(QWidget):
 
     def setup_changed(self, setup):
 
-        print('MetaFilter : got new setup ')
+        logging.info('MetaFilter : got new setup ')
         self.meta_df = csv.read_metadata(setup)
 
 
