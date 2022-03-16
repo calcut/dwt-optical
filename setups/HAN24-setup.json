@@ -1,0 +1,27 @@
+{
+   "metafile": "index.txt",
+   "path": "dummydata",
+   "subdirs": [
+      "instrument",
+      "fluid"
+   ],
+   "fluids": [
+      "waterA",
+      "waterB",
+      "waterC"
+   ],
+   "elements": "all",
+   "repeats": 3,
+   "wavelength_range": [
+      400,
+      420,
+      0.5
+   ],
+   "primary_metadata": [
+      "instrument",
+      "element",
+      "fluid"
+   ],
+   "comment": "",
+   "instrument": "HAN24sample"
+}

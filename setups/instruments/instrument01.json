@@ -1,0 +1,14 @@
+{
+   "name": "instrument01",
+   "sensor": "DUM01",
+   "element_map": {
+      "A01": "Al",
+      "A02": "Au",
+      "B01": "Al-HMDS",
+      "B02": "Au-DT",
+      "C01": "Al-PEG",
+      "C02": "Au-PFDT"
+   },
+   "light Source": "Stellarnet LED White",
+   "spectrometer": "Stellarnet BlueWave VIS-25"
+}
