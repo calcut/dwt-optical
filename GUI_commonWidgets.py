@@ -49,6 +49,7 @@ class SetupBrowse(QWidget):
         hbox_input.addWidget(btn_preview_setup)
 
         self.setLayout(hbox_input)
+        self.update_setup_json()
 
     def get_setup(self):
         self.setuppath, _ = QFileDialog.getOpenFileName(self, "Setup File:", filter ='(*.json)')

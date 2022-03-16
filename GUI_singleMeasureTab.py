@@ -1,9 +1,10 @@
 
+from math import comb
 import sys
 import os
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget, QCheckBox,
-    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox)
+    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QGridLayout)
 import logging
 from GUI_commonWidgets import QHLine, SetupBrowse
 from GUI_tableView import MetaTable
@@ -11,18 +12,18 @@ import lib.csv_helpers as csv
 
 
 
-class MeasureTab(QWidget):
+class SingleMeasureTab(QWidget):
 
     def __init__(self):
         QWidget.__init__(self)
-        self.setObjectName(u"MeasureTab")
+        self.setObjectName(u"SingleMeasureTab")
 
         btn_width = 80
 
         # List of functions to interface with spectrometer APIs
         self.measure_funcs = [csv.dummy_measurement]
 
-        label_info = QLabel("Capture a series of measurements")
+        label_info = QLabel("Capture a single measurement")
 
         tooltip_info = ("Generates a Run List based on setup.json\n"
             +"i.e. Adds a row for each permutation of 'fluids' and 'elements'\n\n"
@@ -32,25 +33,43 @@ class MeasureTab(QWidget):
         )
         label_info.setToolTip(tooltip_info)
 
-        self.run_df = None
         self.setupBrowse = SetupBrowse()
         self.setupBrowse.new_setup.connect(self.setup_changed)
 
-        # Run_df
-        label_run_df = QLabel("Define Run List:\n[Could add import/export options here to allow manual editing?]")
+ 
+        # Metadata
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
 
-        btn_generate = QPushButton("Generate")
-        btn_generate.clicked.connect(self.generate_run_df)
-        btn_generate.setFixedWidth(btn_width)
+        self.tbox_instrument = QLineEdit()
+        self.tbox_instrument.setReadOnly(True)
+        grid.addWidget(QLabel("Instrument"), 0, 0)
+        grid.addWidget(self.tbox_instrument, 0, 1)    
 
-        btn_preview_run_df= QPushButton("Preview")
-        btn_preview_run_df.clicked.connect(self.preview_run_df)
-        btn_preview_run_df.setFixedWidth(btn_width)
+        self.tbox_sensor = QLineEdit()
+        self.tbox_sensor.setReadOnly(True)
+        grid.addWidget(QLabel("Sensor"), 1, 0)
+        grid.addWidget(self.tbox_sensor, 1, 1)    
 
-        hbox_run_df = QHBoxLayout()
-        hbox_run_df.addWidget(label_run_df)
-        hbox_run_df.addWidget(btn_generate)
-        hbox_run_df.addWidget(btn_preview_run_df)
+        self.combo_element = QComboBox()
+        self.combo_element.setEditable(True)
+        self.combo_element.currentTextChanged.connect(self.element_changed)
+        grid.addWidget(QLabel("Element"), 2, 0)
+        grid.addWidget(self.combo_element, 2, 1)
+
+        self.tbox_surface = QLineEdit()
+        self.tbox_surface.setReadOnly(True)
+        grid.addWidget(QLabel("Surface"), 3, 0)
+        grid.addWidget(self.tbox_surface, 3, 1)
+
+        self.combo_fluid = QComboBox()
+        self.combo_fluid.setEditable(True)
+        grid.addWidget(QLabel("Fluid"), 4, 0)
+        grid.addWidget(self.combo_fluid, 4, 1) 
+
+        self.tbox_comment = QLineEdit()
+        grid.addWidget(QLabel("Comment"), 5, 0)
+        grid.addWidget(self.tbox_comment, 5, 1)
 
         # Measurement Function
         label_mf = QLabel("Spectrometer Measurement Function:")
@@ -81,7 +100,7 @@ class MeasureTab(QWidget):
         # Run Measurements
         # label_run = QLabel("Process Run List:")
         btn_run= QPushButton("Run")
-        btn_run.clicked.connect(self.run_measurements)
+        btn_run.clicked.connect(self.run_measurement)
         btn_run.setFixedWidth(btn_width)
 
         hbox_run = QHBoxLayout()
@@ -95,7 +114,7 @@ class MeasureTab(QWidget):
         vbox.addWidget(QHLine())
         vbox.addWidget(self.setupBrowse)
         vbox.addWidget(QHLine())
-        vbox.addLayout(hbox_run_df)
+        vbox.addLayout(grid)
         vbox.addWidget(QHLine())
         vbox.addLayout(hbox_mf)
         vbox.addWidget(QHLine())
@@ -119,9 +138,11 @@ class MeasureTab(QWidget):
         self.runTable = MetaTable(self.run_df, "Run List DataFrame")
         self.runTable.show()
 
-    def run_measurements(self):
-        if self.run_df is None:
-            self.generate_run_df()
+    def run_measurement(self):
+        
+        element = self.combo_element.currentText()
+        fluid = self.combo_fluid.currentText()
+        comment = self.tbox_comment.text()
 
         for f in self.measure_funcs:
             if f.__name__ == self.combo_mf.currentText():
@@ -131,10 +152,29 @@ class MeasureTab(QWidget):
 
         merge = self.cbox_merge.isChecked()        
         setup = self.setupBrowse.setup
-        csv.run_measure(setup, self.run_df, measure_func=mf, merge=merge)
+        csv.simple_measurement(setup, element, fluid, measure_func=mf, merge=merge, comment=comment)
+
+    def element_changed(self, element):
+        try:
+            surface = self.setupBrowse.setup['instrument']['element_map'][element]
+        except KeyError:
+            surface = 'Unknown - Please update instrument file'
+        self.tbox_surface.setText(surface)
 
     def setup_changed(self, setup):
         logging.debug(f"Import Tab : got new setup {self.setupBrowse.tbox_setup.text()}")
+
+        self.tbox_instrument.setText(setup['instrument']['name'])
+        self.tbox_sensor.setText(setup['instrument']['sensor'])
+
+        # Update the fluid / element options
+        fluids = setup['fluids']
+        self.combo_fluid.clear()
+        self.combo_fluid.addItems(fluids)
+
+        elements = setup['instrument']['element_map'].keys()
+        self.combo_element.clear()
+        self.combo_element.addItems(elements)
 
         # Update the output path displayed
         outpath = os.path.abspath(setup['path'])
@@ -153,7 +193,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    window = MeasureTab()
+    window = SingleMeasureTab()
     window.resize(1024, 768)
     window.show()
     sys.exit(app.exec())
