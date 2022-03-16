@@ -155,15 +155,12 @@ class ImportTab(QWidget):
                 self.separator = '\t'
 
     def setup_changed(self, setup):
-        logging.info("Import Tab : got new setup")
+        logging.debug(f"Import Tab : got new setup {self.setupBrowse.tbox_setup.text()}")
+        self.setup = setup
         
     def get_input_dir(self):
-        dirname = QFileDialog.getExistingDirectory(self.tab, "Select Input Directory")
+        dirname = QFileDialog.getExistingDirectory(self, "Select Input Directory")
         self.tbox_input.setText(dirname)
-
-    def get_output_dir(self):
-        dirname = QFileDialog.getExistingDirectory(self.tab, "Select Output Directory")
-        self.tbox_output.setText(dirname)
 
     def run_import(self):
 
