@@ -72,7 +72,7 @@ class MeasureTab(QWidget):
         # Merge
         label_merge = QLabel('Merge into existing files')
         self.cbox_merge = QCheckBox()
-        self.cbox_merge.setChecked()
+        self.cbox_merge.setChecked(True)
 
         hbox_merge = QHBoxLayout()
         hbox_merge.addWidget(self.cbox_merge)
@@ -128,14 +128,14 @@ class MeasureTab(QWidget):
             if f.__name__ == self.combo_mf.currentText():
                 mf = f
 
-        logging.info(f'measure_function = {mf}')
+        logging.info(f'measure_function = {mf.__name__}')
 
         merge = self.cbox_merge.isChecked()        
         setup = self.setupBrowse.setup
         csv.run_measure(setup, self.run_df, measure_func=mf, merge=merge)
 
     def setup_changed(self, setup):
-        logging.debug(f"Import Tab : got new setup {self.setupBrowse.tbox_setup.text()}")
+        logging.debug(f"Measure Tab : got new setup {self.setupBrowse.tbox_setup.text()}")
 
         # Update the output path displayed
         outpath = os.path.abspath(setup['path'])

@@ -91,7 +91,7 @@ class SingleMeasureTab(QWidget):
         # Merge
         label_merge = QLabel('Merge into existing files')
         self.cbox_merge = QCheckBox()
-        self.cbox_merge.setChecked()
+        self.cbox_merge.setChecked(True)
 
 
         hbox_merge = QHBoxLayout()
@@ -150,7 +150,7 @@ class SingleMeasureTab(QWidget):
             if f.__name__ == self.combo_mf.currentText():
                 mf = f
 
-        logging.info(f'measure_function = {mf}')
+        logging.info(f'measure_function = {mf.__name__}')
 
         merge = self.cbox_merge.isChecked()        
         setup = self.setupBrowse.setup
@@ -164,7 +164,7 @@ class SingleMeasureTab(QWidget):
         self.tbox_surface.setText(surface)
 
     def setup_changed(self, setup):
-        logging.debug(f"Import Tab : got new setup {self.setupBrowse.tbox_setup.text()}")
+        logging.debug(f"Single Measure Tab : got new setup {self.setupBrowse.tbox_setup.text()}")
 
         self.tbox_instrument.setText(setup['instrument']['name'])
         self.tbox_sensor.setText(setup['instrument']['sensor'])
