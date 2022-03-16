@@ -46,14 +46,14 @@ class DataProcessor():
         self.apply_round = True
 
     def process_dataframe(self, df):
-        if self.apply_normalise:
-            df = self.normalise(df)
-
         if self.apply_smooth:
             df = self.smooth(df, self.smooth_points)
         
         if self.apply_trim:
             df = self.trim(df, self.wavelength_trim_min, self.wavelength_trim_max)
+
+        if self.apply_normalise:
+            df = self.normalise(df)
 
         if self.apply_interpolate:
             df = self.interpolate(df, self.interpolate_sampling_rate)
