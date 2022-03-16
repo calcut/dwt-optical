@@ -79,7 +79,7 @@ def dummy_measurement(setup, row):
     df.rename(columns={"transmission" : timestamp }, inplace=True)
     return df
 
-def simple_measurement(setup, element, fluid, measure_func):
+def simple_measurement(setup, element, fluid, measure_func, merge=True, comment=pd.NA):
     
     run_dict = {
         'date'          : pd.Timestamp.utcnow().strftime('%Y-%m-%d'),
@@ -89,7 +89,7 @@ def simple_measurement(setup, element, fluid, measure_func):
         'surface'       : setup['instrument']['element_map'][element],
         'fluid'         : fluid,
         'repeats'       : 1,
-        'comment'       : pd.NA,
+        'comment'       : comment
     }
     index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
     run_dict['index'] = index
@@ -105,7 +105,7 @@ def simple_measurement(setup, element, fluid, measure_func):
     run_df.set_index('index', inplace=True)
 
 
-    run_measure(setup, run_df, measure_func)
+    run_measure(setup, run_df, measure_func, merge=merge)
 
     datapath = find_datapath(setup, run_df, index)
     df = pd.read_csv(datapath, sep='\t')
