@@ -39,7 +39,8 @@ class SetupBrowse(QWidget):
         btn_preview_setup.setFixedWidth(btn_width)
 
         self.tbox_setup = QLineEdit()
-        self.tbox_setup.editingFinished.connect(self.update_setup_json)
+        self.tbox_setup.setReadOnly(True)
+        # self.tbox_setup.editingFinished.connect(self.update_setup_json)
         self.tbox_setup.setText('setups/default-setup.json')
 
         hbox_input = QHBoxLayout()
@@ -52,7 +53,7 @@ class SetupBrowse(QWidget):
         self.update_setup_json()
 
     def get_setup(self):
-        self.setuppath, _ = QFileDialog.getOpenFileName(self, "Setup File:", filter ='(*.json)')
+        self.setuppath, _ = QFileDialog.getOpenFileName(self, "Setup File:", filter ='*.json')
         self.tbox_setup.setText(self.setuppath)
         self.update_setup_json()
 
@@ -227,8 +228,9 @@ class MetaFilter(QWidget):
             self.keyCombo.currentTextChanged.connect(self.keyChanged)
 
             if hasattr(self, 'meta_df'):
-                items = self.meta_df.columns.tolist()
-                self.keyCombo.addItems(items)
+                if isinstance(self.meta_df, pd.DataFrame):
+                    items = self.meta_df.columns.tolist()
+                    self.keyCombo.addItems(items)
 
             self.valCombo = QComboBox()
             self.valCombo.setEditable(True)
@@ -270,7 +272,7 @@ class MetaFilter(QWidget):
 
     def setup_changed(self, setup):
 
-        logging.info('MetaFilter : got new setup ')
+        logging.debug(f"MetaFilter : got new setup")
         self.meta_df = csv.read_metadata(setup)
 
 
