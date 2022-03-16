@@ -41,7 +41,7 @@ class SetupBrowse(QWidget):
         self.tbox_setup = QLineEdit()
         self.tbox_setup.setReadOnly(True)
         # self.tbox_setup.editingFinished.connect(self.update_setup_json)
-        self.tbox_setup.setText('setups/default-setup.json')
+        self.tbox_setup.setText('/Users/calum/spectrometer/setups/default-setup.json')
 
         hbox_input = QHBoxLayout()
         hbox_input.addWidget(label_index)
