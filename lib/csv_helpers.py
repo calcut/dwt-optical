@@ -80,6 +80,10 @@ def dummy_measurement(setup, row):
     return df
 
 def simple_measurement(setup, element, fluid, measure_func, merge=True, comment=pd.NA):
+
+    #sanitise comment parameter
+    if comment == '':
+        comment = pd.NA
     
     run_dict = {
         'date'          : pd.Timestamp.utcnow().strftime('%Y-%m-%d'),
@@ -375,7 +379,7 @@ def read_metadata(setup=default_setup):
                         )
         logging.debug(f'Loaded Metadata Index from {metapath}')
     else:
-        logging.error(f'{metapath} not found')
+        logging.warning(f'{metapath} not found')
         return
     return meta_df
 

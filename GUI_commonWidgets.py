@@ -155,6 +155,11 @@ class MetaFilter(QWidget):
         self.setLayout(vbox)
 
     def select_meta(self):
+
+        if self.meta_df is None:
+            logging.debug("meta_df is not found")
+            return
+
         self.selection_df = self.meta_df
 
         rows = self.grid_sel.rowCount()
