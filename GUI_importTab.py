@@ -84,6 +84,7 @@ class ImportTab(QWidget):
 
         label_merge = QLabel('Merge into existing files')
         self.cbox_merge = QCheckBox()
+        self.cbox_merge.setChecked()
         
         self.tbox_outpath.setText(outpath)
         self.tbox_regex = QLineEdit()

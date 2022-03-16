@@ -91,6 +91,8 @@ class SingleMeasureTab(QWidget):
         # Merge
         label_merge = QLabel('Merge into existing files')
         self.cbox_merge = QCheckBox()
+        self.cbox_merge.setChecked()
+
 
         hbox_merge = QHBoxLayout()
         hbox_merge.addWidget(self.cbox_merge)
