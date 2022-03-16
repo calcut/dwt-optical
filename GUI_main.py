@@ -6,7 +6,8 @@ from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot, Qt
 from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget, QTableView,
 QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget, QSplitter)
-# from GUI_surfacesTab import SurfacesTab
+from GUI_measureTab import MeasureTab
+from GUI_singleMeasureTab import SingleMeasureTab
 
 import lib.csv_helpers as csv
 from GUI_Logging import GUILogger
@@ -22,7 +23,7 @@ class MainWindow(QMainWindow):
         centralwidget = QWidget()
         centralwidget.setObjectName(u"centralwidget")
         self.setCentralWidget(centralwidget)
-        self.resize(1024, 900)
+        self.resize(1024, 1024)
 
         vbox = QVBoxLayout(centralwidget)
         vbox.setObjectName(u"verticalLayout")
@@ -30,8 +31,9 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Vertical)
 
         self.log = GUILogger(self)
+        self.singleMeasureTab = SingleMeasureTab()
+        self.measureTab = MeasureTab()
         self.importTab = ImportTab()
-        # self.surfacesTab = SurfacesTab()
         self.exportTab = ExportTab()
 
         self.setupTab = QWidget()
@@ -39,15 +41,17 @@ class MainWindow(QMainWindow):
 
         # Add tab to the main tab widget, and give it a label
         tabWidget = QTabWidget(centralwidget)
-        tabWidget.addTab(self.setupTab, "Setup")
-        tabWidget.addTab(self.runTab, "Manual Run")
+        # tabWidget.addTab(self.setupTab, "Setup")
+        tabWidget.addTab(self.singleMeasureTab, "Single Measure")
+        tabWidget.addTab(self.measureTab, "Batch Measure")
         tabWidget.addTab(self.importTab, "Import")
-        # tabWidget.addTab(self.surfacesTab, "Surface Chemistry")
         tabWidget.addTab(self.exportTab, "Export")
 
 
         splitter.addWidget(tabWidget)
         splitter.addWidget(self.log)
+        splitter.setStretchFactor(0,0)
+        splitter.setStretchFactor(1,1)
         vbox.addWidget(splitter)
 
         self.show()
