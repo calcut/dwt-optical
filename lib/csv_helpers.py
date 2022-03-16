@@ -599,7 +599,7 @@ def read_setup_json(path):
     return setup
 
 
-def run_measure(setup, run_df, measure_func):
+def run_measure(setup, run_df, measure_func, merge=True):
     '''
     For doing a bulk run of measurements.
     This iterates through a run list (run_df), calling measure_func for each
@@ -620,12 +620,12 @@ def run_measure(setup, run_df, measure_func):
             df = measure_func(setup, run_df.loc[row])
 
             # write the df to txt file
-            write_df_txt(df, datapath)
+            write_df_txt(df, datapath, merge=merge)
 
         # Update the date column in the run_df
         run_df.at[row, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
     
-    write_meta_df_txt(setup, run_df)
+    write_meta_df_txt(setup, run_df, merge=merge)
 
 def bulk_process(setup_in, setup_out, delete_input=False, merge_out=False):
     '''
