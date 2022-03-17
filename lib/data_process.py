@@ -46,29 +46,29 @@ class DataProcessor():
         self.apply_round = True
 
     def process_dataframe(self, df):
-        if self.apply_smooth:
-            try:
-                df = self.smooth(df, self.smooth_points)
-            except:
-                logging.exception("Unable to smooth")
-        
         if self.apply_trim:
             try:
                 df = self.trim(df, self.wavelength_trim_min, self.wavelength_trim_max)
             except:
                 logging.exception("Unable to trim")
 
-        if self.apply_normalise:
+        if self.apply_smooth:
             try:
-                df = self.normalise(df)
+                df = self.smooth(df, self.smooth_points)
             except:
-                logging.exception("Unable to normalise")
+                logging.exception("Unable to smooth")
 
         if self.apply_interpolate:
             try:
                 df = self.interpolate(df, self.interpolate_sampling_rate)
             except:
                 logging.exception("Unable to interpolate")
+
+        if self.apply_normalise:
+            try:
+                df = self.normalise(df)
+            except:
+                logging.exception("Unable to normalise")
 
         if self.apply_round:
             try:
