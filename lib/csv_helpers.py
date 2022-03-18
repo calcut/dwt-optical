@@ -605,7 +605,7 @@ def read_setup_json(path):
 
 def run_measure(setup, run_df, measure_func, merge=True):
     '''
-    For doing a bulk run of measurements.
+    For doing a batch run of measurements.
     This iterates through a run list (run_df), calling measure_func for each
     repeat of each row.
 
@@ -615,6 +615,10 @@ def run_measure(setup, run_df, measure_func, merge=True):
     the date column in run_df is populated, and then saved as index.txt in the
     output directory
     '''
+    # Duplicate the run_df so the original is not modified
+    # Prevents unexpected behaviour if calling this function multiple times.
+    run_df = run_df.copy()
+
     for row in run_df.index:
         df = pd.DataFrame()
         for rep in range(run_df.loc[row]['repeats']):
