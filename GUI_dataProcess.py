@@ -74,24 +74,11 @@ class DataProcess(QWidget):
         self.grid.setColumnStretch(6,5) #Function Arg3 Name
         self.grid.setColumnStretch(7,5) #Function Arg3 Value
 
-        row_normalise = 0
-        self.normalise = QCheckBox()
-        self.grid.addWidget(self.normalise, row_normalise, 0)
-        self.grid.addWidget(QLabel("Normalise"), row_normalise, 1, alignment=Qt.AlignLeft)
 
-        row_smooth = 1
-        self.smooth = QCheckBox()
-        self.grid.addWidget(self.smooth, row_smooth, 0)
-        self.grid.addWidget(QLabel("Smooth (rolling mean)"), row_smooth, 1, alignment=Qt.AlignLeft)
-        self.grid.addWidget(QLabel("SmoothPoints:"), row_smooth, 2, alignment=Qt.AlignRight)
-        self.smoothpoints_box = QSpinBox()
-        self.smoothpoints_box.setValue(3)
-        self.grid.addWidget(self.smoothpoints_box, row_smooth, 3)
-        
-        row_trim = 2
+        row_trim = 0
         self.trim = QCheckBox()
         self.grid.addWidget(self.trim, row_trim, 0)
-        self.grid.addWidget(QLabel("Wavelength Trim"), row_trim, 1, alignment=Qt.AlignLeft)
+        self.grid.addWidget(QLabel("Wavelength Range"), row_trim, 1, alignment=Qt.AlignLeft)
         self.grid.addWidget(QLabel("Min(nm):"), row_trim, 2, alignment=Qt.AlignRight)
         self.trim_min_box = QSpinBox()
         self.trim_min_box.setRange(0,9999)
@@ -103,7 +90,16 @@ class DataProcess(QWidget):
         self.trim_max_box.setValue(730)
         self.grid.addWidget(self.trim_max_box, row_trim, 5)
 
-        row_interpolate = 3
+        row_smooth = 1
+        self.smooth = QCheckBox()
+        self.grid.addWidget(self.smooth, row_smooth, 0)
+        self.grid.addWidget(QLabel("Smooth (rolling mean)"), row_smooth, 1, alignment=Qt.AlignLeft)
+        self.grid.addWidget(QLabel("SmoothPoints:"), row_smooth, 2, alignment=Qt.AlignRight)
+        self.smoothpoints_box = QSpinBox()
+        self.smoothpoints_box.setValue(3)
+        self.grid.addWidget(self.smoothpoints_box, row_smooth, 3)
+        
+        row_interpolate = 2
         self.interpolate = QCheckBox()
         self.grid.addWidget(self.interpolate, row_interpolate, 0)
         self.grid.addWidget(QLabel("Interpolate"), row_interpolate, 1, alignment=Qt.AlignLeft)
@@ -114,6 +110,11 @@ class DataProcess(QWidget):
         self.interpolate_sr_box.setValue(1)
         self.interpolate_sr_box.setStepType(QtWidgets.QAbstractSpinBox.StepType(1))
         self.grid.addWidget(self.interpolate_sr_box, row_interpolate, 3)
+
+        row_normalise = 3
+        self.normalise = QCheckBox()
+        self.grid.addWidget(self.normalise, row_normalise, 0)
+        self.grid.addWidget(QLabel("Normalise"), row_normalise, 1, alignment=Qt.AlignLeft)
 
         row_round = 4
         self.round = QCheckBox()
