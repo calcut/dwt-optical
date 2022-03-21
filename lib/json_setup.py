@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 
 default_instrument = { 
     'name'              : 'default_instrument',
@@ -100,71 +101,93 @@ default_setup = {
     'output_config'     : default_output_config,
 }
 
-def save_setup(setup):
+def setup_to_flat(dictionary):
 
-    setup["path"] = "/Users/calum/spectrometer/testing"
+    dictionary_list = [dictionary]
 
-    setup_path = os.path.join(setup['path'],'setup')
+    for key, setting in dictionary.items():
+        if type(setting) == dict:
 
-    dict_to_json(setup, setup_path)
+            # Replace the subdictionary with just its name
+            dictionary[key] = setting['name']
+            # Recursively call this function to split out any sub dictionaries
+            sub_dicts = setup_to_flat(setting)
 
-    # for key, config in setup.items():
-    #     if type(config) == dict:
-    #         path = os.path.join(setup_path, f'{key}s')
-    #         os.makedirs(path, exist_ok=True)
-    #         print(f'dir {path}')
+            # concatenate dictionaries into the list
+            dictionary_list += sub_dicts
 
-    #         for subkey, subconfig in config.items():
-    #             if type(subconfig) == dict:
-    #                 config[subkey] = subconfig['name']
-    #                 subpath = os.path.join(path, f'{subkey}s')
-    #                 os.makedirs(subpath, exist_ok=True)
-    #                 print(f'dir {subpath}')
-    #                 json_path = os.path.join(subpath, f"{subconfig['name']}.json")
-    #                 with open(json_path, 'w') as f:
-    #                     json.dump(subconfig, f, ensure_ascii=False, indent=3)
+    return dictionary_list
 
-    #         json_path = os.path.join(path, f"{config['name']}.json")
-    #         with open(json_path, 'w') as f:
-    #             json.dump(config, f, ensure_ascii=False, indent=3)
 
-def dict_to_json(dictionary, path):
-    print(f'making dir {path}')
+def dict_to_json(dictionary, path, overwrite=False):
+
+    # Copy to avoid modifying original dictionary
+    dictionary = dictionary.copy()
+    logging.debug(f'making dir {path}')
     os.makedirs(path, exist_ok=True)
-    for key, config in dictionary.items():
-        if type(config) == dict:
-            dictionary[key] = config['name']
+    for key, setting in dictionary.items():
+        if type(setting) == dict:
+
+            # Replace the subdictionary with just its name
+            dictionary[key] = setting['name']
             subpath = os.path.join(path, f'{key}s')
-            dict_to_json(config, subpath)
+            # Recursively call this function to store the subdictionary
+            dict_to_json(setting, subpath, overwrite=overwrite)
 
-        json_path = os.path.join(path, f"{dictionary['name']}.json")
-        with open(json_path, 'w') as f:
-            json.dump(dictionary, f, ensure_ascii=False, indent=3)
+    # After any subdictionaries have been dealt with, store this dictionary
+    json_path = os.path.join(path, f"{dictionary['name']}.json")
+    if os.path.exists(json_path):
+        if overwrite:
+            logging.warning(f'File exists: {json_path}, overwriting')
+        else:
+            logging.warning(f'File exists: {json_path}, did not overwrite')
+            return
+
+        
+    with open(json_path, 'w') as f:
+        json.dump(dictionary, f, ensure_ascii=False, indent=3)
 
 
+def json_to_dict(filepath):
+
+        
+    logging.debug(f'reading file {filepath}')
+    try:
+        with open(filepath, 'r') as f:
+            dictionary = json.load(f)
+    except FileNotFoundError as e:
+        logging.error(f"{filepath} not found")
+        return f"ERROR {filepath} not found"
+        
+    # Check if any of the dictionary settings are really sub-dictionaries
+    # that need to be populated
+    for key, setting in dictionary.items():
+        subpath = os.path.join(os.path.dirname(filepath), key+'s')
+        
+        if os.path.exists(subpath):
+
+            sub_json = os.path.join(subpath, setting+'.json')
+            logging.debug(f'Populating {key}:')
+            
+            # Recursively call this function to populate the sub-dictionary
+            dictionary[key] = json_to_dict(sub_json)
+
+    return dictionary
+        
     
-    # instrument_path = os.path.join(setup_path,'instruments')
-    # input_config_path = os.path.join(setup_path,'input_configs')
-    # output_config_path = os.path.join(setup_path,'output_configs')
-    # sensor_path = os.path.join(setup_path,'sensors')
-    # surface_map_path = os.path.join(sensor_path,'layouts')
-    # surface_map_path = os.path.join(sensor_path,'element_maps')
-    # surface_map_path = os.path.join(sensor_path,'surface_maps')
-
-
-
-
-
-    # os.makedirs(os.path.dirname(setup_path), exist_ok=True)
-
-    # if not os.path.isfile(setup_path):
-    #     with open(setup_path, 'w') as f:
-    #         json.dump(setup_mod, f, ensure_ascii=False, indent=3)
-    # else:
-    #     logging.warning('File exists, did not write')
-    
-
-
-
 if __name__ == "__main__":
-    save_setup(default_setup)
+
+    logging.basicConfig(level=logging.INFO)
+
+
+    path = "/Users/calum/spectrometer/testing/setup"
+    dict_to_json(default_setup, path, overwrite=True)
+
+    d = json_to_dict("/Users/calum/spectrometer/testing/setup/default_setup.json")
+    print(json.dumps(d, indent=3))
+
+    d = setup_to_flat(default_setup)
+
+    for dict in d:
+        print(dict)
+        print("")
