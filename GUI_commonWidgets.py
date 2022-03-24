@@ -49,7 +49,18 @@ class SetupBrowse(QWidget):
         hbox_input.addWidget(browse_setup)
         hbox_input.addWidget(btn_preview_setup)
 
-        self.setLayout(hbox_input)
+        label_metapath = QLabel("Metadata Index:")
+        self.tbox_metapath = QLineEdit()
+        self.tbox_metapath.setReadOnly(True)
+
+        hbox_metapath = QHBoxLayout()
+        hbox_metapath.addWidget(label_metapath)
+        hbox_metapath.addWidget(self.tbox_metapath)
+
+        vbox = QVBoxLayout()
+        vbox.addLayout(hbox_input)
+        vbox.addLayout(hbox_metapath)    
+        self.setLayout(vbox)
         self.update_setup_json()
 
     def get_setup(self):
@@ -61,6 +72,7 @@ class SetupBrowse(QWidget):
         self.setuppath = self.tbox_setup.text()
         if os.path.isfile(self.setuppath):
             self.setup = csv.read_setup_json(self.setuppath)
+            self.tbox_metapath.setText(os.path.join(self.setup['path'], self.setup['metafile']))
             self.new_setup.emit(self.setup)
         else:
             logging.error('No Setup File found')

@@ -1,51 +1,63 @@
 import os
 import json
 import logging
+from pathlib import Path
+
+from numpy import append
 
 default_instrument = { 
     'name'              : 'default_instrument',
+    'category'          : 'instrument',
     'light Source'      : 'Stellarnet LED White',
     'spectrometer'      : 'Stellarnet BlueWave VIS-25',
 }
 
 default_layout = {
-    'name'  : 'default_layout',
-    'A01'   : [0.1, 0.1],
-    'A02'   : [0.1, 0.2],
-    'B01'   : [0.2, 0.1],
-    'B02'   : [0.2, 0.2],
-    'C01'   : [0.3, 0.1],
-    'C02'   : [0.3, 0.2],
+    'name'      : 'default_layout',
+    'category'  : 'layout',
+    'map'       : {
+            'A01'   : [0.1, 0.1],
+            'A02'   : [0.1, 0.2],
+            'B01'   : [0.2, 0.1],
+            'B02'   : [0.2, 0.2],
+            'C01'   : [0.3, 0.1],
+            'C02'   : [0.3, 0.2],
+    }
 }
 
 default_element_map ={
-    'name'          : 'default_element_array',
+    'name'          : 'default_element_map',
+    'category'      : 'element_map',
     'valid_layout'  : 'default_layout',
-
-    #Element : [material, detail]
-    'A01'    : ['Al', '100nm x 100nm x 50 squares, 300 nm pitch'],
-    'A02'    : ['Au', '100nm x 100nm x 50 squares, 300 nm pitch'],
-    'B01'    : ['Al', '100nm x 100nm x 50 squares, 300 nm pitch'],
-    'B02'    : ['Au', '100nm x 100nm x 50 squares, 300 nm pitch'],
-    'C01'    : ['Al', '100nm x 100nm x 50 squares, 300 nm pitch'],
-    'C02'    : ['Au', '100nm x 100nm x 50 squares, 300 nm pitch'],
+    'map' : {
+        #Element : [material, detail]
+        'A01'    : ['Al', '100nm x 100nm x 50 squares, 300 nm pitch'],
+        'A02'    : ['Au', '100nm x 100nm x 50 squares, 300 nm pitch'],
+        'B01'    : ['Al', '100nm x 100nm x 50 squares, 300 nm pitch'],
+        'B02'    : ['Au', '100nm x 100nm x 50 squares, 300 nm pitch'],
+        'C01'    : ['Al', '100nm x 100nm x 50 squares, 300 nm pitch'],
+        'C02'    : ['Au', '100nm x 100nm x 50 squares, 300 nm pitch'],
     }
+}
 
 default_surface_map ={
     'name'          : 'default_surface_map',
+    'category'      : 'surface_map',
     'valid_layout'  : 'default_layout',
-
-    #Element : [surface, detail]
-    'A01'    : None,
-    'A02'    : None,
-    'B01'    : ['HMDS', 'Hexamethyldisilazane'],
-    'B02'    : ['DT',   '1-decanethiol'],
-    'C01'    : ['PEG',  '2-[methoxy(polyethyleneoxy)6-9propyl] trimethoxysilane'],
-    'C02'    : ['PFDT', 'perfluoro-1-decanethiol'],
+    'map' : {
+        #Element : [surface, detail]
+        'A01'    : None,
+        'A02'    : None,
+        'B01'    : ['HMDS', 'Hexamethyldisilazane'],
+        'B02'    : ['DT',   '1-decanethiol'],
+        'C01'    : ['PEG',  '2-[methoxy(polyethyleneoxy)6-9propyl] trimethoxysilane'],
+        'C02'    : ['PFDT', 'perfluoro-1-decanethiol'],
     }
+}
 
 default_sensor = {
     'name'          : 'default_sensor',
+    'category'      : 'sensor',
     'layout'        : default_layout,
     'element_map'   : default_element_map,
     'surface_map'   : default_surface_map,
@@ -53,6 +65,7 @@ default_sensor = {
 
 default_input_config = {
     'name'              : 'default_input_config',
+    'category'          : 'input_config',
     'fluids'            : ['waterA', 'waterB', 'waterC'],
     'elements'          : 'all',
     'repeats'           : 3,
@@ -65,6 +78,7 @@ default_input_config = {
 
 default_output_config = {
     'name'               : 'default_output_config',
+    'category'           : 'output_config',
                            #Enabled, parameters
     'wavelength_range'   : [True, 540, 730], # wl_min = 540, wl_max = 730
     'smooth'             : [True, 3], # smooth_points = 3
@@ -91,8 +105,9 @@ default_metadata_columns = {
 # Example of a setup data structure
 default_setup = {
     'name'              : 'default_setup',
+    'category'          : 'setup',
     'metafile'          : 'index.txt',
-    'path'              : 'dummydata',
+    'path'              : '/Users/calum/spectrometer/dummydata',
     'subdirs'           : ['sensor', 'fluid'], #Directory structure for data.txt files
     'primary_metadata'  : ['sensor', 'element', 'fluid'], #Determines data filenames
     'instrument'        : default_instrument,
@@ -101,20 +116,49 @@ default_setup = {
     'output_config'     : default_output_config,
 }
 
+
+
+def testing(dictionary, hierarchy=None):
+
+    dictionary_list = [dictionary]
+
+    if not hierarchy:
+        hierarchy = []
+    else:
+        hierarchy.append(f'level {len(hierarchy)}')
+
+    for key, setting in dictionary.items():
+        if type(setting) == dict:
+            # If any subdictionaries have their own 'name' field
+            if 'name' in setting:
+                # Replace the subdictionary with just its name
+                dictionary[key] = setting['name']
+                
+                # Recursively call this function to split out any sub dictionaries
+                sub_dicts = testing(setting)
+
+                # concatenate dictionaries into the list
+                dictionary_list += sub_dicts
+
+    return dictionary_list, hierarchy
+
+
 def setup_to_flat(dictionary):
 
     dictionary_list = [dictionary]
 
     for key, setting in dictionary.items():
         if type(setting) == dict:
+            # If any subdictionaries have their own 'name' field
+            if 'name' in setting:
+                # Replace the subdictionary with its name and a * to indicate
+                # it needs to be expanded
+                dictionary[key] = '*'+setting['name']
+                # Recursively call this function to split out any sub dictionaries
+                sub_dicts = setup_to_flat(setting)
 
-            # Replace the subdictionary with just its name
-            dictionary[key] = setting['name']
-            # Recursively call this function to split out any sub dictionaries
-            sub_dicts = setup_to_flat(setting)
-
-            # concatenate dictionaries into the list
-            dictionary_list += sub_dicts
+                # concatenate dictionaries into the list
+                dictionary_list += sub_dicts
 
     return dictionary_list
 
@@ -127,12 +171,14 @@ def dict_to_json(dictionary, path, overwrite=False):
     os.makedirs(path, exist_ok=True)
     for key, setting in dictionary.items():
         if type(setting) == dict:
-
-            # Replace the subdictionary with just its name
-            dictionary[key] = setting['name']
-            subpath = os.path.join(path, f'{key}s')
-            # Recursively call this function to store the subdictionary
-            dict_to_json(setting, subpath, overwrite=overwrite)
+            # If any subdictionaries have their own 'name' field
+            if 'name' in setting:
+                # Replace the subdictionary with its name and a * to indicate
+                # it needs to be expanded
+                dictionary[key] = '*'+setting['name']
+                subpath = os.path.join(path, key)
+                # Recursively call this function to store the subdictionary
+                dict_to_json(setting, subpath, overwrite=overwrite)
 
     # After any subdictionaries have been dealt with, store this dictionary
     json_path = os.path.join(path, f"{dictionary['name']}.json")
@@ -149,7 +195,6 @@ def dict_to_json(dictionary, path, overwrite=False):
 
 
 def json_to_dict(filepath):
-
         
     logging.debug(f'reading file {filepath}')
     try:
@@ -162,17 +207,32 @@ def json_to_dict(filepath):
     # Check if any of the dictionary settings are really sub-dictionaries
     # that need to be populated
     for key, setting in dictionary.items():
-        subpath = os.path.join(os.path.dirname(filepath), key+'s')
-        
-        if os.path.exists(subpath):
+        if type(setting) == str:
+            if setting[0] == '*':
+                setting = setting[1:]
+                subpath = os.path.join(os.path.dirname(filepath), key)
+            # if os.path.exists(subpath):
 
-            sub_json = os.path.join(subpath, setting+'.json')
-            logging.debug(f'Populating {key}:')
-            
-            # Recursively call this function to populate the sub-dictionary
-            dictionary[key] = json_to_dict(sub_json)
+                sub_json = os.path.join(subpath, setting+'.json')
+                logging.debug(f'Populating {key}:')
+                
+                # Recursively call this function to populate the sub-dictionary
+                dictionary[key] = json_to_dict(sub_json)
 
     return dictionary
+
+def get_file_choice(path):
+    choice_dict = {}
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        basename = os.path.basename(dirpath)
+        names = []
+
+        # Remove the extension e.g .json
+        for f in filenames:
+            names.append(Path(f).stem)
+        choice_dict[basename] = names  
+
+    return choice_dict
         
     
 if __name__ == "__main__":
@@ -180,10 +240,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
 
-    path = "/Users/calum/spectrometer/testing/setup"
+    path = "/Users/calum/spectrometer/setup"
     dict_to_json(default_setup, path, overwrite=True)
 
-    d = json_to_dict("/Users/calum/spectrometer/testing/setup/default_setup.json")
+    d = json_to_dict("/Users/calum/spectrometer/setup/default_setup.json")
     print(json.dumps(d, indent=3))
 
     d = setup_to_flat(default_setup)

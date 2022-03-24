@@ -1,6 +1,3 @@
-from cProfile import run
-from curses import meta
-from sys import meta_path
 import pandas as pd
 import numpy as np
 import os
@@ -11,55 +8,13 @@ import copy
 from IPython.display import display
 import logging
 
+import lib.json_setup as json_setup
+
 logging.basicConfig(level=logging.INFO)
 
 
-# Example of an instrument data structure
-instrument = { 
-    'name'              : 'instrument01',
-    'sensor'            : 'DUM01',
-    'element_map'       : { 
-                        #Element : #Surface
-                            'A01': 'Al',        # Aluminium
-                            'A02': 'Au',        # Gold
-                            'B01': 'Al-HMDS',   # Aluminium Hexamethyldisilazane
-                            'B02': 'Au-DT',     # Gold 1-decanethiol
-                            'C01': 'Al-PEG',    # Aluminium 2-[methoxy(polyethyleneoxy)6–9propyl] trimethoxysilane
-                            'C02': 'Au-PFDT',   # Gold perfluoro-1-decanethiol
-                            },
-    'light Source'      : 'Stellarnet LED White',
-    'spectrometer'      : 'Stellarnet BlueWave VIS-25',
-}
-
-# Example of a setup data structure
-default_setup = {
-    'metafile'          : 'index.txt',
-    'path'              : 'dummydata',
-    'subdirs'           : ['instrument', 'fluid'], #Directory structure for data.txt files
-    'fluids'            : ['waterA', 'waterB', 'waterC'],
-    'elements'          : 'all',
-    'repeats'           : 3,
-    'wavelength_range'  : [400, 420, 0.5], #start, stop, step
-    'primary_metadata'  : ['instrument', 'element', 'fluid'],
-    'comment'           : '', #To be added to the metadata
-    'instrument'        : instrument,
-}
-
-metadata_columns = {
-    # Column            : #Datatype
-    'index'             : 'string',
-    'date'              : 'datetime64[ns]',
-    'instrument'        : 'string',
-    'sensor'            : 'string',
-    'element'           : 'string',
-    'surface'           : 'string',
-    'fluid'             : 'string',
-    'repeats'           : 'Int64',
-    'comment'           : 'string',
-}
-
 def get_default_setup():
-    new_setup = copy.deepcopy(default_setup)
+    new_setup = copy.deepcopy(json_setup.default_setup)
     return new_setup
 
 def dummy_measurement(setup, row):
@@ -100,7 +55,7 @@ def simple_measurement(setup, element, fluid, measure_func, merge=True, comment=
 
     # Convert to pandas series, which allows datatype to be specified
     for col in run_dict.keys():
-        run_dict[col] = pd.Series([run_dict[col]], dtype=metadata_columns[col])
+        run_dict[col] = pd.Series([run_dict[col]], dtype=json_setup.default_metadata_columns[col])
         # run_dict[col] = pd.Series([run_dict[col]], dtype=str)
         
     # Convert to dataframe, this enables it to be concatenated with an existing
@@ -327,7 +282,7 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
         # Convert to pandas series, which allows dtype to be specified/forced as str
         for col in run_dict.keys():
             try:
-                run_dict[col] = pd.Series([run_dict[col]], dtype=metadata_columns[col])
+                run_dict[col] = pd.Series([run_dict[col]], dtype=json_setup.default_metadata_columns[col])
             except:
                 run_dict[col] = pd.Series([run_dict[col]])
                 logging.info(f'No dtype specified for {col}, using {run_dict[col].dtype}')
@@ -360,7 +315,7 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
         # logging.info(f'imported {filename} to {datapath}')
     # write_meta_df_txt(meta_df, )
 
-def read_metadata(setup=default_setup):
+def read_metadata(setup=json_setup.default_setup):
 
     metapath = os.path.join(setup['path'], setup['metafile'])
 
@@ -368,8 +323,9 @@ def read_metadata(setup=default_setup):
 
         # Import the metadata and apply the appropriate datatypes 
         # 'date' needs to be treated separately using parse_dates
-        dtypes = metadata_columns.copy()
+        dtypes = json_setup.default_metadata_columns.copy()
         dtypes.pop('date')
+        dtypes.pop('name')
 
         meta_df = pd.read_csv(metapath,
                         sep='\t',
@@ -412,13 +368,13 @@ def generate_run_df(setup):
     # Create a blank table (really a dict of lists) with default headers
     # NB It is bad practice to append to Dataframes, so will convert to
     # dataframe at the end
-    run_list = metadata_columns.copy()
+    run_list = json_setup.default_metadata_columns.copy()
     for col in run_list.keys():
         run_list[col] = []
 
     # List of elements can be specified in the setup{}, or can use 'all'.
-    if setup['elements'] == 'all':
-        elements = instrument['element_map'].keys()
+    if setup['input_config']['elements'] == 'all':
+        elements = setup['sensor']['element_map'].keys()
     else:
         elements = setup['elements']
 
@@ -443,7 +399,7 @@ def generate_run_df(setup):
 
     # Convert the lists into pandas series with appropriate datatypes
     for col in run_list.keys():
-        run_list[col] = pd.Series(run_list[col], dtype=metadata_columns[col])
+        run_list[col] = pd.Series(run_list[col], dtype=json_setup.default_metadata_columns[col])
         # run_list[col] = pd.Series(run_list[col], dtype=str)
 
     # Convert to dataframe now (avoids iteratively appending to the dataframe)
@@ -570,7 +526,7 @@ def write_setup_json(setup):
     setup_mod['instrument'] = setup['instrument']['name']
 
     date = pd.Timestamp.utcnow().strftime('%Y-%m-%d_%H%M%S')
-    setup_path = os.path.join('setups', f"{date}-setup.json")
+    setup_path = os.path.join('/Users/calum/spectrometer/setups', f"{date}-setup.json")
     os.makedirs(os.path.dirname(setup_path), exist_ok=True)
 
     if not os.path.isfile(setup_path):
@@ -581,7 +537,7 @@ def write_setup_json(setup):
 
 def write_instrument_json(setup):
 
-    instrument_path = os.path.join('setups', 'instruments', f"{setup['instrument']['name']}.json")
+    instrument_path = os.path.join('/Users/calum/spectrometer/setups', 'instruments', f"{setup['instrument']['name']}.json")
     os.makedirs(os.path.dirname(instrument_path), exist_ok=True)
 
     if not os.path.isfile(instrument_path):
