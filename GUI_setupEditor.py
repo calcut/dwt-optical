@@ -17,87 +17,79 @@ import lib.data_process
 import lib.json_setup as json_setup
 
 
-# class StandardItem(QStandardItem):
-#     def __init__(self, txt='', font_size=12, set_bold=False, color=QColor(0,0,0)):
-#         super().__init__()
-
-#         fnt = QFont('Open Sans', font_size)
-#         fnt.setBold(set_bold)
-
-#         self.setEditable(False)
-#         self.setForeground(color)
-#         self.setFont(fnt)
-#         self.setText(txt)
-
 class TableWidget(QTableWidget):
 
     request_subtable = Signal(dict)
+    request_combo_refresh = Signal(dict)
     # dictionary_changed = Signal
 
-    def __init__(self, dictionary_in):
+    def __init__(self, path, name):
         super().__init__()
 
-        self.name = dictionary_in['name']
-        self.category = dictionary_in['category']
-        self.path = dictionary_in['path']
-        self.subdict = None
+        self.path = path
+        self.load_json(path, name)
 
-        self.load_json()
+        self.cellChanged.connect(self.text_field_changed)
 
     def build_table(self):
         self.clear()
+        self.subdict = None
+        self.combo_tracker = {}
         self.setColumnCount(2)
         self.setRowCount(len(self.dictionary))
         self.maptable_width = None
+        self.subtable_dict = {}
 
         combo_options_dict = json_setup.get_file_choice(self.path)
 
         for row, key in enumerate(self.dictionary):
             value = self.dictionary[key]
+
             if key == 'name':
-                options = combo_options_dict[self.category]
+                self.saveButton = QPushButton('Save')
+                self.saveButton.clicked.connect(self.save_json)
+                self.setCellWidget(row, 1, self.saveButton)
+                if self.dictionary['category'] != 'setup':
+                    self.setItem(row, 0, QTableWidgetItem(str(value)))
+
+            if key == 'name' and self.dictionary['category'] == 'setup':
+                # A special case where a drop down is provided for the top
+                # level 'setup' category
+                options = combo_options_dict['setup']
 
                 # Sort in case insensitive alphabetical order
                 options.sort(key=str.lower)
-                print(f'{options=}')
-                self.combo = QComboBox()
-                self.combo.setEditable(True)
+                self.setup_combo = QComboBox()
+                self.setup_combo.setEditable(True)
                 for o in options:
-                        self.combo.addItem(o)
-                current_index = options.index(self.name)
-                self.combo.setCurrentIndex(current_index)
-                self.combo.currentIndexChanged.connect(self.dictionary_changed)
-                self.setCellWidget(row, 0, self.combo)
-
-                viewButton = QPushButton('Save')
-                # viewButton.source = key
-                viewButton.clicked.connect(self.save_json)
-                self.setCellWidget(row, 1, viewButton)
+                    self.setup_combo.addItem(o)
+                current_index = options.index(self.dictionary['name'])
+                self.setup_combo.setCurrentIndex(current_index)
+                self.setup_combo.currentIndexChanged.connect(self.setup_changed)
+                self.setup_combo.editTextChanged.connect(self.new_setup_name)
+                self.setCellWidget(row, 0, self.setup_combo)
 
             # Check if the field can be expanded (i.e. is effectively a nested dictionary)
             # This is indicated by a string starting with *
             elif type(value) == str and value[0] == '*':
-                # if 
-                button_dict = {}
-                button_dict['name'] = value[1:]
-                button_dict['category'] = key
-                button_dict['path'] = os.path.join(self.path, self.category)
-                category = key
-                # print(f'{combo_options_dict=}')
-                options = combo_options_dict[category]
+                
+                current_name = value[1:]
+                options = combo_options_dict[key]
                 # Sort in case insensitive alphabetical order
                 options.sort(key=str.lower)
-                print(f'{key=}  {options=}')
 
                 combo = QComboBox()
                 for o in options:
                     combo.addItem(o)
-                current_index = options.index(button_dict['name'])
+                current_index = options.index(current_name)
                 combo.setCurrentIndex(current_index)
+                combo.key = key
+                combo.currentIndexChanged.connect(self.combo_changed)
                 self.setCellWidget(row, 0, combo)
+                self.combo_tracker[key] = combo
 
                 viewButton = QPushButton('View')
-                viewButton.dictionary = button_dict
+                viewButton.key = key
                 viewButton.clicked.connect(self.view_subtable)
                 self.setCellWidget(row, 1, viewButton)
 
@@ -114,69 +106,116 @@ class TableWidget(QTableWidget):
 
                 for element_row, element in enumerate(value):
                     detail = value[element]
-                    print(f'{element_row=} {detail=}')
                     maptable.setItem(element_row, 0, QTableWidgetItem(str(element)))
                     maptable.setItem(element_row, 1, QTableWidgetItem(str(detail)))
                 maptable.resizeColumnsToContents()
                 maptable.resizeRowsToContents()
-                print(f'{maptable.columnWidth(0)=}')
-                print(f'{maptable.horizontalHeader().sectionSize(0)=}')
-                print(f'{maptable.horizontalHeader().sectionSize(1)=}')
                 
                 self.setCellWidget(row, 0, maptable)
                 self.maptable_width = (maptable.horizontalHeader().sectionSize(0)
                                      + maptable.horizontalHeader().sectionSize(1))
 
             else:
-                self.setItem(row, 0, QTableWidgetItem(str(value)))
-
+                cell_item = QTableWidgetItem(str(value))
+                cell_item.key = key
+                self.setItem(row, 0, cell_item)
         
 
-        self.itemClicked.connect(self.handleItemClick)
-        self.itemDoubleClicked.connect(self.handleItemDoubleClick)
-        # self.cellDoubleClicked.connect(self.handleCellDoubleClick)
+        
         self.setHorizontalHeaderLabels([self.dictionary['category'],''])
         self.setVerticalHeaderLabels(self.dictionary.keys())
         self.resizeColumnsToContents()
         if self.maptable_width:
             self.setColumnWidth(0, self.maptable_width)
         self.resizeRowsToContents()
-        print(f'{self.columnWidth(0)=}')
         if self.columnWidth(0) < 200:
             self.setColumnWidth(0, 200)
         self.total_width = self.columnWidth(0) + self.columnWidth(1) + self.verticalHeader().width() + 2
+        logging.debug(f'{self.total_width=}')
+        self.needs_saved(False)
 
 
-    def handleItemClick(self, item):
-        print(item.text())
+    # def handleItemClick(self, item):
+    #     print(item.text())
+
+    # def handleItemDoubleClick(self, item):
+    #     print(f'doubleclick item {item.text()}')
 
     def view_subtable(self, item):
-        # print(self.sender().dictionary)
-        self.subdict = self.sender().dictionary
-        self.request_subtable.emit(self.subdict)
+        self.subtable_dict['path'] = os.path.join(self.path, self.sender().key)
+        self.subtable_dict['category'] = self.sender().key
+        self.subtable_dict['name'] = self.dictionary[self.sender().key][1:]
 
-    def handleItemDoubleClick(self, item):
-        print(f'double item {item.text()}')
+        logging.debug(f'{self.subtable_dict=}')
+        self.request_subtable.emit(self.subtable_dict)
 
-    def dictionary_changed(self, i):
-        self.name = self.combo.currentText()
-        self.load_json()
-        if self.subdict:
-            self.request_subtable.emit(self.subdict)
+    def new_setup_name(self, text):
+        self.dictionary['name'] = text
+        self.needs_saved(True)
+        logging.debug(f'New setup name: {text}')
 
-    def load_json(self):
-        json_path = os.path.join(self.path, self.category, self.name+'.json')
+    def setup_changed(self, i):
+        name = self.setup_combo.currentText()
+        self.load_json(self.path, name)
+
+    def text_field_changed(self, row, col):
+        item = self.item(row, col)
+        logging.debug(f'field changed {row=} {col=}')
+        value = item.text()
+        key = item.key
+        self.dictionary[key] = value
+        self.needs_saved(True)
+        logging.debug(f'{key=} {value=}')
+
+    def combo_changed(self, i):
+        value = self.sender().currentText()
+        key = self.sender().key
+        self.dictionary[key] = '*'+value
+        self.needs_saved(True)
+        logging.debug(f'{key=} {value=}')
+
+        # If a subtable matching this combo is visible, update it
+        if 'category' in self.subtable_dict:
+            if self.subtable_dict['category'] == key:
+                self.subtable_dict['name'] = self.dictionary[key][1:]
+                self.request_subtable.emit(self.subtable_dict)
+
+    def refresh_combo(self, refresh_dict):
+        key = refresh_dict['category']
+        current_name = refresh_dict['name']
+        logging.debug(f'refreshing combo {key} == {current_name}')
+        combo_options_dict = json_setup.get_file_choice(self.path)
+        options = combo_options_dict[key]
+        options.sort(key=str.lower)
+        logging.debug(options)
+
+        combo = self.combo_tracker[key]
+        combo.clear()
+        for o in options:
+            combo.addItem(o)
+        current_index = options.index(current_name)
+        combo.setCurrentIndex(current_index)
+
+
+    # def subtable_changed(self, i):
+    #     print(f'{self.sender().currentText()=}')
+    #     if self.subdict:
+    #         self.subdict['name'] = self.sender().currentText()
+    #         self.request_subtable.emit(self.subdict)
+
+    def load_json(self, path, name):
+        json_path = os.path.join(path, name+'.json')
         try:
             with open(json_path, 'r') as f:
                 self.dictionary = json.load(f)
+            logging.debug(f'loaded {json_path}')
             self.build_table()
         except FileNotFoundError:
             logging.warning(f'{json_path} not found')
 
     def save_json(self):
-        self.name = self.combo.currentText()
-        print(f'{self.name=}')
-        json_path = os.path.join(self.path, self.category, self.name+'.json')
+        name = self.dictionary['name']
+        json_path = os.path.join(self.path, name+'.json')
         if os.path.exists(json_path):
             logging.warning('file exists, are you sure you want to overwrite')
             msg = QtWidgets.QMessageBox()
@@ -189,14 +228,23 @@ class TableWidget(QTableWidget):
         logging.info(f'writing to {json_path}')
         with open(json_path, 'w') as f:
             json.dump(self.dictionary, f, ensure_ascii=False, indent=3)
-
+        self.needs_saved(False)
+        
         self.build_table()
-            
 
-    
-    def acceptCombo(self, text):
-        print(f'combo {text}')
+        # Code to prompt a 'parent' table to update itself
+        refresh_dict = {}
+        refresh_dict['name'] = name
+        refresh_dict['category'] = self.dictionary['category']
+        self.request_combo_refresh.emit(refresh_dict)
 
+    def needs_saved(self, bool):
+        if bool:
+            self.saveButton.setStyleSheet("border :2px solid ;" 
+                                        "border-color : red")
+        else:
+            logging.debug('resetting save button style')
+            self.saveButton.setStyleSheet("border : none")
 
 class SetupEditor(QMainWindow):
 
@@ -216,24 +264,15 @@ class SetupEditor(QMainWindow):
         self.hbox2 = QHBoxLayout()
         self.hbox3 = QHBoxLayout()
 
-        table = TableWidget(setup)
-        table.request_subtable.connect(self.new_subtable)
+        path = os.path.join(setup['path'], setup['category'])
+        self.table1 = TableWidget(path, setup['name'])
+        # table = TableWidget(setup['path'], setup['category'], setup['name'])
+        self.table1.request_subtable.connect(self.update_table2)
 
         
-        # self.hbox1.addWidget(table, stretch=table.columnWidth(0))
-        # table.horizontalHeader().sectionSizeFromContents()
-        # print(f'{table.width()=}')
-        # print(f'{table.verticalHeader().height()=}')
-        # print(f'{table.verticalHeader().width()=}')
-        # print(f'{table.horizontalHeader().height()=}')
-        # print(f'{table.horizontalHeader().width()=}')
-        # print(f'{table.horizontalHeader().sectionSize(0)=}')
-        # print(f'{table.horizontalHeader().sectionSize(1)=}')
-        # print(f'{table.horizontalHeader().sectionSize(-1)=}')
-        # print(f'{table.columnWidth(-1)=}')
-        self.width1 = table.total_width
-        self.hbox1.addWidget(table, stretch=self.width1)
-        self.hbox1.addStretch(1)
+        self.width1 = self.table1.total_width
+        self.hbox1.addWidget(self.table1, stretch=self.width1)
+        # self.hbox1.addStretch(1)
 
         self.VBoxTable = QVBoxLayout(centralwidget)
         self.VBoxTable.addLayout(self.hbox1, stretch=10)
@@ -252,43 +291,42 @@ class SetupEditor(QMainWindow):
         self.resize(self.window_width, 480)
 
 
-    def new_subtable(self, dict):
-        print(f'new subtable!! {dict}')
-        try:
+    def update_table2(self, subtable_dict):
+        logging.debug('New table2')
+        path = subtable_dict['path']
+        name = subtable_dict['name']
+
+        while self.hbox1.count() > 1:
+            # This also deletes table3 if present
             old_table = self.hbox1.itemAt(1).widget()
             self.hbox1.removeWidget(old_table)
             old_table.deleteLater()
-        except AttributeError as e:
-            # If the subtable doesn't exist yet, ignore this
-            # print(e)
-            pass
-        subtable = TableWidget(dict)
-        subtable.request_subtable.connect(self.new_subsubtable)
-        # self.hbox1.addWidget(subtable, stretch=10)
-        self.width2 = subtable.total_width
-        self.hbox1.insertWidget(1, subtable, stretch=self.width2)
-        print(f'stretch set to {self.width2}')
+
+        self.table2 = TableWidget(path, name)
+        self.table2.request_subtable.connect(self.update_table3)
+        self.table2.request_combo_refresh.connect(self.table1.refresh_combo)
+        self.width2 = self.table2.total_width
+        self.width3 = 0
+        self.hbox1.insertWidget(1, self.table2, stretch=self.width2)
 
         self.set_window_width()
 
+    def update_table3(self, subtable_dict):
+        logging.debug('New table3')
 
+        path = subtable_dict['path']
+        name = subtable_dict['name']
 
-    def new_subsubtable(self, dict):
-        print(f'new subsubtable!! {dict}')
-        try:
+        while self.hbox1.count() > 2:
             old_table = self.hbox1.itemAt(2).widget()
             self.hbox1.removeWidget(old_table)
             old_table.deleteLater()
-        except AttributeError as e:
-            # If the subtable doesn't exist yet, ignore this
-            # print(e)
-            pass
-        subtable = TableWidget(dict)
-        subtable.request_subtable.connect(logging.error('not implemented!'))
-        self.width3 = subtable.total_width
-        self.hbox1.insertWidget(2, subtable, stretch=self.width3)
-        print(f'stretch set to {self.width3}')
-        # self.hbox1.addWidget(subtable, stretch=10)
+
+        self.table3 = TableWidget(path, name)
+        self.table3.request_subtable.connect(logging.error('further subtables not implemented!'))
+        self.table3.request_combo_refresh.connect(self.table2.refresh_combo)
+        self.width3 = self.table3.total_width
+        self.hbox1.insertWidget(2, self.table3, stretch=self.width3)
         self.set_window_width()
 
 
