@@ -1,4 +1,5 @@
 import json
+from operator import index
 import os
 import sys
 from PySide6 import QtWidgets
@@ -15,6 +16,7 @@ from GUI_tableView import PreviewTable
 import lib.csv_helpers as csv
 import lib.data_process
 import lib.json_setup as json_setup
+from copy import deepcopy
 
 
 class TableWidget(QTableWidget):
@@ -96,24 +98,26 @@ class TableWidget(QTableWidget):
             elif key == 'map':
                 # A special case where we can embed a table within the table
 
-                maptable = QTableWidget()
-                maptable.setRowCount(len(value))
-                maptable.setColumnCount(2)
-                maptable.setHorizontalHeaderLabels(['element', 'detail'])
-                # maptable.horizontalHeader().setVisible(False)
-                # maptable.setVerticalHeaderLabels(value.keys())
-                maptable.verticalHeader().setVisible(False)
+                self.maptable = QTableWidget()
+                self.maptable.setRowCount(len(value))
+                self.maptable.setColumnCount(2)
+                self.maptable.setHorizontalHeaderLabels(['element', 'detail'])
+                # self.maptable.horizontalHeader().setVisible(False)
+                # self.maptable.setVerticalHeaderLabels(value.keys())
+                self.maptable.verticalHeader().setVisible(False)
 
                 for element_row, element in enumerate(value):
                     detail = value[element]
-                    maptable.setItem(element_row, 0, QTableWidgetItem(str(element)))
-                    maptable.setItem(element_row, 1, QTableWidgetItem(str(detail)))
-                maptable.resizeColumnsToContents()
-                maptable.resizeRowsToContents()
+                    self.maptable.setItem(element_row, 0, QTableWidgetItem(str(element)))
+                    self.maptable.setItem(element_row, 1, QTableWidgetItem(str(detail)))
+                self.maptable.resizeColumnsToContents()
+                self.maptable.resizeRowsToContents()
                 
-                self.setCellWidget(row, 0, maptable)
-                self.maptable_width = (maptable.horizontalHeader().sectionSize(0)
-                                     + maptable.horizontalHeader().sectionSize(1))
+                self.setCellWidget(row, 0, self.maptable)
+                self.maptable_width = (self.maptable.horizontalHeader().sectionSize(0)
+                                     + self.maptable.horizontalHeader().sectionSize(1))
+                self.maptable.cellChanged.connect(self.map_field_changed)
+                
 
             else:
                 cell_item = QTableWidgetItem(str(value))
@@ -167,6 +171,16 @@ class TableWidget(QTableWidget):
         self.needs_saved(True)
         logging.debug(f'{key=} {value=}')
 
+    def map_field_changed(self, row, col):
+        item = self.maptable.item(row, col)
+        logging.debug(f'maptable field changed {row=} {col=}')
+        logging.warning('NOT YET IMPLEMENTED!')
+        # value = item.text()
+        # key = item.key
+        # self.dictionary[key] = value
+        self.needs_saved(True)
+        # logging.debug(f'{key=} {value=}')
+
     def combo_changed(self, i):
         value = self.sender().currentText()
         key = self.sender().key
@@ -195,13 +209,6 @@ class TableWidget(QTableWidget):
             combo.addItem(o)
         current_index = options.index(current_name)
         combo.setCurrentIndex(current_index)
-
-
-    # def subtable_changed(self, i):
-    #     print(f'{self.sender().currentText()=}')
-    #     if self.subdict:
-    #         self.subdict['name'] = self.sender().currentText()
-    #         self.request_subtable.emit(self.subdict)
 
     def load_json(self, path, name):
         json_path = os.path.join(path, name+'.json')
@@ -244,7 +251,8 @@ class TableWidget(QTableWidget):
                                         "border-color : red")
         else:
             logging.debug('resetting save button style')
-            self.saveButton.setStyleSheet("border : none")
+            self.saveButton.setStyleSheet(None)
+
 
 class SetupEditor(QMainWindow):
 
@@ -285,6 +293,29 @@ class SetupEditor(QMainWindow):
 
         self.show()
 
+    def keyPressEvent(self, event):
+        super().keyPressEvent(event)
+        if event.key() == Qt.Key_C and (event.modifiers() & Qt.ControlModifier):
+            focuswidget = QtWidgets.QApplication.focusWidget()
+            try:
+                indexes = sorted(focuswidget.selectedIndexes())
+                self.copied_cells = []
+                for cell in indexes:
+                    self.copied_cells.append([cell.row(), cell.column(), QTableWidgetItem(cell.data())])
+            except Exception as e:
+                logging.error(e)
+
+        elif event.key() == Qt.Key_V and (event.modifiers() & Qt.ControlModifier):
+            focuswidget = QtWidgets.QApplication.focusWidget()
+
+            try:
+                r = focuswidget.currentRow() - self.copied_cells[0][0]
+                c = focuswidget.currentColumn() - self.copied_cells[0][1]
+                print(f'{r=} {c=}')
+                for cell in self.copied_cells:
+                    focuswidget.setItem(cell[0] + r, cell[1] + c, cell[2])
+            except Exception as e:
+                logging.error(e)
 
     def set_window_width(self):
         self.window_width = self.width1 + self.width2 + self.width3 + 40
