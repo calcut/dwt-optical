@@ -107,7 +107,7 @@ default_setup = {
     'name'              : 'default_setup',
     'category'          : 'setup',
     'metafile'          : 'index.txt',
-    'path'              : '/Users/calum/spectrometer/dummydata',
+    'path'              : '/Users/calum/spectrometer',
     'subdirs'           : ['sensor', 'fluid'], #Directory structure for data.txt files
     'primary_metadata'  : ['sensor', 'element', 'fluid'], #Determines data filenames
     'instrument'        : default_instrument,
