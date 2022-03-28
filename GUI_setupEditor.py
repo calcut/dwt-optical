@@ -3,18 +3,14 @@ from operator import index
 import os
 import sys
 from PySide6 import QtWidgets
-import pandas as pd
-import PySide6.QtWidgets
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
-    QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame, QTableWidget, QTableWidgetItem, QTableView,
-    QVBoxLayout, QFileDialog, QPushButton, QLabel, QSpinBox, QTreeView, QDialogButtonBox, QDialog)
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QColor, QFont
+    QHBoxLayout, QLineEdit, QMainWindow, QWidget, QTableWidget, QTableWidgetItem,
+    QVBoxLayout, QPushButton, QLabel, QSpinBox, QDialogButtonBox, QDialog)
 import logging
-from GUI_plotCanvas import PlotCanvas
-from GUI_tableView import PreviewTable
+
+from matplotlib.font_manager import json_load
 import lib.csv_helpers as csv
-import lib.data_process
 import lib.json_setup as json_setup
 import string
 
@@ -29,7 +25,6 @@ class TableWidget(QTableWidget):
 
         self.path = path
         self.load_json(path, name)
-
         self.cellChanged.connect(self.text_field_changed)
 
     def build_table(self):
@@ -73,15 +68,15 @@ class TableWidget(QTableWidget):
                 self.setup_combo.editTextChanged.connect(self.new_setup_name)
                 self.setCellWidget(row, 0, self.setup_combo)
 
-            # Check if the field can be expanded (i.e. is effectively a nested dictionary)
-            # This is indicated by a string starting with *
+
             elif type(value) == str and value[0] == '*':
+                # Check if the field can be expanded (i.e. is effectively a nested dictionary)
+                # This is indicated by a string starting with *
                 
                 current_name = value[1:]
                 options = combo_options_dict[key]
                 # Sort in case insensitive alphabetical order
                 options.sort(key=str.lower)
-
                 combo = QComboBox()
                 for o in options:
                     combo.addItem(o)
@@ -300,7 +295,38 @@ class TableWidget(QTableWidget):
                 self.subtable_dict['name'] = self.dictionary[key][1:]
                 self.request_subtable.emit(self.subtable_dict)
 
+        #Try to check valid layout. This might be better in the json lib file.
+        try:
+            if 'layout' in self.dictionary:
+                layout = self.dictionary['layout'][1:]
+
+                map_fields = {}
+                for key, val in self.dictionary.items():
+                    if key.endswith('_map'):
+                        map_fields[key] = val[1:]
+
+                for key, file in map_fields.items():
+                    json_path = os.path.join(self.path, key, file+'.json')
+                    try:
+                        with open(json_path, 'r') as f:
+                            temp_dict = json.load(f)
+                    except FileNotFoundError:
+                        logging.warning(f'{json_path} not found')
+                    if 'valid_layout' in temp_dict:
+                        valid = temp_dict['valid_layout']
+                        if valid != layout:
+                            text = (f'This {key} may be incompatible with {layout}'
+                                    +f', it expects layout=  {valid}')
+                            logging.warning(text)
+                            msg = QtWidgets.QMessageBox()
+                            msg.warning(self,'', text, msg.Ok)
+        except Exception as e:
+            logging.error(e + "unable to check valid_layout")
+
+
     def refresh_combo(self, refresh_dict):
+        # A slot typically triggered when a sub table has been updated / saved
+        # Ensures the GUI stays in sync
         key = refresh_dict['category']
         current_name = refresh_dict['name']
         logging.debug(f'refreshing combo {key} == {current_name}')
@@ -392,21 +418,16 @@ class SetupEditor(QMainWindow):
 
         path = os.path.join(setup['path'], setup['category'])
         self.table1 = TableWidget(path, setup['name'])
-        # table = TableWidget(setup['path'], setup['category'], setup['name'])
         self.table1.request_subtable.connect(self.update_table2)
 
-        
         self.width1 = self.table1.total_width
         self.hbox1.addWidget(self.table1, stretch=self.width1)
-        # self.hbox1.addStretch(1)
 
         self.VBoxTable = QVBoxLayout(centralwidget)
         self.VBoxTable.addLayout(self.hbox1, stretch=10)
-        # self.VBoxTable.addLayout(self.hbox2)
-        # self.VBoxTable.addLayout(self.hbox3)
-        self.VBoxTable.addStretch(1)
+        # self.VBoxTable.addStretch(1)
 
-
+        self.sensor_layout = None
         self.set_window_width()
 
         self.show()
@@ -457,7 +478,6 @@ class SetupEditor(QMainWindow):
         self.width2 = self.table2.total_width
         self.width3 = 0
         self.hbox1.insertWidget(1, self.table2, stretch=self.width2)
-
         self.set_window_width()
 
     def update_table3(self, subtable_dict):
