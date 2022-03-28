@@ -296,6 +296,7 @@ class TableWidget(QTableWidget):
                 self.subtable_dict['name'] = self.dictionary[key][1:]
                 self.request_subtable.emit(self.subtable_dict)
 
+    def check_valid_layout(self):
         #Try to check valid layout. This might be better in the json lib file.
         try:
             if 'layout' in self.dictionary and self.dictionary['category'] == 'sensor':
@@ -356,8 +357,8 @@ class TableWidget(QTableWidget):
     def save_json(self):
         name = self.dictionary['name']
         json_path = os.path.join(self.path, name+'.json')
+        self.check_valid_layout()
 
-        
         if os.path.exists(json_path):
             logging.warning('file exists, are you sure you want to overwrite')
             msg = QtWidgets.QMessageBox()
