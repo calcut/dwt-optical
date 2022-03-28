@@ -8,7 +8,7 @@ import PySide6.QtWidgets
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame, QTableWidget, QTableWidgetItem, QTableView,
-    QVBoxLayout, QFileDialog, QPushButton, QLabel, QSpinBox, QTreeView, QTreeWidget, QTreeWidgetItem)
+    QVBoxLayout, QFileDialog, QPushButton, QLabel, QSpinBox, QTreeView, QDialogButtonBox, QDialog)
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QColor, QFont
 import logging
 from GUI_plotCanvas import PlotCanvas
@@ -16,8 +16,7 @@ from GUI_tableView import PreviewTable
 import lib.csv_helpers as csv
 import lib.data_process
 import lib.json_setup as json_setup
-from copy import deepcopy
-
+import string
 
 class TableWidget(QTableWidget):
 
@@ -38,11 +37,14 @@ class TableWidget(QTableWidget):
         self.subdict = None
         self.combo_tracker = {}
         self.setColumnCount(2)
-        self.setRowCount(len(self.dictionary))
-        self.maptable_width = None
+        self.setRowCount(len(self.dictionary) + 1)
+        maptable_row = None
         self.subtable_dict = {}
 
         combo_options_dict = json_setup.get_file_choice(self.path)
+
+        self.setHorizontalHeaderLabels([self.dictionary['category'],''])
+        self.setVerticalHeaderLabels(self.dictionary.keys())
 
         for row, key in enumerate(self.dictionary):
             value = self.dictionary[key]
@@ -85,13 +87,11 @@ class TableWidget(QTableWidget):
                     combo.addItem(o)
                 current_index = options.index(current_name)
                 combo.setCurrentIndex(current_index)
-                combo.key = key
                 combo.currentIndexChanged.connect(self.combo_changed)
                 self.setCellWidget(row, 0, combo)
                 self.combo_tracker[key] = combo
 
                 viewButton = QPushButton('View')
-                viewButton.key = key
                 viewButton.clicked.connect(self.view_subtable)
                 self.setCellWidget(row, 1, viewButton)
 
@@ -102,8 +102,6 @@ class TableWidget(QTableWidget):
                 self.maptable.setRowCount(len(value))
                 self.maptable.setColumnCount(2)
                 self.maptable.setHorizontalHeaderLabels(['element', 'detail'])
-                # self.maptable.horizontalHeader().setVisible(False)
-                # self.maptable.setVerticalHeaderLabels(value.keys())
                 self.maptable.verticalHeader().setVisible(False)
 
                 for element_row, element in enumerate(value):
@@ -114,24 +112,40 @@ class TableWidget(QTableWidget):
                 self.maptable.resizeRowsToContents()
                 
                 self.setCellWidget(row, 0, self.maptable)
-                self.maptable_width = (self.maptable.horizontalHeader().sectionSize(0)
+                maptable_row = row
+                maptable_width = (self.maptable.horizontalHeader().sectionSize(0)
                                      + self.maptable.horizontalHeader().sectionSize(1))
+                maptable_height = self.maptable.height()
                 self.maptable.cellChanged.connect(self.map_field_changed)
+
+
+                btn_new_map = QPushButton('New Map')
+                btn_new_map.setMaximumHeight(self.saveButton.height())
+                btn_new_map.clicked.connect(self.new_map)
+
+                self.setCellWidget(row, 1, btn_new_map)
                 
+            elif key == 'category':
+                # This sets category to read only
+                cell_item = QTableWidgetItem(str(value))
+                cell_item.setFlags(Qt.ItemIsEnabled)
+                self.setItem(row, 0, cell_item)
 
             else:
                 cell_item = QTableWidgetItem(str(value))
-                cell_item.key = key
                 self.setItem(row, 0, cell_item)
-        
 
+        addButton = QPushButton('Add Row')
+        addButton.clicked.connect(self.add_row)
+        row = self.rowCount() -1
+        self.setCellWidget(row, 1, addButton)
+        self.setVerticalHeaderItem(row, QTableWidgetItem(''))
         
-        self.setHorizontalHeaderLabels([self.dictionary['category'],''])
-        self.setVerticalHeaderLabels(self.dictionary.keys())
-        self.resizeColumnsToContents()
-        if self.maptable_width:
-            self.setColumnWidth(0, self.maptable_width)
         self.resizeRowsToContents()
+        self.resizeColumnsToContents()
+        if maptable_row:
+            self.setColumnWidth(0, maptable_width)
+            self.setRowHeight(maptable_row, maptable_height)
         if self.columnWidth(0) < 200:
             self.setColumnWidth(0, 200)
         self.total_width = self.columnWidth(0) + self.columnWidth(1) + self.verticalHeader().width() + 2
@@ -139,16 +153,44 @@ class TableWidget(QTableWidget):
         self.needs_saved(False)
 
 
-    # def handleItemClick(self, item):
-    #     print(item.text())
+    def add_row(self):
+        dlg = QDialog(self)
 
-    # def handleItemDoubleClick(self, item):
-    #     print(f'doubleclick item {item.text()}')
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        buttonBox = QDialogButtonBox(QBtn)
+        buttonBox.accepted.connect(dlg.accept)
+        buttonBox.rejected.connect(dlg.reject)
+        
+        key_box = QLineEdit()
+        value_box = QLineEdit()
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel('Setting'))
+        hbox.addWidget(key_box)
+        hbox.addWidget(QLabel('Value'))
+        hbox.addWidget(value_box)
+
+        vbox = QVBoxLayout()
+        vbox.addLayout(hbox)
+        vbox.addWidget(buttonBox)
+        dlg.setWindowTitle("Add new setting")
+        dlg.setLayout(vbox)
+        if dlg.exec():
+            key = key_box.text()
+            value = value_box.text()
+            row = self.rowCount() - 1
+            self.insertRow(row)
+            self.setVerticalHeaderItem(row, QTableWidgetItem(key))
+            self.setItem(row, 0, QTableWidgetItem(value))
+            self.dictionary[key] = value
+            self.needs_saved(True)
 
     def view_subtable(self, item):
-        self.subtable_dict['path'] = os.path.join(self.path, self.sender().key)
-        self.subtable_dict['category'] = self.sender().key
-        self.subtable_dict['name'] = self.dictionary[self.sender().key][1:]
+        # Slightly convoluted way to get the row of the view button
+        row = self.indexAt(self.sender().pos()).row()
+        key = self.verticalHeaderItem(row).text()
+        self.subtable_dict['path'] = os.path.join(self.path, key)
+        self.subtable_dict['category'] = key
+        self.subtable_dict['name'] = self.dictionary[key][1:]
 
         logging.debug(f'{self.subtable_dict=}')
         self.request_subtable.emit(self.subtable_dict)
@@ -164,9 +206,8 @@ class TableWidget(QTableWidget):
 
     def text_field_changed(self, row, col):
         item = self.item(row, col)
-        logging.debug(f'field changed {row=} {col=}')
         value = item.text()
-        key = item.key
+        key = self.verticalHeaderItem(row).text()
         self.dictionary[key] = value
         self.needs_saved(True)
         logging.debug(f'{key=} {value=}')
@@ -174,16 +215,81 @@ class TableWidget(QTableWidget):
     def map_field_changed(self, row, col):
         item = self.maptable.item(row, col)
         logging.debug(f'maptable field changed {row=} {col=}')
-        logging.warning('NOT YET IMPLEMENTED!')
-        # value = item.text()
-        # key = item.key
-        # self.dictionary[key] = value
+
+        key = self.maptable.item(row, 0).text()
+        value = self.maptable.item(row, 1).text()
+
+        self.dictionary['map'][key] = value
+        logging.debug(f'maptable set {key=} {value=}')
+
         self.needs_saved(True)
-        # logging.debug(f'{key=} {value=}')
+
+    def new_map(self):
+        dlg = QDialog(self)
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        buttonBox = QDialogButtonBox(QBtn)
+        buttonBox.accepted.connect(dlg.accept)
+        buttonBox.rejected.connect(dlg.reject)
+
+        cols = 1
+        rows = 1
+        try: #Try to get existing element row/col counts
+            for e in self.dictionary['map'].keys():
+                col_count = int(e[1:])
+                if col_count > cols:
+                    cols = col_count
+                row_count = string.ascii_uppercase.index(e[0])+1
+                if  row_count > rows:
+                    rows = row_count
+        except Exception as e:
+            logging.warning(e)
+
+        rows_box = QSpinBox()
+        rows_box.setMinimum(1)
+        rows_box.setMaximum(26)
+        rows_box.setValue(rows)
+        cols_box = QSpinBox()
+        cols_box.setMinimum(1)
+        cols_box.setMaximum(99)
+        cols_box.setValue(cols)
+
+        detail_box = QLineEdit()
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel('Element Rows'))
+        hbox.addWidget(rows_box)
+        hbox.addWidget(QLabel('Element Columns'))
+        hbox.addWidget(cols_box)
+
+        hbox_detail = QHBoxLayout()
+        hbox_detail.addWidget(QLabel('Detail (optional)'))
+        hbox_detail.addWidget(detail_box)
+
+        vbox = QVBoxLayout()
+        vbox.addLayout(hbox)
+        vbox.addLayout(hbox_detail)
+        vbox.addWidget(buttonBox)
+        dlg.setWindowTitle("Define new map")
+        dlg.setLayout(vbox)
+        if dlg.exec():
+
+            rows = rows_box.value()
+            cols = cols_box.value()
+            row_list = list(string.ascii_uppercase[:rows])
+            col_list = range(1, cols+1)
+            map_dict = {}
+            for row, col in [(row, col) for row in row_list for col in col_list]:
+                map_dict[F"{row}{col:02d}"] = detail_box.text()
+
+            self.dictionary['map'] = map_dict
+            self.build_table()
+            self.needs_saved(True)
 
     def combo_changed(self, i):
+        # Slightly convoluted way to get the table row of the combo box
+        row = self.indexAt(self.sender().pos()).row()
+        key = self.verticalHeaderItem(row).text()
         value = self.sender().currentText()
-        key = self.sender().key
         self.dictionary[key] = '*'+value
         self.needs_saved(True)
         logging.debug(f'{key=} {value=}')
@@ -223,11 +329,22 @@ class TableWidget(QTableWidget):
     def save_json(self):
         name = self.dictionary['name']
         json_path = os.path.join(self.path, name+'.json')
+
+        
         if os.path.exists(json_path):
             logging.warning('file exists, are you sure you want to overwrite')
             msg = QtWidgets.QMessageBox()
             ret = msg.information(self,'Overwrite?',
                  (f'{json_path}\n\nFile exists, overwrite?'),
+                  msg.Yes | msg.No)
+            if ret == msg.No:
+                return
+
+        else:
+            logging.warning('file exists, are you sure you want to overwrite')
+            msg = QtWidgets.QMessageBox()
+            ret = msg.information(self,'',
+                  f"Save as new {self.dictionary['category']} file?\n\n{json_path}",
                   msg.Yes | msg.No)
             if ret == msg.No:
                 return
@@ -247,11 +364,12 @@ class TableWidget(QTableWidget):
 
     def needs_saved(self, bool):
         if bool:
-            self.saveButton.setStyleSheet("border :2px solid ;" 
-                                        "border-color : red")
+            self.saveButton.setEnabled(True)
+            # self.saveButton.setStyleSheet("border :2px solid ;" 
+                                        # "border-color : red")
         else:
-            logging.debug('resetting save button style')
-            self.saveButton.setStyleSheet(None)
+            self.saveButton.setEnabled(False)
+            # self.saveButton.setStyleSheet(None)
 
 
 class SetupEditor(QMainWindow):
@@ -354,7 +472,7 @@ class SetupEditor(QMainWindow):
             old_table.deleteLater()
 
         self.table3 = TableWidget(path, name)
-        self.table3.request_subtable.connect(logging.error('further subtables not implemented!'))
+        # self.table3.request_subtable.connect(logging.error('further subtables not implemented!'))
         self.table3.request_combo_refresh.connect(self.table2.refresh_combo)
         self.width3 = self.table3.total_width
         self.hbox1.insertWidget(2, self.table3, stretch=self.width3)
@@ -373,29 +491,4 @@ if __name__ == "__main__":
 
     window = SetupEditor(setup, 'Setup Editor')
 
-
-    d = { 'key1': 'value1', 
-    'key2': 'value2',
-    'key3': [1,2,3, { 1: 3, 7 : 9}],
-    'key4': object(),
-    'key5': { 'another key1' : 'another value1',
-                'another key2' : 'another value2'} }
-
-
-    # window.fill_widget(widget, setup)
-    # widget.show()
-
-    # meta_df = csv.read_metadata(setup)
-    # selection_df = csv.select_from_metadata('element', 'A01', meta_df)
-    # selection_df = csv.select_from_metadata('fluid', 'waterA', selection_df)
-
-    # print(selection_df)
-
-    # df, title = csv.merge_dataframes(setup, selection_df)
-
-    # window.set_data(df, title)
-    # window.selection_df = selection_df
-    # window.setup = setup
-    # window.resize(1024, 768)
-    # window.show()
     sys.exit(app.exec())
