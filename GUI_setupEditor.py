@@ -1,6 +1,7 @@
 import json
 from operator import index
 import os
+from signal import signal
 import sys
 from PySide6 import QtWidgets
 from PySide6.QtCore import Signal, Qt, QSize
@@ -402,7 +403,9 @@ class TableWidget(QTableWidget):
 
 class SetupEditor(QMainWindow):
 
-    def __init__(self, setup, title):
+    new_setup = Signal(string)
+
+    def __init__(self, filepath, title):
         QMainWindow.__init__(self)
 
         centralwidget = QWidget()
@@ -418,22 +421,55 @@ class SetupEditor(QMainWindow):
         self.hbox2 = QHBoxLayout()
         self.hbox3 = QHBoxLayout()
 
-        path = os.path.join(setup['path'], setup['category'])
-        self.table1 = TableWidget(path, setup['name'])
+        path = os.path.dirname(filepath)
+        filename = os.path.basename(filepath)
+        name = os.path.splitext(filename)[0]
+
+        self.table1 = TableWidget(path, name)
         self.table1.request_subtable.connect(self.update_table2)
         self.table1.new_setup.connect(self.remove_subtables)
+        # self.table1.new_setup.connect(self.new_setup.emit(self.table1.dictionary['name']))
 
         self.width1 = self.table1.total_width
         self.hbox1.addWidget(self.table1, stretch=self.width1)
 
-        self.VBoxTable = QVBoxLayout(centralwidget)
-        self.VBoxTable.addLayout(self.hbox1, stretch=10)
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        buttonBox = QDialogButtonBox(QBtn)
+        buttonBox.accepted.connect(self.ok_button_press)
+        buttonBox.rejected.connect(self.close)
+
+        self.vbox = QVBoxLayout(centralwidget)
+        self.vbox.addLayout(self.hbox1, stretch=10)
+        self.vbox.addWidget(buttonBox)
         # self.VBoxTable.addStretch(1)
 
         self.sensor_layout = None
         self.set_window_width()
 
         self.show()
+
+    def ok_button_press(self):
+
+        t1 = self.table1.saveButton.isEnabled()
+        try:
+            t2 = self.table2.saveButton.isEnabled()
+        except:
+            t2 = False
+        try:
+            t3 = self.table2.saveButton.isEnabled()
+        except:
+            t3 = False
+
+        if (t1 or t2 or t3):
+            msg = QtWidgets.QMessageBox()
+            ret = msg.information(self,'',
+                  (f"Unsaved changes\nClose anyway?"),
+                  msg.Yes | msg.No)
+            if ret == msg.No:
+                return
+        self.close()
+
+
 
     def keyPressEvent(self, event):
         super().keyPressEvent(event)
@@ -518,9 +554,9 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 
-    setup = csv.get_default_setup()
-    setup['path'] = '/Users/calum/spectrometer'
+    # setup = csv.get_default_setup()
+    filepath = '/Users/calum/spectrometer/setup/default_setup.json'
 
-    window = SetupEditor(setup, 'Setup Editor')
+    window = SetupEditor(filepath, 'Setup Editor')
 
     sys.exit(app.exec())
