@@ -18,7 +18,7 @@ class TableWidget(QTableWidget):
 
     request_subtable = Signal(dict)
     request_combo_refresh = Signal(dict)
-    # dictionary_changed = Signal
+    new_setup = Signal()
 
     def __init__(self, path, name):
         super().__init__()
@@ -198,6 +198,7 @@ class TableWidget(QTableWidget):
     def setup_changed(self, i):
         name = self.setup_combo.currentText()
         self.load_json(self.path, name)
+        self.new_setup.emit()
 
     def text_field_changed(self, row, col):
         item = self.item(row, col)
@@ -297,7 +298,7 @@ class TableWidget(QTableWidget):
 
         #Try to check valid layout. This might be better in the json lib file.
         try:
-            if 'layout' in self.dictionary:
+            if 'layout' in self.dictionary and self.dictionary['category'] == 'sensor':
                 layout = self.dictionary['layout'][1:]
 
                 map_fields = {}
@@ -316,10 +317,10 @@ class TableWidget(QTableWidget):
                         valid = temp_dict['valid_layout']
                         if valid != layout:
                             text = (f'This {key} may be incompatible with {layout}'
-                                    +f', it expects layout=  {valid}')
+                                    +f', it expects layout:  {valid}')
                             logging.warning(text)
                             msg = QtWidgets.QMessageBox()
-                            msg.warning(self,'', text, msg.Ok)
+                            msg.warning(self,'Warning', text, msg.Ok)
         except Exception as e:
             logging.error(e + "unable to check valid_layout")
 
@@ -419,6 +420,7 @@ class SetupEditor(QMainWindow):
         path = os.path.join(setup['path'], setup['category'])
         self.table1 = TableWidget(path, setup['name'])
         self.table1.request_subtable.connect(self.update_table2)
+        self.table1.new_setup.connect(self.remove_subtables)
 
         self.width1 = self.table1.total_width
         self.hbox1.addWidget(self.table1, stretch=self.width1)
@@ -496,6 +498,15 @@ class SetupEditor(QMainWindow):
         self.table3.request_combo_refresh.connect(self.table2.refresh_combo)
         self.width3 = self.table3.total_width
         self.hbox1.insertWidget(2, self.table3, stretch=self.width3)
+        self.set_window_width()
+
+    def remove_subtables(self):
+        while self.hbox1.count() > 1:
+            table = self.hbox1.itemAt(1).widget()
+            self.hbox1.removeWidget(table)
+            table.deleteLater()
+        self.width2 = 0
+        self.width3 = 0
         self.set_window_width()
 
 
