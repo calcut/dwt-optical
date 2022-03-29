@@ -75,7 +75,7 @@ class ImportTab(QWidget):
         self.tbox_outpath = QLineEdit()
         self.tbox_outpath.setReadOnly(True)
 
-        outpath = os.path.abspath(setup['path'])
+        outpath = os.path.abspath(setup['datadir'])
         for dir in setup['subdirs']:
             outpath = os.path.join(outpath, f"<{dir}>")
 
