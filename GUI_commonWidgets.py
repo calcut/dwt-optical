@@ -6,10 +6,11 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame,
     QVBoxLayout, QFileDialog, QPushButton, QLabel)
 import logging
-import json
 from GUI_tableView import MetaTable
 from GUI_tableView import SetupTable
+from GUI_setupEditor import SetupEditor
 import lib.csv_helpers as csv
+import lib.json_setup as json_setup
 
 class QHLine(QFrame):
     def __init__(self):
@@ -25,61 +26,124 @@ class SetupBrowse(QWidget):
     def __init__(self):
         QWidget.__init__(self)
 
-        # default_metafile = './dummydata/defa.txt'
 
-        label_index = QLabel("Setup File:")
+        self.rootpath = '/Users/calum/spectrometer/'
+        os.chdir(self.rootpath)
+        self.setuppath = 'setup/default_setup.json'
 
         btn_width = 80
-        browse_setup = QPushButton("Browse")
-        browse_setup.clicked.connect(self.get_setup)
-        browse_setup.setFixedWidth(btn_width)
+        btn_browse_setup = QPushButton("Browse")
+        btn_browse_setup.clicked.connect(self.get_setup)
+        btn_browse_setup.setFixedWidth(btn_width)
 
-        btn_preview_setup = QPushButton("Preview")
-        btn_preview_setup.clicked.connect(self.preview_setup)
-        btn_preview_setup.setFixedWidth(btn_width)
+        btn_edit_setup = QPushButton("Edit")
+        btn_edit_setup.clicked.connect(self.edit_setup)
+        btn_edit_setup.setFixedWidth(btn_width)
 
+        label_root = QLabel("Root Path:")
+        self.tbox_root = QLineEdit()
+        self.tbox_root.setReadOnly(True)
+        self.tbox_root.setText(self.rootpath)
+
+        # hbox_root = QHBoxLayout()
+        # hbox_root.addWidget(label_root)
+        # hbox_root.addWidget(self.tbox_root)
+
+        label_setup = QLabel("Setup File:")
         self.tbox_setup = QLineEdit()
         self.tbox_setup.setReadOnly(True)
-        # self.tbox_setup.editingFinished.connect(self.update_setup_json)
-        self.tbox_setup.setText('/Users/calum/spectrometer/setups/default-setup.json')
+        self.tbox_setup.setText(self.setuppath)
 
-        hbox_input = QHBoxLayout()
-        hbox_input.addWidget(label_index)
-        hbox_input.addWidget(self.tbox_setup)
-        hbox_input.addWidget(browse_setup)
-        hbox_input.addWidget(btn_preview_setup)
+        # hbox_setup = QHBoxLayout()
+        # hbox_setup.addWidget(label_setup)
+        # hbox_setup.addWidget(self.tbox_setup)
+        # hbox_setup.addWidget(btn_browse_setup)
+        # hbox_setup.addWidget(btn_edit_setup)
 
-        label_metapath = QLabel("Metadata Index:")
+        label_metapath = QLabel("Data Index:")
         self.tbox_metapath = QLineEdit()
         self.tbox_metapath.setReadOnly(True)
 
-        hbox_metapath = QHBoxLayout()
-        hbox_metapath.addWidget(label_metapath)
-        hbox_metapath.addWidget(self.tbox_metapath)
+        btn_view_meta = QPushButton("View")
+        btn_view_meta.clicked.connect(self.view_meta)
+        btn_view_meta.setFixedWidth(btn_width)
+
+        grid = QGridLayout()
+        grid.addWidget(label_root, 0, 0)
+        grid.addWidget(self.tbox_root, 1, 0)
+
+        grid.addWidget(label_setup, 0, 1)
+        grid.addWidget(self.tbox_setup, 1, 1)
+
+        grid.addWidget(btn_browse_setup, 1, 2)
+        grid.addWidget(btn_edit_setup, 1, 3)
+
+        grid.addWidget(label_metapath, 2, 1)
+        grid.addWidget(self.tbox_metapath, 3, 1)
+        grid.addWidget(btn_view_meta, 3, 3)
+
+ 
+
+        # hbox_metapath = QHBoxLayout()
+        # hbox_metapath.addWidget(label_metapath)
+        # hbox_metapath.addWidget(self.tbox_metapath)
 
         vbox = QVBoxLayout()
-        vbox.addLayout(hbox_input)
-        vbox.addLayout(hbox_metapath)    
+        # vbox.addLayout(hbox_setup)
+        # vbox.addLayout(hbox_root)
+        vbox.addLayout(grid)
+        # vbox.addLayout(hbox_metapath)    
         self.setLayout(vbox)
         self.update_setup_json()
 
-    def get_setup(self):
-        self.setuppath, _ = QFileDialog.getOpenFileName(self, "Setup File:", filter ='*.json')
-        self.tbox_setup.setText(self.setuppath)
-        self.update_setup_json()
+        # fullpath = os.path.join(self.rootpath, self.setuppath)
+        # if os.path.exists(fullpath):
+        #     self.get_setup(filename = os.path.basename(fullpath))
+        # else:
+        #     self.get_setup()
+
+    def get_setup(self, filename=None):
+        if not filename:
+            filepath, _ = QFileDialog.getOpenFileName(self, "Setup File:",
+                filter ='*.json', 
+                # dir= os.path.join(self.rootpath, 'setup'),
+                )
+
+            if filepath:
+                filename = os.path.basename(filepath)
+                self.rootpath = os.path.dirname(os.path.dirname(filepath))
+
+                self.tbox_root.setText(self.rootpath)
+        if filename:
+            self.setuppath = os.path.join('setup', filename)
+            self.tbox_setup.setText(self.setuppath)
+            self.update_setup_json()
 
     def update_setup_json(self):
-        self.setuppath = self.tbox_setup.text()
+        # fullpath = os.path.join(self.rootpath, self.setuppath)
         if os.path.isfile(self.setuppath):
-            self.setup = csv.read_setup_json(self.setuppath)
-            self.tbox_metapath.setText(os.path.join(self.setup['path'], self.setup['metafile']))
+            self.setup = json_setup.json_to_dict(self.setuppath)
+            # self.setup = csv.read_setup_json(self.setuppath)
+            self.metapath = os.path.join(self.setup['datadir'], self.setup['metafile'])
+            self.tbox_metapath.setText(self.metapath)
+            logging.debug(f"New Setup dict: {self.setup['name']}")
             self.new_setup.emit(self.setup)
         else:
-            logging.error('No Setup File found')
+            logging.error(f'No Setup File found at {self.setuppath}')
+            self.get_setup()
 
-    def preview_setup(self):
-        self.setupTable = SetupTable(self.setup, self.setuppath)
-        self.setupTable.show()
+    def edit_setup(self):
+        # fullpath = os.path.join(self.rootpath, self.setuppath)
+        self.setupEditor = SetupEditor(self.setuppath, 'Setup Editor')
+        self.setupEditor.new_setup_filename.connect(self.get_setup)
+        self.setupEditor.show()
+
+    def view_meta(self):
+        meta_df = csv.read_metadata(self.setup)
+        self.metaTable = MetaTable(meta_df, title=self.metapath)
+        self.metaTable.show()
+
+
 
 # class MetaBrowse(QWidget):
 
@@ -329,16 +393,19 @@ if __name__ == "__main__":
     centralwidget.setObjectName(u"centralwidget")
     window.setCentralWidget(centralwidget)
 
-    metaBrowse = MetaBrowse()
+    # metaBrowse = MetaBrowse()
+    setupBrowse = SetupBrowse()
     metaFilter = MetaFilter()
-    metaBrowse.new_metapath.connect(metaFilter.metapath_changed)
-    metaBrowse.update_meta_df()
+    # metaBrowse.new_metapath.connect(metaFilter.metapath_changed)
+    # metaBrowse.update_meta_df()
     
     vbox = QVBoxLayout()
-    vbox.addWidget(metaBrowse)
+    vbox.addWidget(setupBrowse)
+    vbox.addStretch()
+    # vbox.addWidget(metaBrowse)
     vbox.addWidget(QHLine())
     vbox.addWidget(metaFilter)
     centralwidget.setLayout(vbox)
-    window.resize(1024, 768)
+    window.resize(1024, 400)
     window.show()
     sys.exit(app.exec())
