@@ -176,7 +176,7 @@ class TableWidget(QTableWidget):
             self.insertRow(row)
             self.setVerticalHeaderItem(row, QTableWidgetItem(key))
             self.setItem(row, 0, QTableWidgetItem(value))
-            self.dictionary[key] = value
+            self.dictionary[key] = json_setup.parse_string(value)
             self.needs_saved(True)
 
     def view_subtable(self, item):
@@ -193,8 +193,8 @@ class TableWidget(QTableWidget):
     def new_setup_name(self, name):
         self.dictionary['name'] = name
         self.needs_saved(True)
-        logging.debug(f'New setup name: {name}')
-        self.new_setup_filename.emit(name+'.json')
+        # logging.debug(f'New setup name: {name}')
+        # self.new_setup_filename.emit(name+'.json')
 
     def setup_changed(self, i):
         name = self.setup_combo.currentText()
@@ -206,7 +206,7 @@ class TableWidget(QTableWidget):
         item = self.item(row, col)
         value = item.text()
         key = self.verticalHeaderItem(row).text()
-        self.dictionary[key] = value
+        self.dictionary[key] = json_setup.parse_string(value)
         self.needs_saved(True)
         logging.debug(f'{key=} {value=}')
 
@@ -217,7 +217,7 @@ class TableWidget(QTableWidget):
         key = self.maptable.item(row, 0).text()
         value = self.maptable.item(row, 1).text()
 
-        self.dictionary['map'][key] = value
+        self.dictionary['map'][key] = json_setup.parse_string(value)
         logging.debug(f'maptable set {key=} {value=}')
 
         self.needs_saved(True)
@@ -371,7 +371,6 @@ class TableWidget(QTableWidget):
                 return
 
         else:
-            logging.warning('file exists, are you sure you want to overwrite')
             msg = QtWidgets.QMessageBox()
             ret = msg.information(self,'',
                   f"Save as new {self.dictionary['category']} file?\n\n{json_path}",
@@ -379,6 +378,7 @@ class TableWidget(QTableWidget):
             if ret == msg.No:
                 return
 
+        logging.debug(self.dictionary)
         logging.info(f'writing to {json_path}')
         with open(json_path, 'w') as f:
             json.dump(self.dictionary, f, ensure_ascii=False, indent=3)
