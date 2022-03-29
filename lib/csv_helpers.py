@@ -21,9 +21,9 @@ def dummy_measurement(setup, row):
     
     #For a real instrument, may wish to adjust/move based on row['element']
 
-    dummywavelength = list(np.arange(setup['wavelength_range'][0], #start
-                                    setup['wavelength_range'][1],  #stop
-                                    setup['wavelength_range'][2])) #step
+    dummywavelength = list(np.arange(setup['input_config']['wavelength_range'][0], #start
+                                    setup['input_config']['wavelength_range'][1],  #stop
+                                    setup['input_config']['wavelength_range'][2])) #step
 
     size = len(dummywavelength)
     dummydata = list(np.random.random_sample(size))
@@ -34,18 +34,15 @@ def dummy_measurement(setup, row):
     df.rename(columns={"transmission" : timestamp }, inplace=True)
     return df
 
-def simple_measurement(setup, element, fluid, measure_func, merge=True, comment=pd.NA):
+def simple_measurement(setup, element, fluid, measure_func, merge=True, comment=''):
 
-    #sanitise comment parameter
-    if comment == '':
-        comment = pd.NA
-    
     run_dict = {
         'date'          : pd.Timestamp.utcnow().strftime('%Y-%m-%d'),
         'instrument'    : setup['instrument']['name'],
-        'sensor'        : setup['instrument']['sensor'],
+        'sensor'        : setup['sensor']['name'],
         'element'       : element,
-        'surface'       : setup['instrument']['element_map'][element],
+        'structure'     : setup['sensor']['structure_map']['map'][element][0],
+        'surface'       : setup['sensor']['surface_map']['map'][element][0],
         'fluid'         : fluid,
         'repeats'       : 1,
         'comment'       : comment
@@ -55,14 +52,16 @@ def simple_measurement(setup, element, fluid, measure_func, merge=True, comment=
 
     # Convert to pandas series, which allows datatype to be specified
     for col in run_dict.keys():
+        if run_dict[col] == '':
+            run_dict[col] = pd.NA
         run_dict[col] = pd.Series([run_dict[col]], dtype=json_setup.default_metadata_columns[col])
         # run_dict[col] = pd.Series([run_dict[col]], dtype=str)
+
         
     # Convert to dataframe, this enables it to be concatenated with an existing
     # meta_df
     run_df = pd.DataFrame(run_dict)
     run_df.set_index('index', inplace=True)
-
 
     run_measure(setup, run_df, measure_func, merge=merge)
 
@@ -80,7 +79,7 @@ def find_datapath(setup, meta_df, row_index):
     for s in setup['subdirs']:
         subdir.append(meta_df.loc[row_index][s])
     subdir = os.path.join(*subdir)
-    datapath = os.path.join(setup['path'], subdir, f'{row_index}.txt')
+    datapath = os.path.join(setup['datadir'], subdir, f'{row_index}.txt')
     return datapath
 
 
@@ -227,7 +226,7 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
         'instrument'        : {
                                 'name'  : 'xxxxx'
                                 'sensor : 'xxxxx'
-                                'element_map' : {'xxx' : 'surface-XX'}
+                                'structure_map' : {'xxx' : 'surface-XX'}
                                }
         }
     '''
@@ -262,20 +261,34 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
             run_dict['instrument'] = setup['instrument']['name']
 
         if 'sensor' not in run_dict:
-            run_dict['sensor'] = setup['instrument']['sensor']
+            run_dict['sensor'] = setup['sensor']['name']
 
-        if 'element' not in run_dict:
-            run_dict['element'] = setup['elements'][0]
+        if 'element' not in run_dict: # This will be unusual
+            element = setup['input_config']['elements']
+            if type(element) == list:
+                element = element[0]
+            run_dict['element'] = element
+            logging.warning('The REGEX should typically identify which element is used')
+            logging.warning(f"Using {element} as a default")
+
+        if 'structure' not in run_dict:
+            run_dict['structure'] = setup['sensor']['structure_map']['map'][run_dict['element']][0]
 
         if 'surface' not in run_dict:
-            run_dict['surface'] = setup['instrument']['element_map'][run_dict['element']]
+            run_dict['surface'] = setup['sensor']['structure_map']['map'][run_dict['element']][0]
 
         if 'fluid' not in run_dict:
-            run_dict['fluid'] = setup['fluids'][0]
+            run_dict['fluid'] = setup['input_config']['fluids'][0]
+
+        # Deal with blank input values
+        for col in run_dict.keys():
+            if run_dict[col] == '': 
+                run_dict[col] = pd.NA
 
         run_dict['repeats'] = pd.NA #Will be modified in write_meta_df_txt()
 
         index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
+
         run_dict['index'] = index
         run_dict['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
 
@@ -317,7 +330,7 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
 
 def read_metadata(setup=json_setup.default_setup):
 
-    metapath = os.path.join(setup['path'], setup['metafile'])
+    metapath = os.path.join(setup['datadir'], setup['metafile'])
 
     if os.path.isfile(metapath):
 
@@ -339,22 +352,22 @@ def read_metadata(setup=json_setup.default_setup):
         return
     return meta_df
 
-def apply_surface_map(setup):
+# def apply_surface_map(setup):
 
-    meta_df = read_metadata(setup)
+#     meta_df = read_metadata(setup)
 
-    map = setup['instrument']['element_map']
+#     map = setup['instrument']['structure_map']
 
-    for index, row in meta_df.iterrows():
-        try:
-            surface = map[row['element']]
-            meta_df.at[index, 'surface'] = surface
-            logging.info(f'Applying: {surface} to {index}')
-        except KeyError:
-            logging.error(f"Element {row['element']} not found in surface map")
+#     for index, row in meta_df.iterrows():
+#         try:
+#             surface = map[row['element']]
+#             meta_df.at[index, 'surface'] = surface
+#             logging.info(f'Applying: {surface} to {index}')
+#         except KeyError:
+#             logging.error(f"Element {row['element']} not found in surface map")
     
-    metapath = os.path.join(setup['path'], setup['metafile'])
-    meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
+#     metapath = os.path.join(setup['datadir'], setup['metafile'])
+#     meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
 
 def generate_run_df(setup):
     '''
@@ -374,19 +387,20 @@ def generate_run_df(setup):
 
     # List of elements can be specified in the setup{}, or can use 'all'.
     if setup['input_config']['elements'] == 'all':
-        elements = setup['sensor']['element_map'].keys()
+        elements = setup['sensor']['layout'].keys()
     else:
-        elements = setup['elements']
+        elements = setup['input_config']['elements']
 
     # Build the run list, row by row
-    for f in setup['fluids']:
+    for f in setup['input_config']['fluids']:
         for e in elements:
                 row = {}
                 row['date'] = pd.NaT
-                row['instrument'] = instrument['name']
-                row['sensor'] = instrument['sensor']
+                row['instrument'] = setup['instrument']['name']
+                row['sensor'] = setup['sensor']['name']
                 row['element'] = e
-                row['surface'] = instrument['element_map'][e]
+                row['structure'] = setup['sensor']['structure_map']['map'][e][0]
+                row['surface'] = setup['sensor']['surface_map']['map'][e][0]
                 row['fluid'] = f
                 row['repeats'] = setup['repeats']
                 row['comment'] = pd.NA
@@ -464,7 +478,7 @@ def write_meta_df_txt(setup, meta_df, merge=True):
     NB - To get the correct repeat count, any new data files must be
     written/merged before this function is run.
     '''
-    metapath = os.path.join(setup['path'], setup['metafile'])
+    metapath = os.path.join(setup['datadir'], setup['metafile'])
 
     if not os.path.isfile(metapath):
         logging.info(f'Saving into new file {metapath}')
@@ -518,46 +532,6 @@ def write_meta_df_txt(setup, meta_df, merge=True):
                 meta_df.at[row, 'repeats'] = reps
         
     meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
-
-def write_setup_json(setup):
-
-    #Don't need to save the full instrument data, just the name
-    setup_mod = setup.copy()
-    setup_mod['instrument'] = setup['instrument']['name']
-
-    date = pd.Timestamp.utcnow().strftime('%Y-%m-%d_%H%M%S')
-    setup_path = os.path.join('/Users/calum/spectrometer/setups', f"{date}-setup.json")
-    os.makedirs(os.path.dirname(setup_path), exist_ok=True)
-
-    if not os.path.isfile(setup_path):
-        with open(setup_path, 'w') as f:
-            json.dump(setup_mod, f, ensure_ascii=False, indent=3)
-    else:
-        logging.warning('File exists, did not write')
-
-def write_instrument_json(setup):
-
-    instrument_path = os.path.join('/Users/calum/spectrometer/setups', 'instruments', f"{setup['instrument']['name']}.json")
-    os.makedirs(os.path.dirname(instrument_path), exist_ok=True)
-
-    if not os.path.isfile(instrument_path):
-        with open(instrument_path, 'w') as f:
-            json.dump(setup['instrument'], f, ensure_ascii=False, indent=3)
-    else:
-        logging.warning('File exists, did not write')
-
-def read_setup_json(path):
-
-    with open(path) as setup_json:
-        setup = json.load(setup_json)
-
-    setupdir = os.path.dirname(path)
-    instrument_path = os.path.join(setupdir, 'instruments', f"{setup['instrument']}.json")
-    with open(instrument_path) as instrument_json:
-        setup['instrument'] = json.load(instrument_json)    
-
-    return setup
-
 
 def run_measure(setup, run_df, measure_func, merge=True):
     '''
