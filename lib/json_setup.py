@@ -107,7 +107,7 @@ default_setup = {
     'name'              : 'default_setup',
     'category'          : 'setup',
     'metafile'          : 'index.txt',
-    'path'              : '/Users/calum/spectrometer',
+    'datadir'           : 'dummydata',
     'subdirs'           : ['sensor', 'fluid'], #Directory structure for data.txt files
     'primary_metadata'  : ['sensor', 'element', 'fluid'], #Determines data filenames
     'instrument'        : default_instrument,
@@ -230,7 +230,7 @@ def get_file_choice(path):
         # Remove the extension e.g .json
         for f in filenames:
             names.append(Path(f).stem)
-        choice_dict[basename] = names  
+        choice_dict[basename] = names
 
     return choice_dict
         
