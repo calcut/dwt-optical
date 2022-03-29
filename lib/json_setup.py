@@ -25,9 +25,9 @@ default_layout = {
     }
 }
 
-default_element_map ={
-    'name'          : 'default_element_map',
-    'category'      : 'element_map',
+default_structure_map ={
+    'name'          : 'default_structure_map',
+    'category'      : 'structure_map',
     'valid_layout'  : 'default_layout',
     'map' : {
         #Element : [material, detail]
@@ -46,8 +46,8 @@ default_surface_map ={
     'valid_layout'  : 'default_layout',
     'map' : {
         #Element : [surface, detail]
-        'A01'    : None,
-        'A02'    : None,
+        'A01'    : ['None', ''],
+        'A02'    : ['None', ''],
         'B01'    : ['HMDS', 'Hexamethyldisilazane'],
         'B02'    : ['DT',   '1-decanethiol'],
         'C01'    : ['PEG',  '2-[methoxy(polyethyleneoxy)6-9propyl] trimethoxysilane'],
@@ -59,7 +59,7 @@ default_sensor = {
     'name'          : 'default_sensor',
     'category'      : 'sensor',
     'layout'        : default_layout,
-    'element_map'   : default_element_map,
+    'structure_map'   : default_structure_map,
     'surface_map'   : default_surface_map,
 }
 
@@ -96,6 +96,7 @@ default_metadata_columns = {
     'instrument'        : 'string',
     'sensor'            : 'string',
     'element'           : 'string',
+    'structure'         : 'string',
     'surface'           : 'string',
     'fluid'             : 'string',
     'repeats'           : 'Int64',
@@ -233,6 +234,35 @@ def get_file_choice(path):
         choice_dict[basename] = names
 
     return choice_dict
+
+def switch_quotes(input_string):
+    # Reverses single and double quotes on a string
+    # Sometimes needed for JSON decoding
+    output_string = ''
+    for char in input_string:
+        if char == '"':
+            char = "'"
+        elif char == "'":
+            char = '"'
+
+        output_string += char
+    return output_string
+
+def parse_string(string):
+    # This allows lists that have been turned directly into strings to be
+    # decoded back to lists
+    # e.g. "['a', 'b']" --> ['a', 'b']
+    # Helpful for GUI text boxes.
+
+    if string.startswith('[') and string.endswith(']'):
+        try:
+            output = json.loads(string)
+        except json.decoder.JSONDecodeError:
+            string = switch_quotes(string)
+            output = json.loads(string)
+    else: output = string
+    
+    return output
         
     
 if __name__ == "__main__":
