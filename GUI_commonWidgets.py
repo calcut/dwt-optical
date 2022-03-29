@@ -3,7 +3,7 @@ import sys
 import pandas as pd
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
-    QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame,
+    QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame, QMessageBox,
     QVBoxLayout, QFileDialog, QPushButton, QLabel)
 import logging
 from GUI_tableView import MetaTable
@@ -140,8 +140,14 @@ class SetupBrowse(QWidget):
 
     def view_meta(self):
         meta_df = csv.read_metadata(self.setup)
-        self.metaTable = MetaTable(meta_df, title=self.metapath)
-        self.metaTable.show()
+        if meta_df is None:
+            logging.debug('No meta_df to diaplay')
+            msg = QMessageBox()
+            msg.information(self,'', 'Data Index not found', msg.Ok)
+        else:
+            self.metaTable = MetaTable(meta_df, title=self.metapath)
+            self.metaTable.show()
+
 
 
 

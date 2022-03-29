@@ -28,7 +28,7 @@ class SetupTable(QMainWindow):
         instrument_table.setRowCount(len(setup['instrument']))
         
         element_table.setColumnCount(1)
-        element_table.setRowCount(len(setup['instrument']['element_map']))
+        element_table.setRowCount(len(setup['instrument']['structure_map']))
 
         for row, key in enumerate(setup):
             if not key == 'instrument':
@@ -42,7 +42,7 @@ class SetupTable(QMainWindow):
 
         instrument = setup['instrument']
         for row, key in enumerate(instrument):
-            if not key == 'element_map':
+            if not key == 'structure_map':
                 value = instrument[key]
             else: value = '-->'
             instrument_table.setItem(row, 0, QTableWidgetItem(str(value)))
@@ -50,14 +50,14 @@ class SetupTable(QMainWindow):
         instrument_table.setHorizontalHeaderLabels(['instrument'])
         instrument_table.setVerticalHeaderLabels(instrument.keys())
 
-        element_map = instrument['element_map']
+        structure_map = instrument['structure_map']
 
-        for row, key in enumerate(element_map):
-            value = element_map[key]
+        for row, key in enumerate(structure_map):
+            value = structure_map[key]
             element_table.setItem(row, 0, QTableWidgetItem(str(value)))
 
         element_table.setHorizontalHeaderLabels(['element map'])
-        element_table.setVerticalHeaderLabels(element_map.keys())
+        element_table.setVerticalHeaderLabels(structure_map.keys())
 
         setup_table.resizeColumnsToContents()
         setup_table.resizeRowsToContents()

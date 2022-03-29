@@ -57,19 +57,24 @@ class SingleMeasureTab(QWidget):
         grid.addWidget(QLabel("Element"), 2, 0)
         grid.addWidget(self.combo_element, 2, 1)
 
+        self.tbox_structure = QLineEdit()
+        self.tbox_structure.setReadOnly(True)
+        grid.addWidget(QLabel("Structure"), 3, 0)
+        grid.addWidget(self.tbox_structure, 3, 1)
+
         self.tbox_surface = QLineEdit()
         self.tbox_surface.setReadOnly(True)
-        grid.addWidget(QLabel("Surface"), 3, 0)
-        grid.addWidget(self.tbox_surface, 3, 1)
+        grid.addWidget(QLabel("Surface"), 4, 0)
+        grid.addWidget(self.tbox_surface, 4, 1)
 
         self.combo_fluid = QComboBox()
         self.combo_fluid.setEditable(True)
-        grid.addWidget(QLabel("Fluid"), 4, 0)
-        grid.addWidget(self.combo_fluid, 4, 1) 
+        grid.addWidget(QLabel("Fluid"), 5, 0)
+        grid.addWidget(self.combo_fluid, 5, 1) 
 
         self.tbox_comment = QLineEdit()
-        grid.addWidget(QLabel("Comment"), 5, 0)
-        grid.addWidget(self.tbox_comment, 5, 1)
+        grid.addWidget(QLabel("Comment"), 6, 0)
+        grid.addWidget(self.tbox_comment, 6, 1)
 
         # Measurement Function
         label_mf = QLabel("Spectrometer Measurement Function:")
@@ -157,29 +162,42 @@ class SingleMeasureTab(QWidget):
         csv.simple_measurement(setup, element, fluid, measure_func=mf, merge=merge, comment=comment)
 
     def element_changed(self, element):
+        # self.tbox_surface.setReadOnly(True)
+        # self.tbox_structure.setReadOnly(True)
         try:
-            surface = self.setupBrowse.setup['instrument']['element_map'][element]
+            surface = self.setupBrowse.setup['sensor']['surface_map']['map'][element]
+            if type(surface) == list:
+                surface = f'{surface[0]}, {surface[1]}'
         except KeyError:
-            surface = 'Unknown - Please update instrument file'
+            surface = 'Unknown - Please update the setup file'
+            # self.tbox_surface.setReadOnly(False)
+        try:
+            structure = self.setupBrowse.setup['sensor']['structure_map']['map'][element]
+            if type(structure) == list:
+                structure = f'{structure[0]}, {structure[1]}'
+        except KeyError:
+            structure = 'Unknown - Please update the setup file'
+            # self.tbox_structure.setReadOnly(False)
         self.tbox_surface.setText(surface)
+        self.tbox_structure.setText(structure)
 
     def setup_changed(self, setup):
         logging.debug(f"Single Measure Tab : got new setup {self.setupBrowse.tbox_setup.text()}")
 
+        self.tbox_sensor.setText(setup['sensor']['name'])
         self.tbox_instrument.setText(setup['instrument']['name'])
-        self.tbox_sensor.setText(setup['instrument']['sensor'])
 
         # Update the fluid / element options
-        fluids = setup['fluids']
+        fluids = setup['input_config']['fluids']
         self.combo_fluid.clear()
         self.combo_fluid.addItems(fluids)
 
-        elements = setup['instrument']['element_map'].keys()
+        elements = setup['sensor']['layout']['map'].keys()
         self.combo_element.clear()
         self.combo_element.addItems(elements)
 
         # Update the output path displayed
-        outpath = os.path.abspath(setup['path'])
+        outpath = os.path.abspath(setup['datadir'])
         for dir in setup['subdirs']:
             outpath = os.path.join(outpath, f"<{dir}>")
 
