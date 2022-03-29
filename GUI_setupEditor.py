@@ -19,7 +19,7 @@ class TableWidget(QTableWidget):
 
     request_subtable = Signal(dict)
     request_combo_refresh = Signal(dict)
-    new_setup = Signal()
+    new_setup_filename = Signal(str)
 
     def __init__(self, path, name):
         super().__init__()
@@ -56,7 +56,6 @@ class TableWidget(QTableWidget):
                 # A special case where a drop down is provided for the top
                 # level 'setup' category
                 options = combo_options_dict['setup']
-
                 # Sort in case insensitive alphabetical order
                 options.sort(key=str.lower)
                 self.setup_combo = QComboBox()
@@ -191,15 +190,17 @@ class TableWidget(QTableWidget):
         logging.debug(f'{self.subtable_dict=}')
         self.request_subtable.emit(self.subtable_dict)
 
-    def new_setup_name(self, text):
-        self.dictionary['name'] = text
+    def new_setup_name(self, name):
+        self.dictionary['name'] = name
         self.needs_saved(True)
-        logging.debug(f'New setup name: {text}')
+        logging.debug(f'New setup name: {name}')
+        self.new_setup_filename.emit(name+'.json')
 
     def setup_changed(self, i):
         name = self.setup_combo.currentText()
         self.load_json(self.path, name)
-        self.new_setup.emit()
+        logging.debug(f'Setup Combo Changed: {name}')
+        self.new_setup_filename.emit(name+'.json')
 
     def text_field_changed(self, row, col):
         item = self.item(row, col)
@@ -384,6 +385,7 @@ class TableWidget(QTableWidget):
         self.needs_saved(False)
         
         self.build_table()
+        self.new_setup_filename.emit(name+'.json')
 
         # Code to prompt a 'parent' table to update itself
         refresh_dict = {}
@@ -403,7 +405,7 @@ class TableWidget(QTableWidget):
 
 class SetupEditor(QMainWindow):
 
-    new_setup = Signal(string)
+    new_setup_filename = Signal(str)
 
     def __init__(self, filepath, title):
         QMainWindow.__init__(self)
@@ -424,11 +426,12 @@ class SetupEditor(QMainWindow):
         path = os.path.dirname(filepath)
         filename = os.path.basename(filepath)
         name = os.path.splitext(filename)[0]
+        # name = Path(filename).stem #This might work too
 
         self.table1 = TableWidget(path, name)
         self.table1.request_subtable.connect(self.update_table2)
-        self.table1.new_setup.connect(self.remove_subtables)
-        # self.table1.new_setup.connect(self.new_setup.emit(self.table1.dictionary['name']))
+        self.table1.new_setup_filename.connect(self.remove_subtables)
+        self.table1.new_setup_filename.connect(self.emit_filename)
 
         self.width1 = self.table1.total_width
         self.hbox1.addWidget(self.table1, stretch=self.width1)
@@ -546,6 +549,8 @@ class SetupEditor(QMainWindow):
         self.width3 = 0
         self.set_window_width()
 
+    def emit_filename(self, filename):
+        self.new_setup_filename.emit(filename)
 
 if __name__ == "__main__":
     
