@@ -14,6 +14,7 @@ from matplotlib.font_manager import json_load
 import lib.csv_helpers as csv
 import lib.json_setup as json_setup
 import string
+from pathlib import Path
 
 class TableWidget(QTableWidget):
 
@@ -405,7 +406,7 @@ class TableWidget(QTableWidget):
 
 class SetupEditor(QMainWindow):
 
-    new_setup_filename = Signal(str)
+    new_setup_name = Signal(str)
 
     def __init__(self, filepath, title):
         QMainWindow.__init__(self)
@@ -550,7 +551,9 @@ class SetupEditor(QMainWindow):
         self.set_window_width()
 
     def emit_filename(self, filename):
-        self.new_setup_filename.emit(filename)
+
+        name = Path(filename).stem
+        self.new_setup_name.emit(filename)
 
 if __name__ == "__main__":
     

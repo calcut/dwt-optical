@@ -23,17 +23,20 @@ class SetupBrowse(QWidget):
 
     new_setup = Signal(dict)
 
-    def __init__(self):
+    def __init__(self, rootpath=None):
         QWidget.__init__(self)
 
+        if rootpath:
+            os.chdir(rootpath)
+            self.rootpath = rootpath
+        else:
+            self.rootpath = 'Please select a path'
 
-        self.rootpath = '/Users/calum/spectrometer/'
-        os.chdir(self.rootpath)
-        self.setuppath = 'setup/default_setup.json'
+        # self.setuppath = 'setup/default_setup.json'
 
         btn_width = 80
         btn_browse_setup = QPushButton("Browse")
-        btn_browse_setup.clicked.connect(self.get_setup)
+        btn_browse_setup.clicked.connect(self.browse_path)
         btn_browse_setup.setFixedWidth(btn_width)
 
         btn_edit_setup = QPushButton("Edit")
@@ -50,15 +53,14 @@ class SetupBrowse(QWidget):
         # hbox_root.addWidget(self.tbox_root)
 
         label_setup = QLabel("Setup File:")
-        self.tbox_setup = QLineEdit()
-        self.tbox_setup.setReadOnly(True)
-        self.tbox_setup.setText(self.setuppath)
+        self.setup_combo = QComboBox()
+        self.setup_combo.setEditable(False)
+        
 
-        # hbox_setup = QHBoxLayout()
-        # hbox_setup.addWidget(label_setup)
-        # hbox_setup.addWidget(self.tbox_setup)
-        # hbox_setup.addWidget(btn_browse_setup)
-        # hbox_setup.addWidget(btn_edit_setup)
+        # self.tbox_setup = QLineEdit()
+        # self.tbox_setup.setReadOnly(True)
+        # self.tbox_setup.setText(self.setuppath)
+
 
         label_metapath = QLabel("Data Index:")
         self.tbox_metapath = QLineEdit()
@@ -70,72 +72,78 @@ class SetupBrowse(QWidget):
 
         grid = QGridLayout()
         grid.addWidget(label_root, 0, 0)
-        grid.addWidget(self.tbox_root, 1, 0)
+        grid.addWidget(self.tbox_root, 0, 1)
+        grid.addWidget(btn_browse_setup, 0, 2)
 
-        grid.addWidget(label_setup, 0, 1)
-        grid.addWidget(self.tbox_setup, 1, 1)
+        grid.addWidget(label_setup, 1, 0)
+        grid.addWidget(self.setup_combo, 1, 1)
+        grid.addWidget(btn_edit_setup, 1, 2)
 
-        grid.addWidget(btn_browse_setup, 1, 2)
-        grid.addWidget(btn_edit_setup, 1, 3)
+        grid.addWidget(label_metapath, 2, 0)
+        grid.addWidget(self.tbox_metapath, 2, 1)
+        grid.addWidget(btn_view_meta, 2, 2)
 
-        grid.addWidget(label_metapath, 2, 1)
-        grid.addWidget(self.tbox_metapath, 3, 1)
-        grid.addWidget(btn_view_meta, 3, 3)
+    
 
- 
-
-        # hbox_metapath = QHBoxLayout()
+        hbox = QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addLayout(grid, stretch=2)
+        # hbox.addStretch()
         # hbox_metapath.addWidget(label_metapath)
         # hbox_metapath.addWidget(self.tbox_metapath)
 
         vbox = QVBoxLayout()
         # vbox.addLayout(hbox_setup)
         # vbox.addLayout(hbox_root)
-        vbox.addLayout(grid)
+        vbox.addLayout(hbox)
         # vbox.addLayout(hbox_metapath)    
         self.setLayout(vbox)
+
+        # Populate the fields:
+        self.update_setup_combo()
+        self.setup_combo.currentIndexChanged.connect(self.update_setup_json)
+
+    def browse_path(self):
+        dir = QFileDialog.getExistingDirectory(self, "Root Path:")
+        if dir:
+            self.rootpath = dir
+            self.tbox_root.setText(dir)
+            os.chdir(dir)
+            logging.debug(f'setting root directory: {dir}')
+
+    def update_setup_combo(self, current_name='default_setup'):
+        self.setup_combo.clear()
+        combo_options_dict = json_setup.get_file_choice('setup')
+        logging.debug(f"{combo_options_dict=}")
+        options = combo_options_dict['setup']
+        # Sort in case insensitive alphabetical order
+        options.sort(key=str.lower)
+        
+        for o in options:
+            self.setup_combo.addItem(o)
+
+        try:
+            current_index = options.index(current_name)
+            self.setup_combo.setCurrentIndex(current_index)
+        except:
+            logging.debug(f'Could not set combo to {current_name}')
+        
         self.update_setup_json()
 
-        # fullpath = os.path.join(self.rootpath, self.setuppath)
-        # if os.path.exists(fullpath):
-        #     self.get_setup(filename = os.path.basename(fullpath))
-        # else:
-        #     self.get_setup()
-
-    def get_setup(self, filename=None):
-        if not filename:
-            filepath, _ = QFileDialog.getOpenFileName(self, "Setup File:",
-                filter ='*.json', 
-                # dir= os.path.join(self.rootpath, 'setup'),
-                )
-
-            if filepath:
-                filename = os.path.basename(filepath)
-                self.rootpath = os.path.dirname(os.path.dirname(filepath))
-
-                self.tbox_root.setText(self.rootpath)
-        if filename:
-            self.setuppath = os.path.join('setup', filename)
-            self.tbox_setup.setText(self.setuppath)
-            self.update_setup_json()
-
     def update_setup_json(self):
-        # fullpath = os.path.join(self.rootpath, self.setuppath)
+        self.setuppath = os.path.join('setup', self.setup_combo.currentText()+'.json')
         if os.path.isfile(self.setuppath):
             self.setup = json_setup.json_to_dict(self.setuppath)
-            # self.setup = csv.read_setup_json(self.setuppath)
             self.metapath = os.path.join(self.setup['datadir'], self.setup['metafile'])
             self.tbox_metapath.setText(self.metapath)
             logging.debug(f"New Setup dict: {self.setup['name']}")
             self.new_setup.emit(self.setup)
         else:
             logging.error(f'No Setup File found at {self.setuppath}')
-            self.get_setup()
 
     def edit_setup(self):
-        # fullpath = os.path.join(self.rootpath, self.setuppath)
         self.setupEditor = SetupEditor(self.setuppath, 'Setup Editor')
-        self.setupEditor.new_setup_filename.connect(self.get_setup)
+        self.setupEditor.new_setup_name.connect(self.update_setup_combo)
         self.setupEditor.show()
 
     def view_meta(self):
@@ -350,6 +358,7 @@ class MetaFilter(QWidget):
         # print(f'sender text = {self.sender.currentText()}')
         valuebox.clear()
         try:
+            logging.debug(self.meta_df[key].unique())
             items = sorted(self.meta_df[key].unique())
             items = [str(i) for i in items]
             valuebox.addItem('')
@@ -400,7 +409,7 @@ if __name__ == "__main__":
     window.setCentralWidget(centralwidget)
 
     # metaBrowse = MetaBrowse()
-    setupBrowse = SetupBrowse()
+    setupBrowse = SetupBrowse('/Users/calum/spectrometer/')
     metaFilter = MetaFilter()
     # metaBrowse.new_metapath.connect(metaFilter.metapath_changed)
     # metaBrowse.update_meta_df()

@@ -228,9 +228,10 @@ def get_file_choice(path):
         basename = os.path.basename(dirpath)
         names = []
 
-        # Remove the extension e.g .json
+        # Remove the extension e.g .json and drop hidden files
         for f in filenames:
-            names.append(Path(f).stem)
+            if not f.startswith('.'):
+                names.append(Path(f).stem)
         choice_dict[basename] = names
 
     return choice_dict
