@@ -18,7 +18,6 @@ class QHLine(QFrame):
         self.setFrameShape(QFrame.HLine)
         self.setFrameShadow(QFrame.Sunken)
 
-
 class SetupBrowse(QWidget):
 
     new_setup = Signal(dict)
@@ -32,7 +31,7 @@ class SetupBrowse(QWidget):
         else:
             self.rootpath = 'Please select a path'
 
-        # self.setuppath = 'setup/default_setup.json'
+        self.setup = csv.get_default_setup()
 
         btn_width = 80
         btn_browse_setup = QPushButton("Browse")
@@ -87,16 +86,18 @@ class SetupBrowse(QWidget):
 
         hbox = QHBoxLayout()
         hbox.addStretch(1)
-        hbox.addLayout(grid, stretch=2)
-        # hbox.addStretch()
+        hbox.addLayout(grid, stretch=10)
+        hbox.addStretch(1)
         # hbox_metapath.addWidget(label_metapath)
         # hbox_metapath.addWidget(self.tbox_metapath)
 
+        
+        label = QLabel("Common Setup")
+        label.setStyleSheet("font-weight: bold")
         vbox = QVBoxLayout()
-        # vbox.addLayout(hbox_setup)
-        # vbox.addLayout(hbox_root)
+        vbox.addWidget(label)
         vbox.addLayout(hbox)
-        # vbox.addLayout(hbox_metapath)    
+
         self.setLayout(vbox)
 
         # Populate the fields:
@@ -109,15 +110,21 @@ class SetupBrowse(QWidget):
             self.rootpath = dir
             self.tbox_root.setText(dir)
             os.chdir(dir)
+            self.update_setup_combo()
             logging.debug(f'setting root directory: {dir}')
 
     def update_setup_combo(self, current_name='default_setup'):
+        logging.debug(f"{current_name=}")
         self.setup_combo.clear()
         combo_options_dict = json_setup.get_file_choice('setup')
         logging.debug(f"{combo_options_dict=}")
-        options = combo_options_dict['setup']
-        # Sort in case insensitive alphabetical order
-        options.sort(key=str.lower)
+        if 'setup' in combo_options_dict:
+            options = combo_options_dict['setup']
+            # Sort in case insensitive alphabetical order
+            options.sort(key=str.lower)
+        else:
+            logging.warning(f'No "setup" folder found in {os.getcwd()}')
+            return
         
         for o in options:
             self.setup_combo.addItem(o)
@@ -131,6 +138,8 @@ class SetupBrowse(QWidget):
         self.update_setup_json()
 
     def update_setup_json(self):
+        if self.setup_combo.currentText() == '':
+            return
         self.setuppath = os.path.join('setup', self.setup_combo.currentText()+'.json')
         if os.path.isfile(self.setuppath):
             self.setup = json_setup.json_to_dict(self.setuppath)
@@ -157,58 +166,6 @@ class SetupBrowse(QWidget):
             self.metaTable.show()
 
 
-
-
-# class MetaBrowse(QWidget):
-
-#     new_metapath = Signal(str)
-
-#     def __init__(self, setup):
-#         QWidget.__init__(self)
-
-#         self.setup = setup
-
-#         # default_metafile = './imported/index.txt'
-
-#         label_index = QLabel("Metadata Index File:")
-
-#         btn_width = 80
-#         browse_meta = QPushButton("Browse")
-#         browse_meta.clicked.connect(self.get_meta)
-#         browse_meta.setFixedWidth(btn_width)
-
-#         btn_preview_meta = QPushButton("Preview")
-#         btn_preview_meta.clicked.connect(self.preview_meta)
-#         btn_preview_meta.setFixedWidth(btn_width)
-
-#         self.tbox_meta = QLineEdit()
-#         self.tbox_meta.editingFinished.connect(self.update_meta_df)
-#         self.tbox_meta.setText()
-
-#         hbox_input = QHBoxLayout()
-#         hbox_input.addWidget(label_index)
-#         hbox_input.addWidget(self.tbox_meta)
-#         hbox_input.addWidget(browse_meta)
-#         hbox_input.addWidget(btn_preview_meta)
-
-#         self.setLayout(hbox_input)
-
-#     # def get_meta(self):
-#     #     metafile, _ = QFileDialog.getOpenFileName(self, "Metadata File:", filter ='(*.csv *.tsv *.txt)')
-#     #     self.tbox_meta.setText(metafile)
-#     #     self.update_meta_df()
-
-#     def update_meta_df(self):
-#         self.metapath = os.path.join(self.setup['path'], self.setup['metafile'])
-#         # self.metapath = os.path.abspath(self.tbox_meta.text())
-#         if os.path.isfile(self.metapath):
-#             self.new_metapath.emit(self.metapath)
-
-#     def preview_meta(self):
-#         meta_df = csv.read_metadata(self.metapath)
-#         self.metaTable = MetaTable(meta_df, self.metapath)
-#         self.metaTable.show()
-
 class MetaFilter(QWidget):
 
     new_selection_df = Signal(pd.DataFrame)
@@ -219,6 +176,7 @@ class MetaFilter(QWidget):
         self.setObjectName(u"MetaFilter")
         vbox = QVBoxLayout()
 
+        self.meta_df = None
         label = QLabel("Select/Filter from Metadata file:")
 
         btn_width = 80

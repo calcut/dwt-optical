@@ -1,3 +1,4 @@
+from email.errors import CloseBoundaryNotFoundDefect
 import sys
 import logging
 import os
@@ -6,6 +7,7 @@ from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot, Qt
 from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget, QTableView,
 QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget, QSplitter)
+from GUI_commonWidgets import SetupBrowse
 from GUI_measureTab import MeasureTab
 from GUI_singleMeasureTab import SingleMeasureTab
 
@@ -15,11 +17,11 @@ from GUI_importTab import ImportTab
 from GUI_exportTab import ExportTab
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, rootpath):
         super(MainWindow, self).__init__()
         # self.ui = Ui_MainWindow()
         # self.ui.setupUi(self)
-
+        btn_width = 80
         centralwidget = QWidget()
         centralwidget.setObjectName(u"centralwidget")
         self.setCentralWidget(centralwidget)
@@ -30,11 +32,20 @@ class MainWindow(QMainWindow):
 
         splitter = QSplitter(Qt.Vertical)
 
+
+
         self.log = GUILogger(self)
         self.singleMeasureTab = SingleMeasureTab()
         self.measureTab = MeasureTab()
         self.importTab = ImportTab()
         self.exportTab = ExportTab()
+
+        setupBrowse = SetupBrowse(rootpath)
+        setupBrowse.new_setup.connect(self.singleMeasureTab.setup_changed)
+        setupBrowse.new_setup.connect(self.measureTab.setup_changed)
+        setupBrowse.new_setup.connect(self.importTab.setup_changed)
+        setupBrowse.new_setup.connect(self.exportTab.setup_changed)
+        setupBrowse.new_setup.emit(setupBrowse.setup)
 
         self.setupTab = QWidget()
         self.runTab = QWidget()
@@ -52,45 +63,25 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.log)
         splitter.setStretchFactor(0,0)
         splitter.setStretchFactor(1,1)
+
+        # hbox_close = QHBoxLayout()
+        # hbox_close.addStretch(80)
+        # hbox_close.addWidget(btn_close)
+        # hbox_close.addStretch(1)
+
+        vbox.addWidget(setupBrowse)
         vbox.addWidget(splitter)
+        # vbox.addLayout(hbox_close)
 
+        self.setWindowTitle("Optical Tongue Interface")
         self.show()
-
-
-    def generateTab(self):
-
-        # New Widget (to be used as a tab)
-        self.ui.tab_x = QWidget()
-        self.ui.tab_x.setObjectName(u"tab_x")
-
-        # Make a grid layout and position it within the new tab
-        self.ui.gridLayoutWidget_x = QWidget(self.ui.tab_x)
-        self.ui.gridLayoutWidget_x.setObjectName(u"gridLayoutWidget_x")
-        self.ui.gridLayoutWidget_x.setGeometry(QRect(10, 10, 450, 200))
-
-        self.ui.gridLayout_x = QGridLayout(self.ui.gridLayoutWidget_x)
-        self.ui.gridLayout_x.setObjectName(u"gridLayout_x")
-        self.ui.gridLayout_x.setContentsMargins(0, 0, 0, 0)
-        self.ui.boxes=[]
-        for i in range(4):
-            self.ui.boxes.append(QCheckBox(self.ui.tab_x))
-            self.ui.gridLayout_x.addWidget(self.ui.boxes[i], i, i, 1, 1)
-            self.ui.boxes[i].toggled.connect(self.checkboxSlot)
-
-        # Add tab to the main tab widget, and give it a label
-        self.ui.tabWidget.addTab(self.ui.tab_x, "")
-        self.ui.tabWidget.setTabText(self.ui.tabWidget.indexOf(self.ui.tab_x), "abc")
-        
-    def checkboxSlot(self):
-        cbutton = self.sender()
-        print(cbutton.isChecked())
-
-    
+ 
 
 if __name__ == "__main__":
 
     app = QApplication(sys.argv)
-    w = MainWindow()
+    rootpath = '/Users/calum/spectrometer/'
+    window = MainWindow(rootpath)
     app.setWindowIcon(QtGui.QIcon(":/icons/full-spectrum.png"))
     sys.exit(app.exec())
 

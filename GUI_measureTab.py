@@ -5,7 +5,7 @@ from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget, QCheckBox,
     QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox)
 import logging
-from GUI_commonWidgets import QHLine, SetupBrowse
+from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
 import lib.csv_helpers as csv
 
@@ -33,8 +33,6 @@ class MeasureTab(QWidget):
         label_info.setToolTip(tooltip_info)
 
         self.run_df = None
-        self.setupBrowse = SetupBrowse()
-        self.setupBrowse.new_setup.connect(self.setup_changed)
 
         # Run_df
         label_run_df = QLabel("Define Run List:\n[Could add import/export options here to allow manual editing?]")
@@ -94,8 +92,6 @@ class MeasureTab(QWidget):
         vbox = QVBoxLayout()
         vbox.addWidget(label_info)
         vbox.addWidget(QHLine())
-        vbox.addWidget(self.setupBrowse)
-        vbox.addWidget(QHLine())
         vbox.addLayout(hbox_run_df)
         vbox.addWidget(QHLine())
         vbox.addLayout(hbox_mf)
@@ -108,10 +104,8 @@ class MeasureTab(QWidget):
 
         self.setLayout(vbox)
 
-        self.setupBrowse.update_setup_json()
-
     def generate_run_df(self):
-        self.run_df = csv.generate_run_df(self.setupBrowse.setup)
+        self.run_df = csv.generate_run_df(self.setup)
         print(self.run_df)
 
     def preview_run_df(self):
@@ -131,14 +125,14 @@ class MeasureTab(QWidget):
         logging.info(f'measure_function = {mf.__name__}')
 
         merge = self.cbox_merge.isChecked()        
-        setup = self.setupBrowse.setup
-        csv.run_measure(setup, self.run_df, measure_func=mf, merge=merge)
+        csv.run_measure(self.setup, self.run_df, measure_func=mf, merge=merge)
 
     def setup_changed(self, setup):
-        logging.debug(f"Measure Tab : got new setup {self.setupBrowse.tbox_setup.text()}")
+        logging.debug(f"measureTab: got new setup {setup['name']}")
+        self.setup = setup
 
         # Update the output path displayed
-        outpath = os.path.abspath(setup['path'])
+        outpath = os.path.abspath(setup['datadir'])
         for dir in setup['subdirs']:
             outpath = os.path.join(outpath, f"<{dir}>")
 
@@ -155,6 +149,8 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     window = MeasureTab()
+    setup = csv.get_default_setup()
+    window.setup_changed(setup)
     window.resize(1024, 768)
     window.show()
     sys.exit(app.exec())

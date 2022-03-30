@@ -352,12 +352,14 @@ def generate_run_df(setup):
     # NB It is bad practice to append to Dataframes, so will convert to
     # dataframe at the end
     run_list = json_setup.default_metadata_columns.copy()
+    run_list.pop('name')
+
     for col in run_list.keys():
         run_list[col] = []
 
     # List of elements can be specified in the setup{}, or can use 'all'.
     if setup['input_config']['elements'] == 'all':
-        elements = setup['sensor']['layout'].keys()
+        elements = setup['sensor']['layout']['map'].keys()
     else:
         elements = setup['input_config']['elements']
 
@@ -372,7 +374,7 @@ def generate_run_df(setup):
                 row['structure'] = setup['sensor']['structure_map']['map'][e][0]
                 row['surface'] = setup['sensor']['surface_map']['map'][e][0]
                 row['fluid'] = f
-                row['repeats'] = setup['repeats']
+                row['repeats'] = setup['input_config']['repeats']
                 row['comment'] = ''
 
                 # Build the index as a string based on primary metadata
@@ -381,10 +383,10 @@ def generate_run_df(setup):
                 for col in row.keys():
                     run_list[col].append(row[col])
 
-    # Convert the lists into pandas series with appropriate datatypes
+    # Convert the lists into pandas series
     for col in run_list.keys():
-        run_list[col] = pd.Series(run_list[col], dtype=json_setup.default_metadata_columns[col])
-        # run_list[col] = pd.Series(run_list[col], dtype=str)
+        # run_list[col] = pd.Series(run_list[col], dtype=json_setup.default_metadata_columns[col])
+        run_list[col] = pd.Series(run_list[col])
 
     # Convert to dataframe now (avoids iteratively appending to the dataframe)
     run_df = pd.DataFrame(run_list)

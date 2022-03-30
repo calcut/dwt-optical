@@ -1,6 +1,6 @@
 import logging
 from PySide6.QtGui import QFont
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot, QCoreApplication
 from PySide6.QtWidgets import (QPlainTextEdit, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QWidget)
 
@@ -71,14 +71,20 @@ class GUILogger(QWidget):
         # font = QFont()
         # font.setStyleHint(QFont.TypeWriter)
         # font.setFamily('Monaco')
-
+        btn_width = 80
         logLabel = QLabel("Log Output:")
         btn_clear = QPushButton("Clear")
         btn_clear.clicked.connect(self.clearBox)
+        btn_clear.setFixedWidth(btn_width)
+
+        btn_close = QPushButton('Exit')
+        btn_close.clicked.connect(QCoreApplication.instance().quit)
+        btn_close.setFixedWidth(btn_width)
 
         hbox_btn = QHBoxLayout()
         hbox_btn.addStretch()
         hbox_btn.addWidget(btn_clear)
+        hbox_btn.addWidget(btn_close)
 
         self.logBox = QPlainTextEdit()
         # self.logBox.setFont(font)

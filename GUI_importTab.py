@@ -4,7 +4,7 @@ from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget, QCheckBox,
     QRadioButton, QVBoxLayout, QFileDialog, QPushButton, QLabel)
 import logging
-from GUI_commonWidgets import QHLine, SetupBrowse
+from GUI_commonWidgets import QHLine
 import lib.csv_helpers as csv
 
 class ImportWorker(QObject):
@@ -63,30 +63,15 @@ class ImportTab(QWidget):
         label_output = QLabel("Output Directory Structure:")
         label_regex = QLabel("Regular expression to extract metadata from filenames:")
         
-        self.setupBrowse = SetupBrowse()
-        self.setupBrowse.new_setup.connect(self.setup_changed)
-
-        # Actually read in the setup file and emit the setup_changed signal
-        self.setupBrowse.update_setup_json()
-        setup = self.setupBrowse.setup
-
         self.tbox_input = QLineEdit()
         self.tbox_input.setText(default_input)
         self.tbox_outpath = QLineEdit()
         self.tbox_outpath.setReadOnly(True)
 
-        outpath = os.path.abspath(setup['datadir'])
-        for dir in setup['subdirs']:
-            outpath = os.path.join(outpath, f"<{dir}>")
-
-        filename = '-'.join(f'<{p}>' for p in setup['primary_metadata'])+".txt"
-        outpath = os.path.join(outpath, filename)
-
         label_merge = QLabel('Merge into existing files')
         self.cbox_merge = QCheckBox()
         self.cbox_merge.setChecked(True)
         
-        self.tbox_outpath.setText(outpath)
         self.tbox_regex = QLineEdit()
         self.tbox_regex.setText(default_regex)
 
@@ -127,8 +112,6 @@ class ImportTab(QWidget):
 
         vbox.addWidget(label_info)
         vbox.addWidget(QHLine())
-        vbox.addWidget(self.setupBrowse)
-        vbox.addWidget(QHLine())
         vbox.addWidget(label_input)
         vbox.addLayout(hbox_input)
         vbox.addWidget(label_separator)
@@ -156,9 +139,17 @@ class ImportTab(QWidget):
                 self.separator = '\t'
 
     def setup_changed(self, setup):
-        logging.debug(f"Import Tab : got new setup {self.setupBrowse.tbox_setup.text()}")
+        logging.debug(f"importTab: got new setup {setup['name']}")
         self.setup = setup
-        
+
+        outpath = os.path.abspath(self.setup['datadir'])
+        for dir in self.setup['subdirs']:
+            outpath = os.path.join(outpath, f"<{dir}>")
+
+        filename = '-'.join(f'<{p}>' for p in self.setup['primary_metadata'])+".txt"
+        outpath = os.path.join(outpath, filename)
+        self.tbox_outpath.setText(outpath)
+
     def get_input_dir(self):
         dirname = QFileDialog.getExistingDirectory(self, "Select Input Directory")
         self.tbox_input.setText(dirname)
@@ -167,7 +158,6 @@ class ImportTab(QWidget):
 
         regex = self.tbox_regex.text()
         input_dir = self.tbox_input.text()
-        setup = self.setupBrowse.setup
         merge = self.cbox_merge.isChecked()
         separator = self.separator
 
@@ -175,7 +165,7 @@ class ImportTab(QWidget):
         #                         separator=separator, merge=merge)
 
         self.thread = QThread()
-        self.worker = ImportWorker(setup, input_dir, regex, separator, merge)
+        self.worker = ImportWorker(self.setup, input_dir, regex, separator, merge)
 
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
@@ -196,6 +186,8 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     window = ImportTab()
+    setup = csv.get_default_setup()
+    window.setup_changed(setup)
     window.resize(1024, 768)
     window.show()
     sys.exit(app.exec())

@@ -213,9 +213,8 @@ def json_to_dict(filepath):
                 setting = setting[1:]
                 subpath = os.path.join(os.path.dirname(filepath), key)
             # if os.path.exists(subpath):
-
                 sub_json = os.path.join(subpath, setting+'.json')
-                logging.debug(f'Populating {key}:')
+                # logging.debug(f'Populating {key}:')
                 
                 # Recursively call this function to populate the sub-dictionary
                 dictionary[key] = json_to_dict(sub_json)

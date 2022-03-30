@@ -66,19 +66,19 @@ class ExportTab(QWidget):
         hbox_run.addStretch()
         hbox_run.addWidget(self.btn_export)
 
-        self.setupBrowse = SetupBrowse()
+        # self.setupBrowse = SetupBrowse()
         self.metaFilter = MetaFilter()
         self.dataProcess = DataProcess()
-        self.setupBrowse.new_setup.connect(self.metaFilter.setup_changed)
-        self.setupBrowse.new_setup.connect(self.dataProcess.setup_changed)
-        self.setupBrowse.update_setup_json()
+        # self.setupBrowse.new_setup.connect(self.metaFilter.setup_changed)
+        # self.setupBrowse.new_setup.connect(self.dataProcess.setup_changed)
+        # self.setupBrowse.update_setup_json()
         self.metaFilter.add_sel_row()
         self.metaFilter.new_selection_df.connect(self.dataProcess.selection_df_changed)
         self.metaFilter.select_meta()
 
         vbox.addWidget(label_title)
-        vbox.addWidget(QHLine())
-        vbox.addWidget(self.setupBrowse)
+        # vbox.addWidget(QHLine())
+        # vbox.addWidget(self.setupBrowse)
         vbox.addWidget(QHLine())
         vbox.addWidget(self.metaFilter)
         vbox.addWidget(QHLine())
@@ -90,7 +90,11 @@ class ExportTab(QWidget):
 
         self.setLayout(vbox)
 
-
+    def setup_changed(self, setup):
+        logging.debug(f"exportTab: got new setup {setup['name']}")
+        self.setup = setup
+        self.metaFilter.setup_changed(setup)
+        self.dataProcess.setup_changed(setup)
 
     def get_output(self):
         outfile = QFileDialog.getSaveFileName(self, "Select Output File:")
@@ -98,7 +102,6 @@ class ExportTab(QWidget):
 
     def run_export(self):
         outfile = self.tbox_output.text()
-        setup = self.setupBrowse.setup
 
         if outfile == '':
             outfile = None
@@ -107,7 +110,7 @@ class ExportTab(QWidget):
 
         selection_df = self.metaFilter.selection_df
 
-        self.worker = ExportWorker(setup, selection_df, outfile, self.dataProcess.dp)
+        self.worker = ExportWorker(self.setup, selection_df, outfile, self.dataProcess.dp)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.thread.quit)
@@ -141,6 +144,8 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     window = ExportTab()
+    setup = csv.get_default_setup()
+    window.setup_changed(setup)
     window.resize(1024, 768)
     window.show()
     sys.exit(app.exec())

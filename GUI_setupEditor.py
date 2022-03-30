@@ -432,7 +432,7 @@ class SetupEditor(QMainWindow):
         self.table1 = TableWidget(path, name)
         self.table1.request_subtable.connect(self.update_table2)
         self.table1.new_setup_filename.connect(self.remove_subtables)
-        self.table1.new_setup_filename.connect(self.emit_filename)
+        self.table1.new_setup_filename.connect(self.emit_setup_name)
 
         self.width1 = self.table1.total_width
         self.hbox1.addWidget(self.table1, stretch=self.width1)
@@ -550,10 +550,10 @@ class SetupEditor(QMainWindow):
         self.width3 = 0
         self.set_window_width()
 
-    def emit_filename(self, filename):
+    def emit_setup_name(self, filename):
 
         name = Path(filename).stem
-        self.new_setup_name.emit(filename)
+        self.new_setup_name.emit(name)
 
 if __name__ == "__main__":
     
