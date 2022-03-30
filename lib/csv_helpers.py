@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from io import StringIO
 import re
 import json
 import shutil
@@ -50,16 +51,10 @@ def simple_measurement(setup, element, fluid, measure_func, merge=True, comment=
     index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
     run_dict['index'] = index
 
-    # Convert to pandas series, which allows datatype to be specified
     for col in run_dict.keys():
-        if run_dict[col] == '':
-            run_dict[col] = pd.NA
-        run_dict[col] = pd.Series([run_dict[col]], dtype=json_setup.default_metadata_columns[col])
-        # run_dict[col] = pd.Series([run_dict[col]], dtype=str)
+        # dtypes are not specified here, they get assigned when during read_metadata()
+        run_dict[col] = pd.Series([run_dict[col]])
 
-        
-    # Convert to dataframe, this enables it to be concatenated with an existing
-    # meta_df
     run_df = pd.DataFrame(run_dict)
     run_df.set_index('index', inplace=True)
 
@@ -214,21 +209,7 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
         'comment'   
 
     If they aren't identified by the regex, they should be present in the
-    setup{} dictionary, e.g:
-
-    setup{ 
-        'metafile'          : 'index.txt',
-        'path'              : 'dummydata',
-        'subdirs'           : ['sensor', 'fluid'],
-        'elements'          : ['xxx']
-        'fluids'            : ['xxx']
-        'primary_metadata'  : ['instrument', 'element', 'fluid'],
-        'instrument'        : {
-                                'name'  : 'xxxxx'
-                                'sensor : 'xxxxx'
-                                'structure_map' : {'xxx' : 'surface-XX'}
-                               }
-        }
+    setup{} dictionary
     '''
 
     if not os.path.exists(input_dir):
@@ -280,11 +261,6 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
         if 'fluid' not in run_dict:
             run_dict['fluid'] = setup['input_config']['fluids'][0]
 
-        # Deal with blank input values
-        for col in run_dict.keys():
-            if run_dict[col] == '': 
-                run_dict[col] = pd.NA
-
         run_dict['repeats'] = pd.NA #Will be modified in write_meta_df_txt()
 
         index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
@@ -292,16 +268,9 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
         run_dict['index'] = index
         run_dict['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
 
-        # Convert to pandas series, which allows dtype to be specified/forced as str
         for col in run_dict.keys():
-            try:
-                run_dict[col] = pd.Series([run_dict[col]], dtype=json_setup.default_metadata_columns[col])
-            except:
-                run_dict[col] = pd.Series([run_dict[col]])
-                logging.info(f'No dtype specified for {col}, using {run_dict[col].dtype}')
-
-        # Convert to dataframe, this enables it to be concatenated with an existing
-        # meta_df
+            # dtypes are not specified here, they get assigned when during read_metadata()
+            run_dict[col] = pd.Series([run_dict[col]])
         run_df = pd.DataFrame(run_dict)
         run_df.set_index('index', inplace=True)
 
@@ -321,35 +290,36 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
         write_df_txt(df, datapath, merge=merge)
         write_meta_df_txt(setup, run_df, merge=merge)
 
-        # write_df_txt(df, )
-        # # TODO, the 'store' function reads and writes the full metadata file
-        # # each time, so room for improvement here.
-        # datapath = store(df, metadata, output_dir, primary_keys)
-        # logging.info(f'imported {filename} to {datapath}')
-    # write_meta_df_txt(meta_df, )
+        # Note, this function reads and writes the full metadata file
+        # each time, so room for improvement here.
 
-def read_metadata(setup=json_setup.default_setup):
+def read_metadata(setup=json_setup.default_setup, filebuffer=None):
 
-    metapath = os.path.join(setup['datadir'], setup['metafile'])
-
-    if os.path.isfile(metapath):
-
-        # Import the metadata and apply the appropriate datatypes 
-        # 'date' needs to be treated separately using parse_dates
-        dtypes = json_setup.default_metadata_columns.copy()
-        dtypes.pop('date')
-        dtypes.pop('name')
-
-        meta_df = pd.read_csv(metapath,
-                        sep='\t',
-                        index_col='index',
-                        parse_dates=['date'],
-                        dtype=dtypes,
-                        )
-        logging.debug(f'Loaded Metadata Index from {metapath}')
+    if filebuffer:
+        # Optionally read in from a memory buffer.
+        # Used by write_meta_df_txt() function for merging.
+        metapath = filebuffer
     else:
-        logging.warning(f'{metapath} not found')
-        return
+        # Normally read in from the metafile specified in setup{}
+        metapath = os.path.join(setup['datadir'], setup['metafile'])
+        if not os.path.isfile(metapath):
+            logging.warning(f'{metapath} not found')
+            return
+
+    # Import the metadata and apply the appropriate datatypes 
+    # 'date' needs to be treated separately using parse_dates
+    dtypes = json_setup.default_metadata_columns.copy()
+    dtypes.pop('date')
+    dtypes.pop('name')
+
+    meta_df = pd.read_csv(metapath,
+                    sep='\t',
+                    index_col='index',
+                    parse_dates=['date'],
+                    dtype=dtypes,
+                    )
+    logging.debug(f'Loaded Metadata Index from {metapath}')
+       
     return meta_df
 
 # def apply_surface_map(setup):
@@ -403,7 +373,7 @@ def generate_run_df(setup):
                 row['surface'] = setup['sensor']['surface_map']['map'][e][0]
                 row['fluid'] = f
                 row['repeats'] = setup['repeats']
-                row['comment'] = pd.NA
+                row['comment'] = ''
 
                 # Build the index as a string based on primary metadata
                 row['index'] = '-'.join(row[p] for p in setup['primary_metadata'])
@@ -491,8 +461,15 @@ def write_meta_df_txt(setup, meta_df, merge=True):
         else:
             logging.info(f'Merging into existing {metapath}')
 
-            with open(metapath, 'r+') as f:
-                existing_df = read_metadata(setup)
+            # Before merging we need to ensure the datatypes and NA values
+            # match exactly. The most robust way of doing that seems to be
+            # writing out the meta_df, then reading both back using the same function.
+            buffer = StringIO()
+            meta_df.to_csv(buffer, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
+            buffer.seek(0)
+
+            meta_df = read_metadata(filebuffer=buffer)
+            existing_df = read_metadata(setup)
                 
             for row in meta_df.index:
                 if row in existing_df.index:
