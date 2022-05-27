@@ -57,14 +57,16 @@ class ImportTab(QWidget):
 
         label_info.setToolTip(info_tooltip)
         
-        # label_title = QLabel(docstring)
-        # label_title = QLabel("")
-        label_input = QLabel("Input Directory:")
-        label_output = QLabel("Output Directory Structure:")
+        label_input = QLabel("Input")
+        label_input.setStyleSheet("font-weight: bold")
+        label_output = QLabel("Output")
+        label_output.setStyleSheet("font-weight: bold")
         label_regex = QLabel("Regular expression to extract metadata from filenames:")
         
+        label_inpath = QLabel("Input Directory:")
         self.tbox_input = QLineEdit()
         self.tbox_input.setText(default_input)
+        label_outpath = QLabel("Output Directory Structure:")
         self.tbox_outpath = QLineEdit()
         self.tbox_outpath.setReadOnly(True)
 
@@ -113,19 +115,37 @@ class ImportTab(QWidget):
         vbox.addWidget(label_info)
         vbox.addWidget(QHLine())
         vbox.addWidget(label_input)
-        vbox.addLayout(hbox_input)
-        vbox.addWidget(label_separator)
-        vbox.addLayout(hbox_separator)
-        vbox.addWidget(label_regex)
-        vbox.addWidget(self.tbox_regex)
+
+
+        vbox_input = QVBoxLayout()
+        vbox_input.addWidget(label_inpath)
+        vbox_input.addLayout(hbox_input)
+        vbox_input.addWidget(label_separator)
+        vbox_input.addLayout(hbox_separator)
+        vbox_input.addWidget(label_regex)
+        vbox_input.addWidget(self.tbox_regex)
+
+        hbox=QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addLayout(vbox_input, stretch=10)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
+
         vbox.addWidget(QHLine())
         vbox.addWidget(label_output)
-        vbox.addWidget(self.tbox_outpath)
-        vbox.addLayout(hbox_merge)
+        vbox_output = QVBoxLayout()
 
+        vbox_output.addWidget(label_outpath)
+        vbox_output.addWidget(self.tbox_outpath)
+        vbox_output.addLayout(hbox_merge)
+        vbox_output.addLayout(hbox_run)
+        vbox_output.addStretch()
 
-        vbox.addLayout(hbox_run)
-        vbox.addStretch()
+        hbox=QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addLayout(vbox_output, stretch=10)
+        hbox.addStretch(1)
+        vbox.addLayout(hbox)
 
         self.setLayout(vbox)
 

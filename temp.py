@@ -1,50 +1,20 @@
-import sys
+import numpy as np
+import matplotlib.pyplot as plt
 
-import functools
-from PySide6.QtWidgets import QApplication
+fig, ax = plt.subplots()
+ax.set_title('click on points')
 
-from PySide6.QtWidgets import QLabel
+line, = ax.plot(np.random.rand(100), 'o',
+                picker=True, pickradius=5)  # 5 points tolerance
 
-from PySide6.QtWidgets import QPushButton
+def onpick(event):
+    thisline = event.artist
+    xdata = thisline.get_xdata()
+    ydata = thisline.get_ydata()
+    ind = event.ind
+    points = tuple(zip(xdata[ind], ydata[ind]))
+    print('onpick points:', points)
 
-from PySide6.QtWidgets import QVBoxLayout
+fig.canvas.mpl_connect('pick_event', onpick)
 
-from PySide6.QtWidgets import QWidget
-
-
-def greeting(who):
-    """Slot function."""
-    if msg.text():
-        msg.setText('')
-    else:
-        msg.setText(f'Hello {who}')
-
-
-
-app = QApplication(sys.argv)
-
-window = QWidget()
-
-window.setWindowTitle('Signals and slots')
-
-layout = QVBoxLayout()
-
-
-btn = QPushButton('Greet')
-
-# btn.clicked.connect(greeting)  # Connect clicked to greeting()
-# btn.clicked.connect(functools.partial(greeting, 'World!'))
-btn.clicked.connect(lambda: greeting('World!'))
-
-
-layout.addWidget(btn)
-
-msg = QLabel('')
-
-layout.addWidget(msg)
-
-window.setLayout(layout)
-
-window.show()
-
-sys.exit(app.exec_())
+plt.show()

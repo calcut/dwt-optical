@@ -1,7 +1,7 @@
 {
    "name": "instrument01",
    "sensor": "DUM01",
-   "element_map": {
+   "structure_map": {
       "A01": "Al",
       "A02": "Au",
       "B01": "Al-HMDS",

@@ -117,3 +117,31 @@ class DataProcessor():
         df = df.rolling(window=smooth_points).mean()
         return df
 
+    def fwhm(self, df):
+        for col in df:
+            if col == 'wavelength':
+                pass
+            else:
+                baseline=df[col][1:101].mean()
+                min = df[col][1:].min()
+                height = baseline - min
+                hm = min + (height/2)
+                flagdown=0
+                flagup=0
+                for i in range(30,len(df[col])):
+                    value=df[col][i]
+                    if value<=hm and flagdown==0:
+                        flagdown=1
+                        side1=df['wavelength'][i]
+                    if value>=hm and flagdown==1 and flagup==0 and df['wavelength'][i]-side1>10:
+                        flagup=1
+                        side2=df['wavelength'][i]
+                    if flagup==1 and flagdown==1:
+                        break
+                if flagup==0:
+                    side2=0
+                    side1=0
+                fwhm_num=side2-side1
+                print(f'{baseline=} {height=} {hm=} {fwhm_num}')
+        return fwhm_num, height, baseline
+

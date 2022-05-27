@@ -117,17 +117,7 @@ class SingleMeasureTab(QWidget):
         hbox_merge.addWidget(label_merge)
         hbox_merge.addStretch()
 
-        vbox_output = QVBoxLayout()
-        vbox_output.addWidget(self.tbox_outpath)
-        vbox_output.addLayout(hbox_merge)
-
-        hbox_output = QHBoxLayout()
-        hbox_output.addStretch(1)
-        hbox_output.addLayout(vbox_output, stretch=10)
-        hbox_output.addStretch(1)
-
         # Run Measurements
-        # label_run = QLabel("Process Run List:")
         btn_run= QPushButton("Run")
         btn_run.clicked.connect(self.run_measurement)
         btn_run.setFixedWidth(btn_width)
@@ -135,6 +125,17 @@ class SingleMeasureTab(QWidget):
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
         hbox_run.addWidget(btn_run)
+
+        vbox_output = QVBoxLayout()
+        vbox_output.addWidget(self.tbox_outpath)
+        vbox_output.addLayout(hbox_merge)
+        vbox_output.addLayout(hbox_run)
+
+        hbox_output = QHBoxLayout()
+        hbox_output.addStretch(1)
+        hbox_output.addLayout(vbox_output, stretch=10)
+        hbox_output.addStretch(1)
+
 
         # Overall Layout
         vbox = QVBoxLayout()
@@ -149,7 +150,6 @@ class SingleMeasureTab(QWidget):
         vbox.addWidget(label_output)
         vbox.addLayout(hbox_output)
         vbox.addLayout(hbox_merge)
-        vbox.addLayout(hbox_run)
         vbox.addStretch()
 
         self.setLayout(vbox)
