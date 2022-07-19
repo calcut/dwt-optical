@@ -1,4 +1,3 @@
-from turtle import update
 import serial
 import time
 import serial.tools.list_ports
@@ -32,7 +31,7 @@ class Thor_stage():
         self.step_x = 0
         self.step_y = 0
 
-        self.unpacker = apt.Unpacker(self.port)
+        # self.unpacker = apt.Unpacker(self.port)
 
     def list_ports(self):
         ports = serial.tools.list_ports.comports()
@@ -47,10 +46,12 @@ class Thor_stage():
         self.port.reset_input_buffer()
         self.port.reset_output_buffer()
         self.port.rts = False
-        self.port.write(apt.hw_no_flash_programming(source=1, dest=0x50))
+        self.port.write(apt.hw_no_flash_programming(source=1, dest=0x21))
+        print('serial should be connected')
+        self.unpacker = apt.Unpacker(self.port)
 
     def update(self):
-        msg = apt.mot_ack_dcstatusupdate(source=1, dest=0x50)
+        msg = apt.mot_ack_dcstatusupdate(source=1, dest=0x21)
         self.port.write(msg)
         for msg in self.unpacker:
             print(msg)
@@ -60,10 +61,10 @@ class Thor_stage():
             #     self.pos_y = 
 
     def home(self):
-        msg = apt.mot_move_home(source=1, dest=0x50 ,chan_ident=1)
+        msg = apt.mot_move_home(source=1, dest=0x21 ,chan_ident=1)
         self.port.write(msg)
         print('ch1 moved home')
-        msg = apt.mot_move_home(source=1, dest=0x50 ,chan_ident=2)
+        msg = apt.mot_move_home(source=1, dest=0x21 ,chan_ident=2)
         self.port.write(msg)
         print('ch2 moved home')
 
@@ -103,12 +104,14 @@ if __name__ == "__main__":
 
     stage = Thor_stage()
     stage.list_ports()
-    stage.connect_serial(port='/dev/cu.usbmodemC7FD1A6912051')
+    stage.connect_serial(port='COM6')
 
-    stage.move_absolute(5, 5)
+    # stage.move_absolute(5, 5)
 
 
     while True:
+        print('updating')
+        print(stage.port.read())
         time.sleep(0.1)
         stage.update()
 
