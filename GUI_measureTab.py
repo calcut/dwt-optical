@@ -8,7 +8,7 @@ import logging
 from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
 import lib.csv_helpers as csv
-
+from lib.stellarnet_thorlabs import Stellarnet_Thorlabs_Hardware
 
 
 class MeasureTab(QWidget):
@@ -19,8 +19,7 @@ class MeasureTab(QWidget):
 
         btn_width = 80
 
-        # List of functions to interface with spectrometer APIs
-        self.measure_funcs = [csv.dummy_measurement]
+        self.hw = Stellarnet_Thorlabs_Hardware()
 
         label_info = QLabel("Capture a series of measurements\n")
 
@@ -59,19 +58,33 @@ class MeasureTab(QWidget):
         hbox_run_df.addLayout(hbox_run_df_btns, stretch=10)
         hbox_run_df.addStretch(1)
 
-        # Measurement Function
-        label_mf = QLabel("Spectrometer Measurement Function")
-        label_mf.setStyleSheet("font-weight: bold")
-        self.combo_mf = QComboBox()
-        for f in self.measure_funcs:
-            self.combo_mf.addItem(f.__name__)
-        self.combo_mf.addItem('not yet defined...')
+        # Hardware
+        label_hw = QLabel("Hardware Setup")
+        label_hw.setStyleSheet("font-weight: bold")
 
-        hbox_mf = QHBoxLayout()
-        hbox_mf.addStretch(1)
-        hbox_mf.addWidget(self.combo_mf, stretch=10)
-        hbox_mf.addStretch(1)
+        label_sp = QLabel("Serial Port")
+        self.combo_sp = QComboBox()
+        
+        self.btn_scan= QPushButton("Scan")
+        self.btn_scan.clicked.connect(self.scan_serial_ports)
+        self.btn_scan.setFixedWidth(btn_width)
 
+        self.btn_connect= QPushButton("Connect")
+        self.btn_connect.clicked.connect(self.connect_hw)
+        self.btn_connect.setFixedWidth(btn_width)
+
+        hbox_hardware = QHBoxLayout()
+        hbox_hardware.addStretch(3)
+        hbox_hardware.addWidget(label_sp)
+        hbox_hardware.addWidget(self.combo_sp, 1)
+        hbox_hardware.addWidget(self.btn_scan)
+        hbox_hardware.addWidget(self.btn_connect)
+
+        hbox_hardware_outer = QHBoxLayout()
+        hbox_hardware_outer.addStretch(1)
+        hbox_hardware_outer.addLayout(hbox_hardware, 10)
+        hbox_hardware_outer.addStretch(1)
+        
 
         # Output Path
         label_output = QLabel("Output Directory Structure:")
@@ -116,8 +129,8 @@ class MeasureTab(QWidget):
         # vbox.addWidget(label_run_idea)
         vbox.addLayout(hbox_run_df)
         vbox.addWidget(QHLine())
-        vbox.addWidget(label_mf)
-        vbox.addLayout(hbox_mf)
+        vbox.addWidget(label_hw)
+        vbox.addLayout(hbox_hardware_outer)
         vbox.addWidget(QHLine())
         vbox.addWidget(label_output)
         vbox.addLayout(hbox_output)
@@ -136,6 +149,16 @@ class MeasureTab(QWidget):
         self.runTable = MetaTable(self.run_df, "Run List DataFrame")
         self.runTable.show()
 
+    def scan_serial_ports(self):
+        ports = self.hw.scan_serial_ports()
+        self.combo_sp.clear()
+        for port, desc, hwid in sorted(ports):
+            self.combo_sp.addItem(port)
+
+    def connect_hw(self):
+        self.hw.connect(setup=self.setup, serial_port=self.combo_sp.currentText())
+
+
     def run_measurements(self):
         if self.run_df is None:
             self.generate_run_df()
@@ -147,11 +170,15 @@ class MeasureTab(QWidget):
         logging.info(f'measure_function = {mf.__name__}')
 
         merge = self.cbox_merge.isChecked()        
-        csv.run_measure(self.setup, self.run_df, measure_func=mf, merge=merge)
+        csv.run_measure(self.setup, self.run_df, measure_func=self.hw.measure, merge=merge)
 
     def setup_changed(self, setup):
         logging.debug(f"measureTab: got new setup {setup['name']}")
         self.setup = setup
+
+        # reconnect to hardware
+        if self.hw.port:
+            self.connect_hw()
 
         # Update the output path displayed
         outpath = os.path.abspath(setup['datadir'])

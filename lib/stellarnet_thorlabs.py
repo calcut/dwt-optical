@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import time
 import serial
+import serial.tools.list_ports
 import thorlabs_apt_protocol as apt
 import lib.stellarnet_win.stellarnet_driver3 as sn
 import logging
@@ -9,54 +10,72 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 class Stellarnet_Thorlabs_Hardware():
-    def __init__(self, setup, serial_port=None):
+    def __init__(self):
 
         self.encoder_pos_counts = 20000 #per mm
         self.encoder_vel_counts = 204.8 #per mm/s
 
+        self.setup = None
+        self.serial_port = None
+        self.port = None
+
+    def scan_serial_ports(self):
+        ports = serial.tools.list_ports.comports()
+        n =1 
+        for port, desc, hwid in sorted(ports):
+            logging.info(f"{n}) {port}: {desc} [{hwid}]")
+            n+=1
+        return ports
+
+    def connect(self, setup, serial_port=None):
         self.serial_port = serial_port
+        self.setup = setup
         self.thorlabs_setup()
         self.stellarnet_setup()
 
-
     def thorlabs_setup(self):
         if self.serial_port:
+            if self.port:
+                self.port.close()
             self.port = serial.Serial(self.serial_port, 115200, rtscts=True, timeout=0.1)
             self.port.rts = True
             self.port.reset_input_buffer()
             self.port.reset_output_buffer()
             self.port.rts = False
             self.port.write(apt.hw_no_flash_programming(source=1, dest=0x21))
-            logging.info('thorlabs serial should be connected')
+            logging.info(f'thorlabs serial connection on {self.serial_port}')
+
+            logging.info('Requesting update msgs from stage')
+            self.apt_cmd(apt.hw_start_updatemsgs(source=1, dest=0x21))
+            self.apt_cmd(apt.hw_start_updatemsgs(source=1, dest=0x22))
+
+            logging.info('Homing stage')
+            self.apt_cmd(apt.mot_move_home(source=1, dest=0x21 ,chan_ident=1))
+            self.apt_cmd(apt.mot_move_home(source=1, dest=0x22 ,chan_ident=1))
         else:
             self.port=None
-            logging.info('thorlabs serial port not specified')
-
-
-        self.apt_cmd(apt.hw_start_updatemsgs(source=1, dest=0x21))
-        self.apt_cmd(apt.hw_start_updatemsgs(source=1, dest=0x22))
-
-        self.apt_cmd(apt.mot_move_home(source=1, dest=0x21 ,chan_ident=1))
-        self.apt_cmd(apt.mot_move_home(source=1, dest=0x22 ,chan_ident=1))
+            logging.warning('thorlabs serial port not specified')
 
     def stellarnet_setup(self):
         try:
             self.spectrometer, self.wav = sn.array_get_spec(0) #0 is first channel/spectrometer
-            scans_to_avg = setup['input_config']['scans_to_avg']
-            int_time = setup['input_config']['integration_time']
-            x_smooth = setup['input_config']['x_smooth']
-            x_timing = setup['input_config']['x_timing']
+            scans_to_avg = self.setup['input_config']['scans_to_avg']
+            int_time = self.setup['input_config']['integration_time']
+            x_smooth = self.setup['input_config']['x_smooth']
+            x_timing = self.setup['input_config']['x_timing']
 
             self.spectrometer['device'].set_config(int_time=int_time,
                                         scans_to_avg=scans_to_avg,
                                         x_smooth=x_smooth,
                                         x_timing=x_timing)
+            logging.info(f'Spectrometer Connected')
+            logging.info(f'{scans_to_avg=} {int_time=} {x_smooth=} {x_timing=}')
         except Exception as e:
-            logging.warning(e)
+            logging.warning(f'Stellarnet connection error: {e}')
             self.spectrometer = None
 
     def apt_cmd(self, cmd_string):
-        logging.debug(f'{cmd_string.hex()=}')
+        logging.info(f'{cmd_string.hex()=}')
         if self.port:
             self.port.write(cmd_string)
 
