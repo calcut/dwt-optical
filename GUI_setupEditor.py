@@ -110,7 +110,7 @@ class TableWidget(QTableWidget):
                 self.setCellWidget(row, 0, self.maptable)
                 maptable_row = row
                 maptable_width = (self.maptable.horizontalHeader().sectionSize(0)
-                                     + self.maptable.horizontalHeader().sectionSize(1))
+                                     + self.maptable.horizontalHeader().sectionSize(1) + 5)
                 maptable_height = self.maptable.height()
                 self.maptable.cellChanged.connect(self.map_field_changed)
 
@@ -144,8 +144,7 @@ class TableWidget(QTableWidget):
             self.setRowHeight(maptable_row, maptable_height)
         if self.columnWidth(0) < 200:
             self.setColumnWidth(0, 200)
-        self.total_width = self.columnWidth(0) + self.columnWidth(1) + self.verticalHeader().width() + 2
-        logging.debug(f'{self.total_width=}')
+        self.total_width = self.columnWidth(0) + self.columnWidth(1) + self.verticalHeader().sizeHint().width() + 2
         self.needs_saved(False)
 
 

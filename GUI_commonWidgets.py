@@ -367,7 +367,7 @@ if __name__ == "__main__":
     window.setCentralWidget(centralwidget)
 
     # metaBrowse = MetaBrowse()
-    setupBrowse = SetupBrowse('/Users/calum/spectrometer/')
+    setupBrowse = SetupBrowse("C:/Users/calum/spectrometer")
     metaFilter = MetaFilter()
     # metaBrowse.new_metapath.connect(metaFilter.metapath_changed)
     # metaBrowse.update_meta_df()
