@@ -104,16 +104,49 @@ class SingleMeasureTab(QWidget):
         self.btn_connect.clicked.connect(self.connect_hw)
         self.btn_connect.setFixedWidth(btn_width)
 
-        hbox_hardware = QHBoxLayout()
-        hbox_hardware.addStretch(3)
-        hbox_hardware.addWidget(label_sp)
-        hbox_hardware.addWidget(self.combo_sp, 1)
-        hbox_hardware.addWidget(self.btn_scan)
-        hbox_hardware.addWidget(self.btn_connect)
+        self.btn_disconnect= QPushButton("Disconnect")
+        self.btn_disconnect.clicked.connect(self.hw.disable_stage)
+        self.btn_disconnect.setFixedWidth(btn_width)
+
+        hbox_hw_connect = QHBoxLayout()
+        hbox_hw_connect.addStretch(3)
+        hbox_hw_connect.addWidget(label_sp)
+        hbox_hw_connect.addWidget(self.combo_sp, 1)
+        hbox_hw_connect.addWidget(self.btn_scan)
+        hbox_hw_connect.addWidget(self.btn_connect)
+        hbox_hw_connect.addWidget(self.btn_disconnect)
+
+        self.label_reference = QLabel("Reference 0,0")
+        self.label_position = QLabel("Position 0,0")
+
+
+        self.btn_reference= QPushButton("Set")
+        self.btn_reference.clicked.connect(self.set_reference)
+        self.btn_reference.setFixedWidth(btn_width)
+
+        self.btn_position= QPushButton("Refresh")
+        self.btn_position.clicked.connect(self.refresh_position)
+        self.btn_position.setFixedWidth(btn_width)
+
+        self.btn_home= QPushButton("Home")
+        self.btn_home.clicked.connect(self.hw.home_stage)
+        self.btn_home.setFixedWidth(btn_width)
+
+        hbox_hw_ref = QHBoxLayout()
+        hbox_hw_ref.addStretch(3)
+        hbox_hw_ref.addWidget(self.label_reference)
+        hbox_hw_ref.addWidget(self.btn_reference)
+        hbox_hw_ref.addWidget(self.label_position)
+        hbox_hw_ref.addWidget(self.btn_position)
+        hbox_hw_ref.addWidget(self.btn_home)
+
+        vbox_hardware = QVBoxLayout()
+        vbox_hardware.addLayout(hbox_hw_connect)
+        vbox_hardware.addLayout(hbox_hw_ref)
 
         hbox_hardware_outer = QHBoxLayout()
         hbox_hardware_outer.addStretch(1)
-        hbox_hardware_outer.addLayout(hbox_hardware, 10)
+        hbox_hardware_outer.addLayout(vbox_hardware, 10)
         hbox_hardware_outer.addStretch(1)
 
         # Output Path
@@ -229,6 +262,15 @@ class SingleMeasureTab(QWidget):
         self.tbox_surface.setText(surface)
         self.tbox_structure.setText(structure)
 
+    def set_reference(self):
+        self.hw.store_position_reference()
+        self.label_reference.setText(f'Reference {self.hw.ref_x},{self.hw.ref_y}')
+
+    def refresh_position(self):
+        self.hw.get_stage_position()
+        self.label_position.setText(f'Position {self.hw.pos_x},{self.hw.pos_y}')
+
+
     def setup_changed(self, setup):
         logging.debug(f"singleMeasureTab: got new setup {setup['name']}")
         self.setup = setup
@@ -245,10 +287,6 @@ class SingleMeasureTab(QWidget):
         elements = setup['sensor']['layout']['map'].keys()
         self.combo_element.clear()
         self.combo_element.addItems(elements)
-
-        # reconnect to hardware
-        if self.hw.port:
-            self.connect_hw()
 
         # Update the output path displayed
         outpath = os.path.abspath(setup['datadir'])
