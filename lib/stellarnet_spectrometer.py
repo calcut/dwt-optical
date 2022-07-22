@@ -27,6 +27,9 @@ class Stellarnet_Spectrometer():
         self.wl_round = 2 #decimal places
         self.wl_min = None #optional wavelength trimming
         self.wl_max = None
+
+        self.light_reference = None
+        self.dark_reference = None
         self.spectrometer = None
         logging.info(f'scans_to_avg={self.scans_to_avg} '+
                 f'int_time={self.int_time} '+
@@ -55,14 +58,15 @@ class Stellarnet_Spectrometer():
             logging.warning(f'Stellarnet connection error: {e}')
             self.spectrometer = None
 
-    def get_spectrum(self):
+    def get_spectrum(self, as_percentage=True, dummy_low=1000, dummy_high=10000):
         if self.spectrometer:
             logging.info('capturing spectrum now')
             spectrum = sn.array_spectrum(self.spectrometer, self.wav)
         else:
             logging.info('generating dummy spectrum')
-            dummywavelength = list(np.arange(400, 420, 0.5)) #start stop step
-            dummydata = list(np.random.random_sample(len(dummywavelength)))
+            dummywavelength = list(np.arange(self.wl_min, self.wl_max, 0.5)) #start stop step
+            rng = np.random.default_rng()
+            dummydata = rng.integers(dummy_low, dummy_high, size=len(dummywavelength))
             spectrum = {'wavelength' : dummywavelength, 'transmission' : dummydata}
 
         df = pd.DataFrame(spectrum, dtype=np.float32)
@@ -77,7 +81,37 @@ class Stellarnet_Spectrometer():
         if self.wl_round:
             df['wavelength'] = df['wavelength'].round(self.wl_round)
 
+        if as_percentage:
+            df = self._calculate_percentage(df)
+
         return df
+        
+    def _calculate_percentage(self, df):
+        
+        if self.light_reference is None:
+            logging.error('Light reference spectrum has not been captured')
+        if self.dark_reference is None:
+            logging.error('Dark reference spectrum has not been captured')
+
+        data = df['transmission']
+        dr = self.dark_reference['transmission']
+        lr = self.light_reference['transmission']
+
+        if len(data) != len(dr):
+            raise Exception('spectrum length does not match dark reference')
+        if len(data) != len(lr):
+            raise Exception('spectrum length does not match light reference')
+
+        df['transmission'] = (data - dr) / (lr - dr) * 100
+        return df
+
+    def capture_dark_reference(self, dummy_val=1000):
+        self.dark_reference = self.get_spectrum(as_percentage=False, dummy_low=dummy_val, dummy_high=dummy_val+1)
+        # TODO, some code to warn if dark reference looks wrong?
+
+    def capture_light_reference(self, dummy_val=11000):
+        self.light_reference = self.get_spectrum(as_percentage=False, dummy_low=dummy_val, dummy_high=dummy_val+1)
+        # TODO, some code to warn if light reference looks wrong?
 
 
 if __name__ == "__main__":
@@ -91,4 +125,7 @@ if __name__ == "__main__":
         sp.x_timing = 3
         sp.wl_min = 400
         sp.wl_max = 420
-        print(sp.get_spectrum())
+        sp.capture_dark_reference()
+        sp.capture_light_reference()
+
+        print(sp.get_spectrum(dummy_low=5000, dummy_high=7000))
