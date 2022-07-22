@@ -6,13 +6,13 @@ import logging
 logging.basicConfig(level=logging.INFO)
 os = platform.system()
 if os == 'Windows':
-    import stellarnet_win.stellarnet_driver3 as sn
+    from .stellarnet_win import stellarnet_driver3 as sn
     logging.info('Using Stellarnet Windows driver')
 elif os == 'Darwin':
-    import stellarnet_mac.stellarnet_driver3 as sn
+    from .stellarnet_mac import stellarnet_driver3 as sn
     logging.info('Using Stellarnet Mac driver')
 elif os == 'Linux' and platform.machine() == 'armv7l':
-    import stellarnet_rpi.stellarnet_driver3 as sn
+    from .stellarnet_rpi import stellarnet_driver3 as sn
     logging.info('Using Stellarnet RaspberryPi driver')
 else:
     raise Exception('OS not recognised')
@@ -116,6 +116,7 @@ class Stellarnet_Spectrometer():
 
 if __name__ == "__main__":
 
+    # Needs to be run as [python -m lib.stellarnet_spectrometer] due to pesky relative imports
     # Can use with a context manager (with statement) to ensure serial port gets closed.
     with Stellarnet_Spectrometer() as sp:
         sp.connect()
