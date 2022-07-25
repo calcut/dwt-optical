@@ -63,7 +63,7 @@ class Stellarnet_Spectrometer():
             logging.info('capturing spectrum now')
             spectrum = sn.array_spectrum(self.spectrometer, self.wav)
         else:
-            logging.info('generating dummy spectrum')
+            logging.warning('generating dummy spectrum')
             dummywavelength = list(np.arange(self.wl_min, self.wl_max, 0.5)) #start stop step
             rng = np.random.default_rng()
             dummydata = rng.integers(dummy_low, dummy_high, size=len(dummywavelength))
