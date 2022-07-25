@@ -15,6 +15,7 @@ import lib.csv_helpers as csv
 from GUI_Logging import GUILogger
 from GUI_importTab import ImportTab
 from GUI_exportTab import ExportTab
+from GUI_hardwareControl import HardwareTop
 
 class MainWindow(QMainWindow):
     def __init__(self, rootpath):
@@ -35,8 +36,9 @@ class MainWindow(QMainWindow):
 
 
         self.log = GUILogger(self)
-        self.singleMeasureTab = SingleMeasureTab()
-        self.measureTab = MeasureTab()
+        self.hardwareTop = HardwareTop()
+        self.singleMeasureTab = SingleMeasureTab(measure_func=self.hardwareTop.hardware.measure)
+        self.measureTab = MeasureTab(measure_func=self.hardwareTop.hardware.measure)
         self.importTab = ImportTab()
         self.exportTab = ExportTab()
 
@@ -45,6 +47,7 @@ class MainWindow(QMainWindow):
         setupBrowse.new_setup.connect(self.measureTab.setup_changed)
         setupBrowse.new_setup.connect(self.importTab.setup_changed)
         setupBrowse.new_setup.connect(self.exportTab.setup_changed)
+        setupBrowse.new_setup.connect(self.hardwareTop.hardware.spectrometerControl.setup_changed)
         setupBrowse.new_setup.emit(setupBrowse.setup)
 
         self.setupTab = QWidget()
@@ -70,6 +73,7 @@ class MainWindow(QMainWindow):
         # hbox_close.addStretch(1)
 
         vbox.addWidget(setupBrowse)
+        vbox.addWidget(self.hardwareTop)
         vbox.addWidget(splitter)
         # vbox.addLayout(hbox_close)
 

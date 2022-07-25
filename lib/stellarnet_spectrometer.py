@@ -3,7 +3,7 @@ import pandas as pd
 import platform
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 os = platform.system()
 if os == 'Windows':
     from .stellarnet_win import stellarnet_driver3 as sn
@@ -30,6 +30,7 @@ class Stellarnet_Spectrometer():
 
         self.light_reference = None
         self.dark_reference = None
+        self.last_capture_raw = None
         self.spectrometer = None
         logging.info(f'scans_to_avg={self.scans_to_avg} '+
                 f'int_time={self.int_time} '+
@@ -80,6 +81,8 @@ class Stellarnet_Spectrometer():
 
         if self.wl_round:
             df['wavelength'] = df['wavelength'].round(self.wl_round)
+
+        self.last_capture_raw = df.copy()
 
         if as_percentage:
             df = self._calculate_percentage(df)

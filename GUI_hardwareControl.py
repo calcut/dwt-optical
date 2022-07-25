@@ -6,10 +6,38 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame, QMessageBox,
     QVBoxLayout, QFileDialog, QPushButton, QLabel)
 from GUI_commonWidgets import QHLine
+from GUI_plotCanvas import PlotCanvas
 import logging
 from lib.thorlabs_stage import Thorlabs_Stage
 from lib.stellarnet_spectrometer import Stellarnet_Spectrometer
 
+class HardwareTop(QWidget):
+    def __init__(self):
+        QWidget.__init__(self)
+        btn_width = 80
+
+        self.hardware = HardwareControl()
+        label_hardware = QLabel("Hardware Setup and References")
+        btn_hardware_control = QPushButton("References")
+        btn_hardware_control.clicked.connect(self.view_hardware)
+        btn_hardware_control.setFixedWidth(btn_width)
+
+        hbox = QHBoxLayout()
+        hbox.addStretch()
+        hbox.addWidget(label_hardware)
+        hbox.addWidget(btn_hardware_control)
+
+        hbox_outer = QHBoxLayout()
+        hbox_outer.addStretch(1)
+        hbox_outer.addLayout(hbox, stretch=10)
+        hbox_outer.addStretch(1)
+
+        self.setLayout(hbox_outer)
+
+
+    def view_hardware(self):
+        self.hardware.resize(640, 400)
+        self.hardware.show()
 
 class StageControl(QWidget):
 
@@ -185,58 +213,68 @@ class SpectrometerControl(QWidget):
         label.setStyleSheet("font-weight: bold")
 
         self.spec = Stellarnet_Spectrometer()
-        self.spec.wl_min = 400
-        self.spec.wl_min = 420
 
         self.btn_connect= QPushButton("Connect")
         self.btn_connect.clicked.connect(self.spec.connect)
         self.btn_connect.setFixedWidth(btn_width)
 
         self.btn_light_ref= QPushButton("Capture")
-        self.btn_light_ref.clicked.connect(self.spec.capture_light_reference)
+        self.btn_light_ref.clicked.connect(self.capture_light_ref)
         self.btn_light_ref.setFixedWidth(btn_width)
         
         self.btn_dark_ref= QPushButton("Capture")
-        self.btn_dark_ref.clicked.connect(self.spec.capture_light_reference)
+        self.btn_dark_ref.clicked.connect(self.capture_dark_ref)
         self.btn_dark_ref.setFixedWidth(btn_width)
 
         self.btn_capture_spectrum = QPushButton("Capture")
-        self.btn_capture_spectrum.clicked.connect(self.spec.get_spectrum)
+        self.btn_capture_spectrum.clicked.connect(self.capture_spectrum)
         self.btn_capture_spectrum.setFixedWidth(btn_width)
 
         self.btn_view_spectrum = QPushButton("View")
-        # self.btn_view_spectrum.clicked.connect(self.spec.get_spectrum)
+        self.btn_view_spectrum.clicked.connect(self.plot)
         self.btn_view_spectrum.setFixedWidth(btn_width)
 
-        hbox_usb = QHBoxLayout()
-        hbox_usb.addStretch(3)
-        hbox_usb.addWidget(self.btn_connect)
+        self.plotcanvas = PlotCanvas()
 
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setColumnStretch(0,5)
         grid.setColumnStretch(1,5)
-        grid.setColumnStretch(2,5)
+        # grid.setColumnStretch(2,5)
 
-        grid.addWidget(QLabel('Light Reference'), 0, 0)
-        grid.addWidget(self.btn_light_ref, 0, 1)
-        grid.addWidget(QLabel('Dark Reference'), 1, 0)
-        grid.addWidget(self.btn_dark_ref, 1, 1)
+        grid.addWidget(QLabel('USB'), 0, 0)
+        grid.addWidget(self.btn_connect, 0, 1)
 
-        grid.addWidget(QLabel('Capture Spectrum'), 2, 0)
-        grid.addWidget(self.btn_capture_spectrum, 2, 1)
-        grid.addWidget(self.btn_view_spectrum, 2, 2)
+        grid.addWidget(QLabel('Light Reference'), 1, 0)
+        grid.addWidget(self.btn_light_ref, 1, 1)
+        grid.addWidget(QLabel('Dark Reference'), 2, 0)
+        grid.addWidget(self.btn_dark_ref, 2, 1)
 
-        grid.addWidget(QLabel('scans_to_avg'), 3, 0)
+        grid.addWidget(QLabel('Capture Spectrum'), 3, 0)
+        grid.addWidget(self.btn_capture_spectrum, 3, 1)
+        grid.addWidget(self.btn_view_spectrum, 4, 1)
+
+
         self.label_scans_to_avg = QLabel(str(self.spec.scans_to_avg))
-        grid.addWidget(self.label_scans_to_avg, 3, 1)
-        grid.addWidget(QLabel('int_time'), 4, 0)
         self.label_int_time = QLabel(str(self.spec.int_time))
-        grid.addWidget(self.label_int_time, 4, 1)
-        grid.addWidget(QLabel('x_timing'), 5, 0)
-        grid.addWidget(QLabel('x_smooth'), 6, 0)
-        grid.addWidget(QLabel('wl_min'), 7, 0)
-        grid.addWidget(QLabel('wl_max'), 8, 0)
+        self.label_x_timing = QLabel(str(self.spec.x_timing))
+        self.label_x_smooth = QLabel(str(self.spec.x_smooth))
+        self.label_wl_min = QLabel(str(self.spec.wl_min))
+        self.label_wl_max = QLabel(str(self.spec.wl_max))
+
+        row_info = 5
+        grid.addWidget(QLabel('scans_to_avg'), row_info, 0)
+        grid.addWidget(self.label_scans_to_avg, row_info, 1)
+        grid.addWidget(QLabel('int_time'), row_info+1, 0)
+        grid.addWidget(self.label_int_time, row_info+1, 1)
+        grid.addWidget(QLabel('x_timing'), row_info+2, 0)
+        grid.addWidget(self.label_x_timing, row_info+2, 1)
+        grid.addWidget(QLabel('x_smooth'), row_info+3, 0)
+        grid.addWidget(self.label_x_smooth, row_info+3, 1)
+        grid.addWidget(QLabel('wl_min'), row_info+4, 0)
+        grid.addWidget(self.label_wl_min, row_info+4, 1)
+        grid.addWidget(QLabel('wl_max'), row_info+5, 0)
+        grid.addWidget(self.label_wl_max, row_info+5, 1)
 
         hbox_grid = QHBoxLayout()
         hbox_grid.addStretch()
@@ -246,11 +284,32 @@ class SpectrometerControl(QWidget):
         vbox = QVBoxLayout()
         vbox.addWidget(QHLine())
         vbox.addWidget(label)
-        vbox.addLayout(hbox_usb)
         vbox.addLayout(hbox_grid)
         self.setLayout(vbox)
 
+    def capture_light_ref(self):
+        self.spec.capture_light_reference()
 
+    def capture_dark_ref(self):
+        self.spec.capture_dark_reference()
+
+    def capture_spectrum(self):
+        self.spec.get_spectrum()
+
+    def setup_changed(self, setup):
+        logging.debug(f"Spectrometer Control : got new setup")
+        self.spec.int_time = setup['input_config']['integration_time']
+        self.spec.scans_to_avg = setup['input_config']['scans_to_avg']
+        self.spec.x_timing = setup['input_config']['x_timing']
+        self.spec.x_smooth = setup['input_config']['x_smooth']
+        self.spec.wl_min = setup['input_config']['wavelength_range'][0]
+        self.spec.wl_max = setup['input_config']['wavelength_range'][1]
+
+    def plot(self):
+        # df = self.spec.last_capture
+        df =  pd.merge(self.spec.light_reference, self.spec.dark_reference, how='outer', on='wavelength')
+        df =  pd.merge(self.spec.last_capture_raw, df, how='outer', on='wavelength')
+        self.plotcanvas.set_data(df)
 
 class HardwareControl(QWidget):
 
@@ -264,10 +323,13 @@ class HardwareControl(QWidget):
         label = QLabel("Hardware Setup")
         label.setStyleSheet("font-weight: bold")
 
+        self.spectrometerControl=SpectrometerControl()
+        self.stageControl = StageControl()
+
         vbox = QVBoxLayout()
         vbox.addWidget(label)
-        vbox.addWidget(StageControl())
-        vbox.addWidget(SpectrometerControl())
+        vbox.addWidget(self.stageControl)
+        vbox.addWidget(self.spectrometerControl)
 
         hbox_margins = QHBoxLayout()
         hbox_margins.addStretch(1)
@@ -276,6 +338,19 @@ class HardwareControl(QWidget):
 
         self.setLayout(hbox_margins)
 
+    def measure(self, setup, row):
+        # try:
+        element = row['element']
+        x_pos = setup['sensor']['layout']['map'][element][0]
+        y_pos = setup['sensor']['layout']['map'][element][1]
+
+        logging.info(f"\n\nMeasuring Element {element}")
+        logging.info(f'{x_pos=} {y_pos=}')
+            
+        self.stageControl.stage.move_vs_ref(x_pos, y_pos)
+        df = self.spectrometerControl.spec.get_spectrum()
+
+        return df
 
 if __name__ == "__main__":
 
@@ -291,8 +366,10 @@ if __name__ == "__main__":
 
     # metaBrowse = MetaBrowse()
     hardwareControl = HardwareControl()
+    hardwareTop = HardwareTop()
     
     vbox = QVBoxLayout()
+    vbox.addWidget(hardwareTop)
     vbox.addWidget(hardwareControl)
     vbox.addStretch()
     centralwidget.setLayout(vbox)

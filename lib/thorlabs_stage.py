@@ -62,7 +62,7 @@ class Thorlabs_Stage():
 
     def disconnect_serial(self):
         if self.port:
-            logging.info(f'Closing serial port {self.port}')
+            logging.info(f'Closing serial port')
             self.port.close()
             self.port = None
         else:

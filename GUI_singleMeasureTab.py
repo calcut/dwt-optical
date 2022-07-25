@@ -15,16 +15,13 @@ from lib.stellarnet_thorlabs import Stellarnet_Thorlabs_Hardware
 
 class SingleMeasureTab(QWidget):
 
-    def __init__(self):
+    def __init__(self, measure_func):
         QWidget.__init__(self)
         self.setObjectName(u"SingleMeasureTab")
 
         btn_width = 80
 
-        self.hw = Stellarnet_Thorlabs_Hardware()
-
-        # List of functions to interface with spectrometer APIs
-        # self.measure_funcs = [csv.dummy_measurement, self.hw.measure]
+        self.measure_func = measure_func
 
         label_info = QLabel("Capture a single measurement")
 
@@ -35,7 +32,6 @@ class SingleMeasureTab(QWidget):
             +"Files and metadata can be optionally merged with existing data"
         )
         label_info.setToolTip(tooltip_info)
-
 
         # Metadata
         label_metadata = QLabel("Measurement Metadata")
@@ -89,66 +85,6 @@ class SingleMeasureTab(QWidget):
         hbox_grid.addLayout(grid, stretch=10)
         hbox_grid.addStretch(1)
 
-        # Hardware
-        label_hw = QLabel("Hardware Setup")
-        label_hw.setStyleSheet("font-weight: bold")
-
-        label_sp = QLabel("Serial Port")
-        self.combo_sp = QComboBox()
-        
-        self.btn_scan= QPushButton("Scan")
-        self.btn_scan.clicked.connect(self.scan_serial_ports)
-        self.btn_scan.setFixedWidth(btn_width)
-
-        self.btn_connect= QPushButton("Connect")
-        self.btn_connect.clicked.connect(self.connect_hw)
-        self.btn_connect.setFixedWidth(btn_width)
-
-        self.btn_disconnect= QPushButton("Disconnect")
-        self.btn_disconnect.clicked.connect(self.hw.disable_stage)
-        self.btn_disconnect.setFixedWidth(btn_width)
-
-        hbox_hw_connect = QHBoxLayout()
-        hbox_hw_connect.addStretch(3)
-        hbox_hw_connect.addWidget(label_sp)
-        hbox_hw_connect.addWidget(self.combo_sp, 1)
-        hbox_hw_connect.addWidget(self.btn_scan)
-        hbox_hw_connect.addWidget(self.btn_connect)
-        hbox_hw_connect.addWidget(self.btn_disconnect)
-
-        self.label_reference = QLabel("Reference 0,0")
-        self.label_position = QLabel("Position 0,0")
-
-
-        self.btn_reference= QPushButton("Set")
-        self.btn_reference.clicked.connect(self.set_reference)
-        self.btn_reference.setFixedWidth(btn_width)
-
-        self.btn_position= QPushButton("Refresh")
-        self.btn_position.clicked.connect(self.refresh_position)
-        self.btn_position.setFixedWidth(btn_width)
-
-        self.btn_home= QPushButton("Home")
-        self.btn_home.clicked.connect(self.hw.home_stage)
-        self.btn_home.setFixedWidth(btn_width)
-
-        hbox_hw_ref = QHBoxLayout()
-        hbox_hw_ref.addStretch(3)
-        hbox_hw_ref.addWidget(self.label_reference)
-        hbox_hw_ref.addWidget(self.btn_reference)
-        hbox_hw_ref.addWidget(self.label_position)
-        hbox_hw_ref.addWidget(self.btn_position)
-        hbox_hw_ref.addWidget(self.btn_home)
-
-        vbox_hardware = QVBoxLayout()
-        vbox_hardware.addLayout(hbox_hw_connect)
-        vbox_hardware.addLayout(hbox_hw_ref)
-
-        hbox_hardware_outer = QHBoxLayout()
-        hbox_hardware_outer.addStretch(1)
-        hbox_hardware_outer.addLayout(vbox_hardware, 10)
-        hbox_hardware_outer.addStretch(1)
-
         # Output Path
         label_output = QLabel("Output Directory Structure")
         label_output.setStyleSheet("font-weight: bold")
@@ -191,10 +127,6 @@ class SingleMeasureTab(QWidget):
         vbox.addWidget(label_metadata)
         vbox.addLayout(hbox_grid)
         vbox.addWidget(QHLine())
-        vbox.addWidget(label_hw)
-        vbox.addLayout(hbox_hardware_outer)
-        # vbox.addWidget(label_mf)
-        # vbox.addLayout(hbox_mf)
         vbox.addWidget(QHLine())
         vbox.addWidget(label_output)
         vbox.addLayout(hbox_output)
@@ -206,15 +138,6 @@ class SingleMeasureTab(QWidget):
     def generate_run_df(self):
         self.run_df = csv.generate_run_df(self.setup)
         print(self.run_df)
-
-    def scan_serial_ports(self):
-        ports = self.hw.scan_serial_ports()
-        self.combo_sp.clear()
-        for port, desc, hwid in sorted(ports):
-            self.combo_sp.addItem(port)
-
-    def connect_hw(self):
-        self.hw.connect(setup=self.setup, serial_port=self.combo_sp.currentText())
 
     def preview_run_df(self):
         if self.run_df is None:
@@ -235,7 +158,7 @@ class SingleMeasureTab(QWidget):
         # logging.info(f'measure_function = {mf.__name__}')
 
         merge = self.cbox_merge.isChecked()        
-        csv.simple_measurement(self.setup, element, fluid, measure_func=self.hw.measure, merge=merge, comment=comment)
+        csv.simple_measurement(self.setup, element, fluid, measure_func=self.measure_func, merge=merge, comment=comment)
 
     def element_changed(self, element):
         try:
@@ -261,15 +184,6 @@ class SingleMeasureTab(QWidget):
         self.tbox_layout.setText(layout)
         self.tbox_surface.setText(surface)
         self.tbox_structure.setText(structure)
-
-    def set_reference(self):
-        self.hw.store_position_reference()
-        self.label_reference.setText(f'Reference {self.hw.ref_x},{self.hw.ref_y}')
-
-    def refresh_position(self):
-        self.hw.get_stage_position()
-        self.label_position.setText(f'Position {self.hw.pos_x},{self.hw.pos_y}')
-
 
     def setup_changed(self, setup):
         logging.debug(f"singleMeasureTab: got new setup {setup['name']}")

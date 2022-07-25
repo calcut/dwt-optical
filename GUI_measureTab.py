@@ -8,18 +8,15 @@ import logging
 from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
 import lib.csv_helpers as csv
-from lib.stellarnet_thorlabs import Stellarnet_Thorlabs_Hardware
 
 
 class MeasureTab(QWidget):
 
-    def __init__(self):
+    def __init__(self, measure_func):
         QWidget.__init__(self)
         self.setObjectName(u"MeasureTab")
 
         btn_width = 80
-
-        self.hw = Stellarnet_Thorlabs_Hardware()
 
         label_info = QLabel("Capture a series of measurements\n")
 
@@ -32,6 +29,7 @@ class MeasureTab(QWidget):
         label_info.setToolTip(tooltip_info)
 
         self.run_df = None
+        self.measure_func = measure_func
 
         # Run_df
         label_run_df = QLabel("Generate Run List")
@@ -101,8 +99,6 @@ class MeasureTab(QWidget):
         # vbox.addWidget(label_run_idea)
         vbox.addLayout(hbox_run_df)
         vbox.addWidget(QHLine())
-        vbox.addWidget(label_hw)
-        vbox.addLayout(hbox_hardware_outer)
         vbox.addWidget(QHLine())
         vbox.addWidget(label_output)
         vbox.addLayout(hbox_output)
@@ -126,7 +122,7 @@ class MeasureTab(QWidget):
             self.generate_run_df()
 
         merge = self.cbox_merge.isChecked()        
-        csv.run_measure(self.setup, self.run_df, measure_func=self.hw.measure, merge=merge)
+        csv.run_measure(self.setup, self.run_df, measure_func=self.measure_func, merge=merge)
 
     def setup_changed(self, setup):
         logging.debug(f"measureTab: got new setup {setup['name']}")
