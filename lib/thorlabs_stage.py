@@ -3,6 +3,8 @@ import serial
 import serial.tools.list_ports
 import thorlabs_apt_protocol as apt
 import logging
+import math
+import random
 
 logging.basicConfig(level=logging.INFO)
 
@@ -15,8 +17,12 @@ class Thorlabs_Stage():
 
         self.pos_x = None
         self.pos_y = None
-        self.ref_x = 0
-        self.ref_y = 0
+        self.ref_ax = 0
+        self.ref_ay = 0
+        self.ref_bx = 27
+        self.ref_by = 0
+
+        self.slide_rotation = 0 #degrees
 
         self.serial_port = None
         self.port = None
@@ -58,8 +64,10 @@ class Thorlabs_Stage():
         if self.port:
             logging.info(f'Closing serial port {self.port}')
             self.port.close()
+            self.port = None
         else:
             logging.info(f'SIMULATING Closing serial port')
+            self.port = None
 
     def enable(self):
         logging.info('Enabling stage channels')
@@ -67,16 +75,33 @@ class Thorlabs_Stage():
         self._apt_cmd(apt.mod_set_chanenablestate(source=1, dest=0x22 ,chan_ident=1, enable_state=1))
 
     def _apt_cmd(self, cmd_string):
-        logging.debug(f'{cmd_string.hex()=}')
         if self.port:
             self.port.write(cmd_string)
+            logging.debug(f'{cmd_string.hex()=}')
+        else:
+            logging.debug(f'SIMULATING {cmd_string.hex()=}')
 
-    def store_position_reference(self):
+    def set_position_reference_a(self):
         self.get_position()
-        self.ref_x = self.pos_x
-        self.ref_y = self.pos_y
+        self.ref_ax = self.pos_x
+        self.ref_ay = self.pos_y
+        self._calculate_rotation()
 
-    def get_position(self):
+    def set_position_reference_b(self):
+        self.get_position()
+        self.ref_bx = self.pos_x
+        self.ref_by = self.pos_y
+        self._calculate_rotation()
+
+    def _calculate_rotation(self):
+        if (self.ref_bx is not None) and (self.ref_by is not None):                
+            slope = (self.ref_by-self.ref_ay)/(self.ref_bx-self.ref_ax)
+            logging.debug(f'{slope=}')
+            self.slide_rotation = round(math.degrees(math.atan(slope)),2)
+            # negative angle indicates anticlockwise rotation
+            logging.info(f'Slide rotation = {self.slide_rotation}deg')
+
+    def _wait_for_position(self):
         logging.info('getting position')
         self._apt_cmd(apt.hw_start_updatemsgs(source=1, dest=0x21))
         self._apt_cmd(apt.hw_start_updatemsgs(source=1, dest=0x22))
@@ -183,18 +208,36 @@ class Thorlabs_Stage():
         self.pos_y = y
 
     def move_vs_ref(self, x, y):
-        x_counts = int((self.ref_x + x) * self.encoder_pos_counts)
-        y_counts = int((self.ref_y + y) * self.encoder_pos_counts)
+
+        rads = math.radians(self.slide_rotation)
+
+        x_rotated = round(x*math.cos(rads) - y*math.sin(rads), 2)
+        y_rotated = round(y*math.cos(rads) + x*math.sin(rads), 2)
+
+        x_counts = int((self.ref_ax + x_rotated) * self.encoder_pos_counts)
+        y_counts = int((self.ref_ay + y_rotated) * self.encoder_pos_counts)
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x21, chan_ident=1, position=x_counts))
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x22, chan_ident=1, position=y_counts))
         if self.port:
-            logging.info(f'moving to position {x},{y} vs reference {self.ref_x},{self.ref_y}')
+            logging.info(f'moving to position {x},{y} vs reference {self.ref_ax},{self.ref_ay}')
             self._wait_for_move()
         else:
-            logging.info(f'SIMULATING moving to position {x},{y} vs reference {self.ref_x},{self.ref_y}')
+            logging.info(f'SIMULATING moving to position {x},{y} vs reference {self.ref_ax},{self.ref_ay}')
             time.sleep(0.5)
-        self.pos_x = self.ref_x + x
-        self.pos_y = self.ref_y + y
+
+        logging.info(f'position = {x_rotated}, {y_rotated} after correcting for {self.slide_rotation}deg rotation')
+        self.pos_x = self.ref_ax + x_rotated
+        self.pos_y = self.ref_ay + y_rotated
+
+    def get_position(self):
+        if self.port:
+            self._wait_for_position()
+        else:
+            logging.info(f'SIMULATING random position')
+            self.pos_x = random.randint(0,25)
+            self.pos_y = random.randint(-10,10)
+
+
 
 if __name__ == "__main__":
 
