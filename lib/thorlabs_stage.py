@@ -19,7 +19,7 @@ class Thorlabs_Stage():
         self.pos_y = None
         self.ref_ax = 0
         self.ref_ay = 0
-        self.ref_bx = 27
+        self.ref_bx = 0
         self.ref_by = 0
 
         self.slide_rotation = 0 #degrees
@@ -77,7 +77,7 @@ class Thorlabs_Stage():
     def _apt_cmd(self, cmd_string):
         if self.port:
             self.port.write(cmd_string)
-            logging.debug(f'{cmd_string.hex()=}')
+            # logging.debug(f'{cmd_string.hex()=}')
         else:
             logging.debug(f'SIMULATING {cmd_string.hex()=}')
 
@@ -94,7 +94,7 @@ class Thorlabs_Stage():
         self._calculate_rotation()
 
     def _calculate_rotation(self):
-        if (self.ref_bx is not None) and (self.ref_by is not None):                
+        if (self.ref_bx != 0) and (self.ref_by != 0):                
             slope = (self.ref_by-self.ref_ay)/(self.ref_bx-self.ref_ax)
             logging.debug(f'{slope=}')
             self.slide_rotation = round(math.degrees(math.atan(slope)),2)
@@ -161,10 +161,10 @@ class Thorlabs_Stage():
                 if msg.msg == 'mot_move_completed':
                     if msg.source == 0x21:
                         move_complete_x = True
-                        logging.info('x move complete')
+                        # logging.info('x move complete')
                     if msg.source == 0x22:
                         move_complete_y = True
-                        logging.info('y move complete')
+                        # logging.info('y move complete')
 
         self._apt_cmd(apt.hw_stop_updatemsgs(source=1, dest=0x21))
         self._apt_cmd(apt.hw_stop_updatemsgs(source=1, dest=0x22))
@@ -211,11 +211,17 @@ class Thorlabs_Stage():
 
         rads = math.radians(self.slide_rotation)
 
-        x_rotated = round(x*math.cos(rads) - y*math.sin(rads), 2)
-        y_rotated = round(y*math.cos(rads) + x*math.sin(rads), 2)
+        if self.ref_bx != 0:
+            # correct for rotation
+            x = round(x*math.cos(rads) - y*math.sin(rads), 2)
+            y = round(y*math.cos(rads) + x*math.sin(rads), 2)
 
-        x_counts = int((self.ref_ax + x_rotated) * self.encoder_pos_counts)
-        y_counts = int((self.ref_ay + y_rotated) * self.encoder_pos_counts)
+        if x == (self.pos_x-self.ref_ax) and y == (self.pos_y - self.ref_ay):
+            logging.info('already in position, not moving')
+            return
+
+        x_counts = int((self.ref_ax + x) * self.encoder_pos_counts)
+        y_counts = int((self.ref_ay + y) * self.encoder_pos_counts)
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x21, chan_ident=1, position=x_counts))
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x22, chan_ident=1, position=y_counts))
         if self.port:
@@ -225,9 +231,9 @@ class Thorlabs_Stage():
             logging.info(f'SIMULATING moving to position {x},{y} vs reference {self.ref_ax},{self.ref_ay}')
             time.sleep(0.5)
 
-        logging.info(f'position = {x_rotated}, {y_rotated} after correcting for {self.slide_rotation}deg rotation')
-        self.pos_x = self.ref_ax + x_rotated
-        self.pos_y = self.ref_ay + y_rotated
+        logging.info(f'position = {x}, {y} after correcting for {self.slide_rotation}deg rotation')
+        self.pos_x = self.ref_ax + x
+        self.pos_y = self.ref_ay + y
 
     def get_position(self):
         if self.port:
@@ -244,8 +250,10 @@ if __name__ == "__main__":
     # Can use with a context manager (with statement) to ensure serial port gets closed.
     with Thorlabs_Stage() as stage:
         stage.scan_serial_ports()
-        stage.connect_serial(serial_port=None)
+        stage.connect_serial(serial_port='COM4')
         stage.enable()
         stage.home()
+        stage.move_vs_ref(10,20)
+        stage.move_vs_ref(10,20)
         stage.move_vs_ref(10,20)
 
