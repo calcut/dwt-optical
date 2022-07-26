@@ -70,7 +70,7 @@ class Stellarnet_Spectrometer():
             dummydata = rng.integers(dummy_low, dummy_high, size=len(dummywavelength))
             spectrum = {'wavelength' : dummywavelength, 'transmission' : dummydata}
 
-        df = pd.DataFrame(spectrum, dtype=np.float32)
+        df = pd.DataFrame(spectrum)
         df.columns = ['wavelength', 'transmission']
 
         if self.wl_min:
