@@ -95,7 +95,7 @@ class StageControl(QWidget):
         self.btn_disable.setFixedWidth(btn_width)
 
         self.btn_home= QPushButton("Home")
-        self.btn_home.clicked.connect(self.stage.home)
+        self.btn_home.clicked.connect(self.home)
         self.btn_home.setFixedWidth(btn_width)
 
         self.btn_move= QPushButton("Move")
@@ -182,6 +182,19 @@ class StageControl(QWidget):
 
     def connect(self):
         self.stage.connect_serial(serial_port=self.combo_sp.currentText())
+
+
+    def home(self):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setText("Please raise objective before homing")
+        msg.setWindowTitle("Warning")
+        msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        returnValue = msg.exec()
+        if returnValue == QMessageBox.Cancel:
+            logging.info('Homing Cancelled')
+        else:
+            self.stage.home()
 
     def set_reference_a(self):
         self.stage.set_position_reference_a()
