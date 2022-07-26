@@ -15,8 +15,8 @@ class Thorlabs_Stage():
         self.home_pos_x = 55 #mm
         self.home_pos_y = 37.5 #mm
 
-        self.pos_x = None
-        self.pos_y = None
+        self.pos_x = 0
+        self.pos_y = 0
         self.ref_ax = 0
         self.ref_ay = 0
         self.ref_bx = 0
