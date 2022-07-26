@@ -25,6 +25,7 @@ class Stellarnet_Spectrometer():
         self.x_smooth = 1
         self.x_timing = 3
         self.wl_round = 2 #decimal places
+        self.percentage_round = 3 #decimal places
         self.wl_min = None #optional wavelength trimming
         self.wl_max = None
 
@@ -106,6 +107,8 @@ class Stellarnet_Spectrometer():
             raise Exception('spectrum length does not match light reference')
 
         df['transmission'] = (data - dr) / (lr - dr) * 100
+        df['transmission'] = df['transmission'].round(self.percentage_round)
+        
         return df
 
     def capture_dark_reference(self, dummy_val=1000):
