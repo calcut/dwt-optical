@@ -254,7 +254,6 @@ class SpectrometerControl(QWidget):
         grid.addWidget(self.btn_capture_spectrum, 3, 1)
         grid.addWidget(self.btn_view_spectrum, 4, 1)
 
-
         self.label_scans_to_avg = QLabel(str(self.spec.scans_to_avg))
         self.label_int_time = QLabel(str(self.spec.int_time))
         self.label_x_timing = QLabel(str(self.spec.x_timing))
@@ -287,6 +286,14 @@ class SpectrometerControl(QWidget):
         vbox.addLayout(hbox_grid)
         self.setLayout(vbox)
 
+    def update_settings_labels(self):
+        self.label_scans_to_avg.setText(str(self.spec.scans_to_avg))
+        self.label_int_time.setText(str(self.spec.int_time))
+        self.label_x_timing.setText(str(self.spec.x_timing))
+        self.label_x_smooth.setText(str(self.spec.x_smooth))
+        self.label_wl_min.setText(str(self.spec.wl_min))
+        self.label_wl_max.setText(str(self.spec.wl_max))
+
     def capture_light_ref(self):
         self.spec.capture_light_reference()
 
@@ -304,6 +311,7 @@ class SpectrometerControl(QWidget):
         self.spec.x_smooth = setup['input_config']['x_smooth']
         self.spec.wl_min = setup['input_config']['wavelength_range'][0]
         self.spec.wl_max = setup['input_config']['wavelength_range'][1]
+        self.update_settings_labels()
 
     def plot(self):
         # df = self.spec.last_capture
