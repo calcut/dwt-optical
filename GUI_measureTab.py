@@ -8,6 +8,38 @@ import logging
 from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
 import lib.csv_helpers as csv
+import time
+
+class MeasureWorker(QObject):
+    finished = Signal()
+    progress = Signal(int)
+
+    def __init__(self, setup, run_df, measure_func, merge):
+        super().__init__()
+        self.setup = setup
+        self.run_df = run_df
+        self.measure_func = measure_func
+        self.merge = merge
+        self.stop_requested = False
+
+    def run(self):
+        logging.info(f"csv.run_measure as thread/worker")
+        i=0
+        while i < 8:
+            i+=1
+            time.sleep(1)
+            if self.stop_requested:
+                logging.warning('stopping now')
+                break
+            logging.info('sleeping 1')
+            
+        # csv.run_measure(self.setup, self.run_df, measure_func=self.measure_func, merge=self.merge)
+        self.finished.emit()
+
+    def stop(self):
+        logging.warning('stop has been requested!!!')
+        self.stop_requested = True
+
 
 
 class MeasureTab(QWidget):
@@ -15,6 +47,8 @@ class MeasureTab(QWidget):
     def __init__(self, measure_func):
         QWidget.__init__(self)
         self.setObjectName(u"MeasureTab")
+
+        self.thread = None
 
         btn_width = 80
 
@@ -73,13 +107,18 @@ class MeasureTab(QWidget):
         hbox_merge.addWidget(label_merge)
         hbox_merge.addStretch()
 
-        btn_run= QPushButton("Run")
-        btn_run.clicked.connect(self.run_measurements)
-        btn_run.setFixedWidth(btn_width)
+        self.btn_run= QPushButton("Run")
+        self.btn_run.clicked.connect(self.run_measurements)
+        self.btn_run.setFixedWidth(btn_width)
+
+        self.btn_stop= QPushButton("Stop")
+        self.btn_stop.clicked.connect(self.stop_measurements)
+        self.btn_stop.setFixedWidth(btn_width)
 
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
-        hbox_run.addWidget(btn_run)
+        hbox_run.addWidget(self.btn_run)
+        hbox_run.addWidget(self.btn_stop)
 
         vbox_output = QVBoxLayout()
         vbox_output.addWidget(self.tbox_outpath)
@@ -117,12 +156,41 @@ class MeasureTab(QWidget):
         self.runTable = MetaTable(self.run_df, "Run List DataFrame")
         self.runTable.show()
 
+    # def run_measurements(self):
+    #     if self.run_df is None:
+    #         self.generate_run_df()
+
+    #     merge = self.cbox_merge.isChecked()        
+    #     csv.run_measure(self.setup, self.run_df, measure_func=self.measure_func, merge=merge)
+
     def run_measurements(self):
+
+        merge = self.cbox_merge.isChecked()
         if self.run_df is None:
             self.generate_run_df()
 
-        merge = self.cbox_merge.isChecked()        
-        csv.run_measure(self.setup, self.run_df, measure_func=self.measure_func, merge=merge)
+        self.thread = QThread()
+
+        self.worker = MeasureWorker(self.setup, self.run_df, self.measure_func, merge)
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+        # Step 6: Start the thread
+        self.thread.start()
+        self.btn_run.setEnabled(False)
+        self.thread.finished.connect(self.run_complete)
+
+    def run_complete(self):
+        self.btn_run.setEnabled(True)
+        logging.info('Run Complete')
+        
+    def stop_measurements(self):
+        if self.thread:
+            logging.warning('Stopping Run')
+            self.worker.stop()
+            self.thread.requestInterruption()
 
     def setup_changed(self, setup):
         logging.debug(f"measureTab: got new setup {setup['name']}")
