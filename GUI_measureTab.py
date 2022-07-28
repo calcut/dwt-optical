@@ -1,7 +1,7 @@
 
 import sys
 import os
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QObject, QThread, Signal, QSize
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget, QCheckBox,
     QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QProgressBar)
 import logging
@@ -166,7 +166,6 @@ class MeasureTab(QWidget):
         vbox_output.addWidget(self.tbox_outpath)
         vbox_output.addLayout(hbox_merge)
         vbox_output.addLayout(hbox_run)
-        vbox_output.addWidget(self.plot)
 
         hbox_output = QHBoxLayout()
         hbox_output.addStretch(1)
@@ -184,10 +183,14 @@ class MeasureTab(QWidget):
         vbox.addWidget(QHLine())
         vbox.addWidget(label_output)
         vbox.addLayout(hbox_output)
+        vbox.addWidget(self.plot)
         # vbox.addLayout(hbox_run)
         vbox.addStretch()
 
         self.setLayout(vbox)
+
+    def sizeHint(self):
+        return QSize(840, 600) 
 
     def generate_run_df(self):
         self.run_df = csv.generate_run_df(self.setup)
