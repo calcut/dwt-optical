@@ -26,7 +26,11 @@ class SetupBrowse(QWidget):
         QWidget.__init__(self)
 
         if rootpath:
-            os.chdir(rootpath)
+            try:
+                os.chdir(rootpath)
+            except FileNotFoundError:
+                rootpath = str(QFileDialog.getExistingDirectory(self, "Select Working Directory"))
+                os.chdir(rootpath)
             self.rootpath = rootpath
         else:
             self.rootpath = 'Please select a path'
