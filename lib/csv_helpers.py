@@ -8,6 +8,7 @@ import shutil
 import copy
 from IPython.display import display
 import logging
+import time
 
 import lib.json_setup as json_setup
 
@@ -33,6 +34,7 @@ def dummy_measurement(setup, row):
 
     timestamp = pd.Timestamp.utcnow().timestamp()
     df.rename(columns={"transmission" : timestamp }, inplace=True)
+    time.sleep(0.5)
     return df
 
 def simple_measurement(setup, element, fluid, measure_func, merge=True, comment=''):
