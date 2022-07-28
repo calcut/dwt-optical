@@ -24,6 +24,9 @@ class Thorlabs_Stage():
 
         self.slide_rotation = 0 #degrees
 
+        self.status_msg_x = None
+        self.status_msg_y = None
+
         self.serial_port = None
         self.port = None
 
@@ -73,6 +76,7 @@ class Thorlabs_Stage():
         logging.info('Enabling stage channels')
         self._apt_cmd(apt.mod_set_chanenablestate(source=1, dest=0x21 ,chan_ident=1, enable_state=1))
         self._apt_cmd(apt.mod_set_chanenablestate(source=1, dest=0x22 ,chan_ident=1, enable_state=1))
+        self.enabled = True
 
     def _apt_cmd(self, cmd_string):
         if self.port:
@@ -81,16 +85,24 @@ class Thorlabs_Stage():
         else:
             logging.debug(f'SIMULATING {cmd_string.hex()=}')
 
-    def set_position_reference_a(self):
-        self.get_position()
-        self.ref_ax = self.pos_x
-        self.ref_ay = self.pos_y
+    def set_position_reference_a(self, x=None, y=None):
+        if x and y:
+            self.ref_ax = x
+            self.ref_ay = y
+        else:
+            self.get_position()
+            self.ref_ax = self.pos_x
+            self.ref_ay = self.pos_y
         self._calculate_rotation()
 
-    def set_position_reference_b(self):
-        self.get_position()
-        self.ref_bx = self.pos_x
-        self.ref_by = self.pos_y
+    def set_position_reference_b(self, x=None, y=None):
+        if x and y:
+            self.ref_bx = x
+            self.ref_by = y
+        else:
+            self.get_position()
+            self.ref_bx = self.pos_x
+            self.ref_by = self.pos_y
         self._calculate_rotation()
 
     def _calculate_rotation(self):
@@ -112,8 +124,10 @@ class Thorlabs_Stage():
             for msg in self.unpacker:
                 if msg.msg == 'mot_get_dcstatusupdate':
                     if msg.source == 0x21:
+                        self.status_msg_x = msg
                         self.pos_x = msg.position/self.encoder_pos_counts
                     if msg.source == 0x22:
+                        self.status_msg_y = msg
                         self.pos_y = msg.position/self.encoder_pos_counts
 
         logging.info(f'{self.pos_x=} {self.pos_y=}')
@@ -181,6 +195,8 @@ class Thorlabs_Stage():
         self._apt_cmd(apt.mod_set_chanenablestate(source=1, dest=0x22 ,chan_ident=1, enable_state=0))
 
     def home(self):
+        if not self.enabled:
+            self.enable()
         self._apt_cmd(apt.mot_move_home(source=1, dest=0x21 ,chan_ident=1))
         self._apt_cmd(apt.mot_move_home(source=1, dest=0x22 ,chan_ident=1))
         if self.port:
@@ -191,6 +207,7 @@ class Thorlabs_Stage():
             time.sleep(6)
         self.pos_x = self.home_pos_x
         self.pos_y = self.home_pos_y
+        self.homed = True
 
     def move_abs(self, x, y):
 
@@ -238,11 +255,13 @@ class Thorlabs_Stage():
     def get_position(self):
         if self.port:
             self._wait_for_position()
+            if self.status_msg_x and self.status_msg_y:
+                logging.info(self.status_msg_x)
+                logging.info(self.status_msg_y)
         else:
             logging.info(f'SIMULATING random position')
             self.pos_x = random.randint(0,25)
             self.pos_y = random.randint(-10,10)
-
 
 
 if __name__ == "__main__":
