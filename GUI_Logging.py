@@ -41,8 +41,8 @@ class CustomFormatter(logging.Formatter):
         self.COLORS = {
             logging.DEBUG: "<font color=\"Black\">",
             logging.INFO: "<font color=\"SteelBlue\">",
-            logging.WARNING: "<font color=\"Orange\">",
-            logging.ERROR: "<font color=\"OrangeRed\">",
+            logging.WARNING: "<font color=\"OrangeRed\">",
+            logging.ERROR: "<font color=\"Red\">",
             logging.CRITICAL: "<font color=\"Red\">",
         }
 
@@ -100,11 +100,11 @@ class GUILogger(QWidget):
         self.gui_logHandler.signals.appendLogText.connect(self.writeLog)
 
         # set up log handler for Console
-        c_handler = logging.StreamHandler()
-        c_handler.setLevel(logging.DEBUG)
-        c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-        c_handler.setFormatter(c_format)
-        logger.addHandler(c_handler)
+        # c_handler = logging.StreamHandler()
+        # c_handler.setLevel(logging.DEBUG)
+        # c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+        # c_handler.setFormatter(c_format)
+        # logger.addHandler(c_handler)
 
 
     # Defines where log messages should be displayed in the GUI.
