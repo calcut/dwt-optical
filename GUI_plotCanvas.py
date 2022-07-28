@@ -125,9 +125,10 @@ class PlotCanvas(QtWidgets.QMainWindow):
     #             self.annot.set_visible(False)
     #             self.canvas.draw_idle()
     
-    def set_data(self, df, title=None, info=None):
+    def set_data(self, df, title=None, info=None, legend_limit=15):
         lines = len(df.columns) -1
-        if lines > 15:
+
+        if lines > legend_limit:
             self.legend_visible = False
         else:
             self.legend_visible = True
