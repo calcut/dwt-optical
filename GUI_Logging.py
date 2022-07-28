@@ -38,12 +38,12 @@ class CustomFormatter(logging.Formatter):
 
     def __init__(self):
         super().__init__()
-        self.COLORS = {
-            logging.DEBUG: "<font color=\"Black\">",
-            logging.INFO: "<font color=\"SteelBlue\">",
-            logging.WARNING: "<font color=\"OrangeRed\">",
-            logging.ERROR: "<font color=\"Red\">",
-            logging.CRITICAL: "<font color=\"Red\">",
+        self.COLORS = { #Solarized colours
+            logging.DEBUG: "<font color=#808080>", #base0
+            logging.INFO: "<font color=#0087ff>", # Blue
+            logging.WARNING: "<font color=#d75f00>", # Orange
+            logging.ERROR: "<font color=#d70000>", #Red
+            logging.CRITICAL: "<font color=#af005f>", #Magenta
         }
 
     def format(self, record):
@@ -87,6 +87,7 @@ class GUILogger(QWidget):
         hbox_btn.addWidget(btn_close)
 
         self.logBox = QPlainTextEdit()
+        self.logBox.setStyleSheet("background-color: rgb(0, 43, 54);")
         # self.logBox.setFont(font)
         self.logBox.setLineWrapMode(QPlainTextEdit.NoWrap)
 
