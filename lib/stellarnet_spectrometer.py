@@ -33,10 +33,6 @@ class Stellarnet_Spectrometer():
         self.dark_reference = None
         self.last_capture_raw = None
         self.spectrometer = None
-        logging.info(f'scans_to_avg={self.scans_to_avg} '+
-                f'int_time={self.int_time} '+
-                f'x_smooth={self.x_smooth} '+
-                f'x_timing {self.x_timing}')
 
     def __enter__(self):
         return self
