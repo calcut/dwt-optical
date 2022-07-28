@@ -102,9 +102,9 @@ class Stellarnet_Spectrometer():
         lr = self.light_reference['transmission']
 
         if len(data) != len(dr):
-            raise Exception('spectrum length does not match dark reference')
+            logging.error('spectrum length does not match dark reference')
         if len(data) != len(lr):
-            raise Exception('spectrum length does not match light reference')
+            logging.error('spectrum length does not match light reference')
 
         df['transmission'] = (data - dr) / (lr - dr) * 100
         df['transmission'] = df['transmission'].round(self.percentage_round)
