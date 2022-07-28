@@ -254,6 +254,8 @@ def parse_string(string):
     # e.g. "['a', 'b']" --> ['a', 'b']
     # Helpful for GUI text boxes.
 
+    # Also tries to format numbers as floats/integers
+
     if string.startswith('[') and string.endswith(']'):
         try:
             output = json.loads(string)
@@ -261,9 +263,15 @@ def parse_string(string):
             string = switch_quotes(string)
             output = json.loads(string)
     else: output = string
+
+    try:
+        output = float(output)
+        if output.is_integer():
+            output = int(output)
+    except:
+        pass
     
     return output
-        
     
 if __name__ == "__main__":
 
