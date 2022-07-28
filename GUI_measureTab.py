@@ -3,16 +3,19 @@ import sys
 import os
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget, QCheckBox,
-    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox)
+    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QProgressBar)
 import logging
 from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
 import lib.csv_helpers as csv
 import time
+import pandas as pd
+from GUI_plotCanvas import PlotCanvas
 
 class MeasureWorker(QObject):
     finished = Signal()
     progress = Signal(int)
+    plotdata = Signal(pd.DataFrame)
 
     def __init__(self, setup, run_df, measure_func, merge):
         super().__init__()
@@ -21,26 +24,56 @@ class MeasureWorker(QObject):
         self.measure_func = measure_func
         self.merge = merge
         self.stop_requested = False
+        self.pause = False
 
     def run(self):
-        logging.info(f"csv.run_measure as thread/worker")
-        i=0
-        while i < 8:
-            i+=1
-            time.sleep(1)
-            if self.stop_requested:
-                logging.warning('stopping now')
-                break
-            logging.info('sleeping 1')
-            
-        # csv.run_measure(self.setup, self.run_df, measure_func=self.measure_func, merge=self.merge)
+        # This has come from csv.run_measure, but is interruptable and reports progress.
+        logging.info(f"Running batch measurements as thread/worker")
+
+        # Duplicate the run_df so the original is not modified
+        # Prevents unexpected behaviour if calling this function multiple times.
+        run_df = self.run_df.copy()
+
+        progress = 0
+        for row in run_df.index:
+            print(row)
+            info = run_df.loc[row]
+            progress +=1
+            df = pd.DataFrame()
+            for rep in range(run_df.loc[row]['repeats']):
+                if self.stop_requested:
+                    logging.warning('STOPPING run now')
+                    self.finished.emit()
+                    return
+
+                if self.pause:
+                    logging.warning('PAUSING run now')
+                    while self.pause:
+                        if self.stop_requested:
+                            logging.warning('STOPPING run now')
+                            self.finished.emit()
+                            return
+                        time.sleep(1)
+                    logging.warning('RESUMING run now')
+
+                # Construct the data path
+                datapath = csv.find_datapath(self.setup, run_df, row)
+                # call the measure function to get data
+                df = self.measure_func(self.setup, run_df.loc[row])
+
+                # write the df to txt file
+                csv.write_df_txt(df, datapath, merge=self.merge)
+
+            # Update the date column in the run_df
+            run_df.at[row, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+
+            self.progress.emit(progress)
+            self.plotdata.emit((df, row))
+            logging.debug(f'Emitted {progress}')
+        
+        csv.write_meta_df_txt(setup, run_df, merge=self.merge)
+
         self.finished.emit()
-
-    def stop(self):
-        logging.warning('stop has been requested!!!')
-        self.stop_requested = True
-
-
 
 class MeasureTab(QWidget):
 
@@ -111,19 +144,29 @@ class MeasureTab(QWidget):
         self.btn_run.clicked.connect(self.run_measurements)
         self.btn_run.setFixedWidth(btn_width)
 
+        self.btn_pause= QPushButton("Pause")
+        self.btn_pause.clicked.connect(self.pause_resume)
+        self.btn_pause.setFixedWidth(btn_width)
+
         self.btn_stop= QPushButton("Stop")
         self.btn_stop.clicked.connect(self.stop_measurements)
         self.btn_stop.setFixedWidth(btn_width)
 
+        self.progbar = QProgressBar()
+        self.plot = PlotCanvas()
+
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
+        hbox_run.addWidget(self.progbar)
         hbox_run.addWidget(self.btn_run)
+        hbox_run.addWidget(self.btn_pause)
         hbox_run.addWidget(self.btn_stop)
 
         vbox_output = QVBoxLayout()
         vbox_output.addWidget(self.tbox_outpath)
         vbox_output.addLayout(hbox_merge)
         vbox_output.addLayout(hbox_run)
+        vbox_output.addWidget(self.plot)
 
         hbox_output = QHBoxLayout()
         hbox_output.addStretch(1)
@@ -149,6 +192,7 @@ class MeasureTab(QWidget):
     def generate_run_df(self):
         self.run_df = csv.generate_run_df(self.setup)
         print(self.run_df)
+        self.progbar.setMaximum(len(self.run_df))
 
     def preview_run_df(self):
         if self.run_df is None:
@@ -156,12 +200,6 @@ class MeasureTab(QWidget):
         self.runTable = MetaTable(self.run_df, "Run List DataFrame")
         self.runTable.show()
 
-    # def run_measurements(self):
-    #     if self.run_df is None:
-    #         self.generate_run_df()
-
-    #     merge = self.cbox_merge.isChecked()        
-    #     csv.run_measure(self.setup, self.run_df, measure_func=self.measure_func, merge=merge)
 
     def run_measurements(self):
 
@@ -181,16 +219,35 @@ class MeasureTab(QWidget):
         self.thread.start()
         self.btn_run.setEnabled(False)
         self.thread.finished.connect(self.run_complete)
+        self.worker.progress.connect(self.set_progress)
+        self.worker.plotdata.connect(self.update_plot)
+
+    def set_progress(self, progress):
+        self.progbar.setValue(progress)
+
+    def update_plot(self, plotdata):
+        title = plotdata[1]
+        data = plotdata[0]
+        self.plot.set_data(data, title=title, legend_limit=0)
 
     def run_complete(self):
         self.btn_run.setEnabled(True)
+        self.progbar.reset()
+        self.btn_pause.setText('Pause')
         logging.info('Run Complete')
+
+    def pause_resume(self):
+        if self.thread:
+            if self.btn_pause.text() == "Pause":
+                self.worker.pause = True
+                self.btn_pause.setText('Resume')
+            else:
+                self.worker.pause = False
+                self.btn_pause.setText('Pause')
         
     def stop_measurements(self):
         if self.thread:
-            logging.warning('Stopping Run')
-            self.worker.stop()
-            self.thread.requestInterruption()
+            self.worker.stop_requested = True
 
     def setup_changed(self, setup):
         logging.debug(f"measureTab: got new setup {setup['name']}")
@@ -213,7 +270,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    window = MeasureTab()
+    window = MeasureTab(measure_func=csv.dummy_measurement)
     setup = csv.get_default_setup()
     window.setup_changed(setup)
     window.resize(1024, 768)
