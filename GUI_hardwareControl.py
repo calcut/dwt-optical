@@ -183,7 +183,6 @@ class StageControl(QWidget):
     def connect(self):
         self.stage.connect_serial(serial_port=self.combo_sp.currentText())
 
-
     def home(self):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
@@ -328,8 +327,12 @@ class SpectrometerControl(QWidget):
 
     def plot(self):
         # df = self.spec.last_capture
+        if (self.spec.light_reference is None) or (self.spec.dark_reference is None):
+            logging.error('Please capture light and dark references before plotting')
+            return
         df =  pd.merge(self.spec.light_reference, self.spec.dark_reference, how='outer', on='wavelength')
-        df =  pd.merge(self.spec.last_capture_raw, df, how='outer', on='wavelength')
+        if self.spec.last_capture_raw is not None:
+            df =  pd.merge(self.spec.last_capture_raw, df, how='outer', on='wavelength')
         self.plotcanvas.set_data(df)
 
 class HardwareControl(QWidget):
