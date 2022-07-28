@@ -10,6 +10,7 @@ from GUI_plotCanvas import PlotCanvas
 import logging
 from lib.thorlabs_stage import Thorlabs_Stage
 from lib.stellarnet_spectrometer import Stellarnet_Spectrometer
+import pickle
 
 class HardwareTop(QWidget):
     def __init__(self):
@@ -132,7 +133,7 @@ class StageControl(QWidget):
         grid.addWidget(self.btn_refresh, row_pos, 4)
 
         row_ref_a = 2
-        grid.addWidget(QLabel('Reference A'), row_ref_a, 1)
+        grid.addWidget(QLabel('Reference A (Top Left)'), row_ref_a, 1)
         self.label_ref_ax = QLabel(str(self.stage.ref_ax))
         self.label_ref_ay = QLabel(str(self.stage.ref_ay))
         grid.addWidget(self.label_ref_ax, row_ref_a, 2)
@@ -140,7 +141,7 @@ class StageControl(QWidget):
         grid.addWidget(self.btn_set_ref_a, row_ref_a, 4)
 
         row_ref_b = 3
-        grid.addWidget(QLabel('Reference B'), row_ref_b, 1)
+        grid.addWidget(QLabel('Reference B (Top Right)'), row_ref_b, 1)
         self.label_ref_bx = QLabel(str(self.stage.ref_bx))
         self.label_ref_by = QLabel(str(self.stage.ref_by))
         grid.addWidget(self.label_ref_bx, row_ref_b, 2)
@@ -195,14 +196,14 @@ class StageControl(QWidget):
         else:
             self.stage.home()
 
-    def set_reference_a(self):
-        self.stage.set_position_reference_a()
+    def set_reference_a(self, x=None, y=None):
+        self.stage.set_position_reference_a(x, y)
         self.label_ref_ax.setText(str(self.stage.ref_ax))
         self.label_ref_ay.setText(str(self.stage.ref_ay))
         self.label_rotation.setText(str(self.stage.slide_rotation))
 
-    def set_reference_b(self):
-        self.stage.set_position_reference_b()
+    def set_reference_b(self, x=None, y=None):
+        self.stage.set_position_reference_b(x, y)
         self.label_ref_bx.setText(str(self.stage.ref_bx))
         self.label_ref_by.setText(str(self.stage.ref_by))
         self.label_rotation.setText(str(self.stage.slide_rotation))
@@ -337,8 +338,6 @@ class SpectrometerControl(QWidget):
 
 class HardwareControl(QWidget):
 
-    # new_setup = Signal(dict)
-
     def __init__(self):
         QWidget.__init__(self)
 
@@ -347,11 +346,27 @@ class HardwareControl(QWidget):
         label = QLabel("Hardware Setup")
         label.setStyleSheet("font-weight: bold")
 
+        label_save = QLabel("References:")
+        self.btn_save= QPushButton("Save")
+        self.btn_save.clicked.connect(self.save_references)
+        self.btn_save.setFixedWidth(btn_width)
+        
+        self.btn_load= QPushButton("Load")
+        self.btn_load.clicked.connect(self.load_references)
+        self.btn_load.setFixedWidth(btn_width)
+
         self.spectrometerControl=SpectrometerControl()
         self.stageControl = StageControl()
 
+        hbox = QHBoxLayout()
+        hbox.addStretch()
+        hbox.addWidget(label_save)
+        hbox.addWidget(self.btn_save)
+        hbox.addWidget(self.btn_load)
+
         vbox = QVBoxLayout()
         vbox.addWidget(label)
+        vbox.addLayout(hbox)
         vbox.addWidget(self.stageControl)
         vbox.addWidget(self.spectrometerControl)
 
@@ -361,6 +376,25 @@ class HardwareControl(QWidget):
         hbox_margins.addStretch(1)
 
         self.setLayout(hbox_margins)
+
+    def save_references(self):
+        refs = {
+            'light_ref' : self.spectrometerControl.spec.light_reference,
+            'dark_ref' : self.spectrometerControl.spec.dark_reference,
+            'ref_ax'  : self.stageControl.stage.ref_ax,
+            'ref_ay'  : self.stageControl.stage.ref_ay,
+            'ref_bx'  : self.stageControl.stage.ref_bx,
+            'ref_by'  : self.stageControl.stage.ref_by,
+        }
+        pickle.dump(refs, open("saved_references.p", "wb"))
+
+
+    def load_references(self):
+        refs = pickle.load(open("saved_references.p", "rb"))
+        self.spectrometerControl.spec.light_reference = refs['light_ref']
+        self.spectrometerControl.spec.dark_reference = refs['dark_ref']
+        self.stageControl.set_reference_a(refs['ref_ax'], refs['ref_ay'])
+        self.stageControl.set_reference_b(refs['ref_bx'], refs['ref_by'])
 
     def measure(self, setup, row):
         # try:
