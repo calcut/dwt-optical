@@ -55,7 +55,6 @@ class MainWindow(QMainWindow):
 
         # Add tab to the main tab widget, and give it a label
         tabWidget = QTabWidget(centralwidget)
-        # tabWidget.addTab(self.setupTab, "Setup")
         tabWidget.addTab(self.singleMeasureTab, "Single Measure")
         tabWidget.addTab(self.measureTab, "Batch Measure")
         tabWidget.addTab(self.importTab, "Import")
@@ -67,15 +66,9 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(0,0)
         splitter.setStretchFactor(1,1)
 
-        # hbox_close = QHBoxLayout()
-        # hbox_close.addStretch(80)
-        # hbox_close.addWidget(btn_close)
-        # hbox_close.addStretch(1)
-
         vbox.addWidget(setupBrowse)
         vbox.addWidget(self.hardwareTop)
         vbox.addWidget(splitter)
-        # vbox.addLayout(hbox_close)
 
         self.setWindowTitle("Optical Tongue Interface")
         self.show()
