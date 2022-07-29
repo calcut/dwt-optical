@@ -12,6 +12,12 @@ from lib.thorlabs_stage import Thorlabs_Stage
 from lib.stellarnet_spectrometer import Stellarnet_Spectrometer
 import pickle
 
+# class NotConnectedError(Exception):
+#     """ Raised when running dummy/simulated hardware """
+
+class ReferencesError(Exception):
+    """ Raised when references have not been set """
+
 class HardwareTop(QWidget):
     def __init__(self):
         QWidget.__init__(self)
@@ -343,6 +349,8 @@ class HardwareControl(QWidget):
 
         btn_width = 80
 
+        self.ready = False
+
         label = QLabel("Hardware Setup")
         label.setStyleSheet("font-weight: bold")
 
@@ -396,19 +404,55 @@ class HardwareControl(QWidget):
         self.stageControl.set_reference_a(refs['ref_ax'], refs['ref_ay'])
         self.stageControl.set_reference_b(refs['ref_bx'], refs['ref_by'])
 
+    def check_status(self):
+        self.ready = True
+        text = ''
+        if self.spectrometerControl.spec.dark_reference is None:
+            text += 'Dark Reference not set\n'
+            self.ready = False
+        if self.spectrometerControl.spec.light_reference is None:
+            text += 'Light Reference not set\n'
+            self.ready = False
+
+        if self.stageControl.stage.ref_ax == 0 :
+            self.ready = False
+            text += 'Stage reference A not set\n'
+        if self.stageControl.stage.ref_bx == 0 :
+            self.ready = False
+            text += 'Stage reference B not set\n'
+
+        if not self.ready:
+            raise ReferencesError(text)
+
+        # text = ''
+        # if self.spectrometerControl.spec.spectrometer is None:
+        #     text += 'Spectrometer not connected, dummy data will be generated\n'
+        #     self.ready = False
+        # if self.stageControl.stage.port is None:
+        #     text += 'Stage not connected, dummy data will be generated\n'
+        #     self.ready = False
+        # if not self.ready:
+        #     raise NotConnectedError(text)
+
+
     def measure(self, setup, row):
-        # try:
-        element = row['element']
-        x_pos = setup['sensor']['layout']['map'][element][0]
-        y_pos = setup['sensor']['layout']['map'][element][1]
+        self.check_status()
+        if self.ready:
+            # try:
+            element = row['element']
+            x_pos = setup['sensor']['layout']['map'][element][0]
+            y_pos = setup['sensor']['layout']['map'][element][1]
 
-        logging.info(f"\n\nMeasuring Element {element}")
-        logging.info(f'{x_pos=} {y_pos=}')
-            
-        self.stageControl.stage.move_vs_ref(x_pos, y_pos)
-        df = self.spectrometerControl.spec.get_spectrum()
+            logging.info(f"\n\nMeasuring Element {element}")
+            logging.info(f'{x_pos=} {y_pos=}')
+                
+            self.stageControl.stage.move_vs_ref(x_pos, y_pos)
+            df = self.spectrometerControl.spec.get_spectrum()
 
-        return df
+            return df
+        else:
+            raise Exception(f'Hardware not ready')
+
 
 if __name__ == "__main__":
 
