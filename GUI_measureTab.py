@@ -10,7 +10,7 @@ from GUI_tableView import MetaTable
 import lib.csv_helpers as csv
 import time
 import pandas as pd
-from GUI_plotCanvas import PlotCanvas
+from GUI_plotCanvas import PlotCanvas, PlotCanvasBasic
 
 class MeasureWorker(QObject):
     finished = Signal(str)
@@ -81,7 +81,6 @@ class MeasureWorker(QObject):
         #Need to save/merge the current meta_df
         # otherwise there will be data files not present in the index file
         logging.debug('saving meta_df after abort')
-        print(meta_df)
         if len(meta_df) > 0:
             meta_df.index.name = 'index'
             csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
@@ -166,7 +165,7 @@ class MeasureTab(QWidget):
         self.btn_stop.setFixedWidth(btn_width)
 
         self.progbar = QProgressBar()
-        self.plot = PlotCanvas()
+        self.plot = PlotCanvasBasic()
 
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
@@ -192,7 +191,6 @@ class MeasureTab(QWidget):
         vbox.addWidget(label_run_df)
         # vbox.addWidget(label_run_idea)
         vbox.addLayout(hbox_run_df)
-        vbox.addWidget(QHLine())
         vbox.addWidget(QHLine())
         vbox.addWidget(label_output)
         vbox.addLayout(hbox_output)
@@ -243,7 +241,7 @@ class MeasureTab(QWidget):
     def update_plot(self, plotdata):
         title = plotdata[1]
         data = plotdata[0]
-        self.plot.set_data(data, title=title, legend_limit=0)
+        self.plot.set_data(data, title=title)
 
     def run_complete(self, status):
         self.btn_run.setEnabled(True)

@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame, QMessageBox,
     QVBoxLayout, QFileDialog, QPushButton, QLabel)
 from GUI_commonWidgets import QHLine
-from GUI_plotCanvas import RefPlotCanvas
+from GUI_plotCanvas import PlotCanvasBasic
 import logging
 from lib.thorlabs_stage import Thorlabs_Stage
 from lib.stellarnet_spectrometer import Stellarnet_Spectrometer
@@ -256,7 +256,7 @@ class SpectrometerControl(QWidget):
         self.btn_clear_refs.clicked.connect(self.clear_references)
         self.btn_clear_refs.setFixedWidth(btn_width)
 
-        self.plotcanvas = RefPlotCanvas()
+        self.plotcanvas = PlotCanvasBasic(ylabel='Counts')
 
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
@@ -346,6 +346,7 @@ class SpectrometerControl(QWidget):
         self.spec.wl_min = setup['input_config']['wavelength_range'][0]
         self.spec.wl_max = setup['input_config']['wavelength_range'][1]
         self.update_settings_labels()
+        self.spec.connect()
 
     def plot(self):
         df = self.spec.references
@@ -353,7 +354,7 @@ class SpectrometerControl(QWidget):
             if (self.spec.last_capture_raw is not None):
                 df['Spectrum'] = self.spec.last_capture_raw['counts']
 
-            self.plotcanvas.set_data_counts(df)
+            self.plotcanvas.set_data(df)
         else:
             logging.debug('clearing axis')
             self.plotcanvas.canvas.axes.cla()
@@ -442,12 +443,16 @@ class HardwareControl(QWidget):
     def check_status(self):
         self.ready = True
         text = ''
-        if 'Dark Reference' not in self.spectrometerControl.spec.references:
-            text += 'Dark Reference not set\n'
+        if self.spectrometerControl.spec.references is None:
+            text += 'Spectrometer References not set\n'
             self.ready = False
-        if 'Light Reference' not in self.spectrometerControl.spec.references:
-            text += 'Light Reference not set\n'
-            self.ready = False
+        else:
+            if 'Dark Reference' not in self.spectrometerControl.spec.references:
+                text += 'Dark Reference not set\n'
+                self.ready = False
+            if 'Light Reference' not in self.spectrometerControl.spec.references:
+                text += 'Light Reference not set\n'
+                self.ready = False
 
         if self.stageControl.stage.ref_ax == 0 :
             self.ready = False
@@ -483,6 +488,7 @@ class HardwareControl(QWidget):
                 
             self.stageControl.stage.move_vs_ref(x_pos, y_pos)
             df = self.spectrometerControl.spec.get_spectrum()
+            self.spectrometerControl.plot()
 
             return df
         else:
