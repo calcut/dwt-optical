@@ -32,28 +32,17 @@ class MeasureWorker(QObject):
 
         # meta_df accumulates the metadata for rows that have been succesfully completed.
         meta_df = pd.DataFrame()
-        meta_df.index.name = 'index'
         
         progress = 0
         for row in self.run_df.index:
             meta_row = self.run_df.loc[row]
-            progress +=1
             df = pd.DataFrame()
             for rep in range(meta_row['repeats']):
+                progress +=1
                 if self.stop_requested:
                     logging.warning('STOPPING run')
                     self.save_and_abort(meta_df)
                     return
-
-                if self.pause:
-                    logging.warning('PAUSING run')
-                    while self.pause:
-                        if self.stop_requested:
-                            logging.warning('STOPPING run')
-                            self.save_and_abort(meta_df)
-                            return
-                        time.sleep(1)
-                    logging.warning('RESUMING run')
 
                 # Construct the data path
                 datapath = csv.find_datapath(self.setup, self.run_df, row)
@@ -64,19 +53,27 @@ class MeasureWorker(QObject):
                     logging.error(e)
                     self.save_and_abort(meta_df)
                     return
+           
+                if self.pause:
+                    logging.warning('PAUSING run')
+                    while self.pause:
+                        if self.stop_requested:
+                            logging.warning('STOPPING run')
+                            self.save_and_abort(meta_df)
+                            return
+                        time.sleep(1)
+                    logging.warning('RESUMING run')
 
+                self.progress.emit(progress)
+                self.plotdata.emit((df, f'{row} repeat{rep+1}'))
                 # write the df to txt file
                 csv.write_df_txt(df, datapath, merge=self.merge)
 
             # Update the date column in the run_df
-            meta_row['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
-            meta_df = meta_df.append(meta_row)
-            # meta_df.at[row, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+            meta_df = pd.concat([meta_df, pd.DataFrame(meta_row).T])
+            meta_df.at[row, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
-            self.progress.emit(progress)
-            self.plotdata.emit((df, row))
-            logging.debug(f'Emitted {progress}')
-        
+        meta_df.index.name = 'index'
         csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
         self.finished.emit('Run Complete')
 
@@ -84,7 +81,9 @@ class MeasureWorker(QObject):
         #Need to save/merge the current meta_df
         # otherwise there will be data files not present in the index file
         logging.debug('saving meta_df after abort')
+        print(meta_df)
         if len(meta_df) > 0:
+            meta_df.index.name = 'index'
             csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
         self.finished.emit('Run aborted')
         
@@ -99,7 +98,7 @@ class MeasureTab(QWidget):
 
         btn_width = 80
 
-        label_info = QLabel("Capture a series of measurements\n")
+        label_info = QLabel("Capture a series of measurements")
 
         tooltip_info = ("Generates a Run List based on the parameters in setup input_config\n"
             +"i.e. Adds a row for each permutation of 'fluids' and 'elements'\n\n"
@@ -208,7 +207,7 @@ class MeasureTab(QWidget):
 
     def generate_run_df(self):
         self.run_df = csv.generate_run_df(self.setup)
-        self.progbar.setMaximum(len(self.run_df))
+        self.progbar.setMaximum(self.run_df['repeats'].sum())
 
     def preview_run_df(self):
         if self.run_df is None:
