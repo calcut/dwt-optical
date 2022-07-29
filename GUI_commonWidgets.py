@@ -125,7 +125,6 @@ class SetupBrowse(QWidget):
         logging.debug(f"{current_name=}")
         self.setup_combo.clear()
         combo_options_dict = json_setup.get_file_choice('setup')
-        logging.debug(f"{combo_options_dict=}")
         if 'setup' in combo_options_dict:
             options = combo_options_dict['setup']
             # Sort in case insensitive alphabetical order
