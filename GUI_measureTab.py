@@ -36,7 +36,6 @@ class MeasureWorker(QObject):
         
         progress = 0
         for row in self.run_df.index:
-            print(row)
             meta_row = self.run_df.loc[row]
             progress +=1
             df = pd.DataFrame()
@@ -209,7 +208,6 @@ class MeasureTab(QWidget):
 
     def generate_run_df(self):
         self.run_df = csv.generate_run_df(self.setup)
-        print(self.run_df)
         self.progbar.setMaximum(len(self.run_df))
 
     def preview_run_df(self):
