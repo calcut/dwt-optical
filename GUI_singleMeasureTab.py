@@ -2,16 +2,15 @@
 from math import comb
 import sys
 import os
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QObject, QThread, Signal, QSize
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget, QCheckBox,
     QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QGridLayout)
 import logging
 from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
+from GUI_plotCanvas import PlotCanvasBasic
 import lib.csv_helpers as csv
-from lib.stellarnet_thorlabs import Stellarnet_Thorlabs_Hardware
-
-
+import pandas as pd
 
 class SingleMeasureTab(QWidget):
 
@@ -86,7 +85,8 @@ class SingleMeasureTab(QWidget):
         hbox_grid.addStretch(1)
 
         # Output Path
-        label_output = QLabel("Output Directory Structure")
+        # label_output = QLabel("Output Directory Structure")
+        label_output = QLabel("Output currently not saved")
         label_output.setStyleSheet("font-weight: bold")
         self.tbox_outpath = QLineEdit()
         self.tbox_outpath.setReadOnly(True)
@@ -112,13 +112,15 @@ class SingleMeasureTab(QWidget):
         vbox_output = QVBoxLayout()
         vbox_output.addWidget(self.tbox_outpath)
         vbox_output.addLayout(hbox_merge)
-        vbox_output.addLayout(hbox_run)
+        # vbox_output.addLayout(hbox_run)
 
         hbox_output = QHBoxLayout()
         hbox_output.addStretch(1)
-        hbox_output.addLayout(vbox_output, stretch=10)
+        hbox_output.addLayout(hbox_run, stretch=10)
+        # hbox_output.addLayout(vbox_output, stretch=10)
         hbox_output.addStretch(1)
 
+        self.plot = PlotCanvasBasic()
 
         # Overall Layout
         vbox = QVBoxLayout()
@@ -127,23 +129,16 @@ class SingleMeasureTab(QWidget):
         vbox.addWidget(label_metadata)
         vbox.addLayout(hbox_grid)
         vbox.addWidget(QHLine())
-        vbox.addWidget(QHLine())
         vbox.addWidget(label_output)
         vbox.addLayout(hbox_output)
-        vbox.addLayout(hbox_merge)
+        # vbox.addLayout(hbox_merge)
+        vbox.addWidget(self.plot)
         vbox.addStretch()
 
         self.setLayout(vbox)
 
-    def generate_run_df(self):
-        self.run_df = csv.generate_run_df(self.setup)
-        print(self.run_df)
-
-    def preview_run_df(self):
-        if self.run_df is None:
-            self.generate_run_df()
-        self.runTable = MetaTable(self.run_df, "Run List DataFrame")
-        self.runTable.show()
+    def sizeHint(self):
+        return QSize(840, 400)
 
     def run_measurement(self):
         
@@ -151,19 +146,27 @@ class SingleMeasureTab(QWidget):
         fluid = self.combo_fluid.currentText()
         comment = self.tbox_comment.text()
 
-        # for f in self.measure_funcs:
-        #     if f.__name__ == self.combo_mf.currentText():
-        #         mf = f
+        # merge = self.cbox_merge.isChecked()  
 
-        # logging.info(f'measure_function = {mf.__name__}')
-
-        merge = self.cbox_merge.isChecked()  
+        run_dict = {
+            'date'          : pd.Timestamp.utcnow().strftime('%Y-%m-%d'),
+            'instrument'    : self.setup['instrument']['name'],
+            'sensor'        : self.setup['sensor']['name'],
+            'element'       : element,
+            'structure'     : self.setup['sensor']['structure_map']['map'][element][0],
+            'surface'       : self.setup['sensor']['surface_map']['map'][element][0],
+            'fluid'         : fluid,
+            'repeats'       : 1,
+            'comment'       : comment
+        }
 
         try:
-            csv.simple_measurement(self.setup, element, fluid, measure_func=self.measure_func, merge=merge, comment=comment)
+            df = self.measure_func(self.setup, run_dict)
         except Exception as e:
             logging.error(e)
-            return      
+            return
+        
+        self.plot.set_data(df)
 
     def element_changed(self, element):
         try:
