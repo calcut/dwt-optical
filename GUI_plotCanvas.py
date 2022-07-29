@@ -186,6 +186,39 @@ class PlotCanvas(QtWidgets.QMainWindow):
         # Uncomment to only print the label (not the XY values)
         # crs.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
 
+class RefPlotCanvas(QtWidgets.QMainWindow):
+    #Simple version for checking light / dark references
+
+    def __init__(self):
+        QtWidgets.QMainWindow.__init__(self)
+
+        # hide debug messages about font finding from MPL
+        logging.getLogger('matplotlib.font_manager').disabled = True
+
+        # Create the maptlotlib FigureCanvas object,
+        # which defines a single set of axes as self.axes.
+        self.canvas = MplCanvas(self, width=8, height=5, dpi=90)
+        self.plot_visible = False
+        self.legend_visible = True
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self.canvas)
+
+        widget = QtWidgets.QWidget()
+        widget.setLayout(layout)
+        self.setCentralWidget(widget)
+
+    def set_data_counts(self, df):
+        self.canvas.axes.cla()
+        df.plot(ax=self.canvas.axes,
+                x='wavelength', 
+                xlabel = 'Wavelength (nm)',
+                ylabel = 'Counts',
+                legend = True)
+        self.canvas.draw()
+        self.show()
+        self.plot_visible = True
+
 if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
