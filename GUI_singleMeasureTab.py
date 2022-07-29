@@ -157,8 +157,13 @@ class SingleMeasureTab(QWidget):
 
         # logging.info(f'measure_function = {mf.__name__}')
 
-        merge = self.cbox_merge.isChecked()        
-        csv.simple_measurement(self.setup, element, fluid, measure_func=self.measure_func, merge=merge, comment=comment)
+        merge = self.cbox_merge.isChecked()  
+
+        try:
+            csv.simple_measurement(self.setup, element, fluid, measure_func=self.measure_func, merge=merge, comment=comment)
+        except Exception as e:
+            logging.error(e)
+            return      
 
     def element_changed(self, element):
         try:
