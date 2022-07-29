@@ -246,7 +246,7 @@ class Thorlabs_Stage():
             self._wait_for_move()
         else:
             logging.info(f'SIMULATING moving to position {x},{y} vs reference {self.ref_ax},{self.ref_ay}')
-            time.sleep(0.5)
+            time.sleep(2)
 
         logging.info(f'position = {x}, {y} after correcting for {self.slide_rotation}deg rotation')
         self.pos_x = self.ref_ax + x
