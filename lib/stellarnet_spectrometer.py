@@ -29,8 +29,8 @@ class Stellarnet_Spectrometer():
         self.wl_min = None #optional wavelength trimming
         self.wl_max = None
 
-        self.light_reference = None
-        self.dark_reference = None
+
+        self.references = None
         self.last_capture_raw = None
         self.spectrometer = None
 
@@ -65,10 +65,10 @@ class Stellarnet_Spectrometer():
             dummywavelength = list(np.arange(self.wl_min, self.wl_max, 0.5)) #start stop step
             rng = np.random.default_rng()
             dummydata = rng.integers(dummy_low, dummy_high, size=len(dummywavelength))
-            spectrum = {'wavelength' : dummywavelength, 'transmission' : dummydata}
+            spectrum = {'wavelength' : dummywavelength, 'counts' : dummydata}
 
         df = pd.DataFrame(spectrum)
-        df.columns = ['wavelength', 'transmission']
+        df.columns = ['wavelength', 'counts']
 
         if self.wl_min:
             df.drop(df[df['wavelength'] < self.wl_min].index, inplace=True)
@@ -88,31 +88,50 @@ class Stellarnet_Spectrometer():
         
     def _calculate_percentage(self, df):
         
-        if self.light_reference is None:
+
+        if 'Light Reference' not in self.references:
             logging.error('Light reference spectrum has not been captured')
-        if self.dark_reference is None:
+        if 'Dark Reference' not in self.references:
             logging.error('Dark reference spectrum has not been captured')
 
-        data = df['transmission']
-        dr = self.dark_reference['transmission']
-        lr = self.light_reference['transmission']
+        data = df['counts']
+        lr = self.references['Light Reference']
+        dr = self.references['Dark Reference']
+
+        print(df)
+        print(self.references)
 
         if len(data) != len(dr):
             logging.error('spectrum length does not match dark reference')
         if len(data) != len(lr):
             logging.error('spectrum length does not match light reference')
 
-        df['transmission'] = (data - dr) / (lr - dr) * 100
-        df['transmission'] = df['transmission'].round(self.percentage_round)
-        
+        df['counts'] = (data - dr) / (lr - dr) * 100
+        df['counts'] = df['counts'].round(self.percentage_round)
+        df.columns = ['wavelength', 'transmission (%)']
+
         return df
 
     def capture_dark_reference(self, dummy_val=1000):
-        self.dark_reference = self.get_spectrum(as_percentage=False, dummy_low=dummy_val, dummy_high=dummy_val+1)
+        dark_ref = self.get_spectrum(as_percentage=False, dummy_low=dummy_val, dummy_high=dummy_val+1)
+        dark_ref.columns = ['wavelength', 'Dark Reference']
+        
+        if self.references is None:
+            self.references = dark_ref
+        else:
+            self.references['wavelength'] = dark_ref['wavelength']
+            self.references['Dark Reference'] = dark_ref['Dark Reference']
         # TODO, some code to warn if dark reference looks wrong?
 
     def capture_light_reference(self, dummy_val=11000):
-        self.light_reference = self.get_spectrum(as_percentage=False, dummy_low=dummy_val, dummy_high=dummy_val+1)
+        light_ref = self.get_spectrum(as_percentage=False, dummy_low=dummy_val, dummy_high=dummy_val+1)
+        light_ref.columns = ['wavelength', 'Light Reference']
+
+        if self.references is None:
+            self.references = light_ref
+        else:
+            self.references['wavelength'] = light_ref['wavelength']
+            self.references['Light Reference'] = light_ref['Light Reference']
         # TODO, some code to warn if light reference looks wrong?
 
 
