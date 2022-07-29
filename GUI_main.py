@@ -15,7 +15,7 @@ import lib.csv_helpers as csv
 from GUI_Logging import GUILogger
 from GUI_importTab import ImportTab
 from GUI_exportTab import ExportTab
-from GUI_hardwareControl import HardwareTop
+from GUI_hardwareControl import HardwareControl
 
 class MainWindow(QMainWindow):
     def __init__(self, rootpath):
@@ -36,9 +36,9 @@ class MainWindow(QMainWindow):
 
 
         self.log = GUILogger(self)
-        self.hardwareTop = HardwareTop()
-        self.singleMeasureTab = SingleMeasureTab(measure_func=self.hardwareTop.hardware.measure)
-        self.measureTab = MeasureTab(measure_func=self.hardwareTop.hardware.measure)
+        self.hardwareTab = HardwareControl()
+        self.singleMeasureTab = SingleMeasureTab(measure_func=self.hardwareTab.measure)
+        self.measureTab = MeasureTab(measure_func=self.hardwareTab.measure)
         self.importTab = ImportTab()
         self.exportTab = ExportTab()
 
@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
         setupBrowse.new_setup.connect(self.measureTab.setup_changed)
         setupBrowse.new_setup.connect(self.importTab.setup_changed)
         setupBrowse.new_setup.connect(self.exportTab.setup_changed)
-        setupBrowse.new_setup.connect(self.hardwareTop.hardware.spectrometerControl.setup_changed)
+        setupBrowse.new_setup.connect(self.hardwareTab.spectrometerControl.setup_changed)
         setupBrowse.new_setup.emit(setupBrowse.setup)
 
         self.setupTab = QWidget()
@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
 
         # Add tab to the main tab widget, and give it a label
         tabWidget = QTabWidget(centralwidget)
+        tabWidget.addTab(self.hardwareTab, "Hardware")
         tabWidget.addTab(self.singleMeasureTab, "Single Measure")
         tabWidget.addTab(self.measureTab, "Batch Measure")
         tabWidget.addTab(self.importTab, "Import")
@@ -67,7 +68,6 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1,1)
 
         vbox.addWidget(setupBrowse)
-        vbox.addWidget(self.hardwareTop)
         vbox.addWidget(splitter)
 
         self.setWindowTitle("Optical Tongue Interface")
