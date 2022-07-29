@@ -42,6 +42,10 @@ class SetupBrowse(QWidget):
         btn_edit_setup.clicked.connect(self.edit_setup)
         btn_edit_setup.setFixedWidth(btn_width)
 
+        btn_reload_setup = QPushButton("Reload")
+        btn_reload_setup.clicked.connect(self.update_setup_json)
+        btn_reload_setup.setFixedWidth(btn_width)
+
         label_root = QLabel("Root Path:")
         self.tbox_root = QLineEdit()
         self.tbox_root.setReadOnly(True)
@@ -71,18 +75,22 @@ class SetupBrowse(QWidget):
 
         grid = QGridLayout()
         grid.addWidget(label_root, 0, 0)
-        grid.addWidget(self.tbox_root, 0, 1)
-        grid.addWidget(btn_browse_setup, 0, 2)
+        grid.addWidget(self.tbox_root, 0, 1, 1, 2)
+        grid.addWidget(btn_browse_setup, 0, 3)
 
         grid.addWidget(label_setup, 1, 0)
         grid.addWidget(self.setup_combo, 1, 1)
-        grid.addWidget(btn_edit_setup, 1, 2)
+        grid.addWidget(btn_reload_setup, 1, 2)
+        grid.addWidget(btn_edit_setup, 1, 3)
 
         grid.addWidget(label_metapath, 2, 0)
-        grid.addWidget(self.tbox_metapath, 2, 1)
-        grid.addWidget(btn_view_meta, 2, 2)
+        grid.addWidget(self.tbox_metapath, 2, 1, 2, 2)
+        grid.addWidget(btn_view_meta, 2, 3)
 
-    
+        grid.setColumnStretch(0, 0)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 0)
+        grid.setColumnStretch(4, 0)
 
         hbox = QHBoxLayout()
         hbox.addStretch(1)
@@ -315,21 +323,22 @@ class MetaFilter(QWidget):
         valuebox = self.grid_sel.itemAtPosition(row, 2).widget()
         # print(f'sender text = {self.sender.currentText()}')
         valuebox.clear()
-        try:
-            logging.debug(self.meta_df[key].unique())
-            items = sorted(self.meta_df[key].unique())
-            items = [str(i) for i in items]
-            valuebox.addItem('')
-            valuebox.addItems(items)
-        except KeyError:
-            logging.debug(f'Key "{key}" not found in Metadata index file')
+        if self.meta_df is not None:
+            try:
+                logging.debug(self.meta_df[key].unique())
+                items = sorted(self.meta_df[key].unique())
+                items = [str(i) for i in items]
+                valuebox.addItem('')
+                valuebox.addItems(items)
+            except KeyError:
+                logging.debug(f'Key "{key}" not found in Metadata index file')
 
     def setup_changed(self, setup):
 
         logging.debug(f"MetaFilter : got new setup")
+        self.meta_df = None
         self.meta_df = csv.read_metadata(setup)
-
-
+        
         # Update the 'key' combo boxes with fields from new meta_df 
         rows = self.grid_sel.rowCount()
         for row in range(rows):
@@ -342,9 +351,10 @@ class MetaFilter(QWidget):
             # except AttributeError as e:
                 # logging.debug(e)
                 # logging.debug(f"row {row}")
-            items = self.meta_df.columns.tolist()
-            keyCombo.addItem('')
-            keyCombo.addItems(items)
+            if self.meta_df is not None:
+                items = self.meta_df.columns.tolist()
+                keyCombo.addItem('')
+                keyCombo.addItems(items)
 
     def preview_selection(self):
         title = 'Selected Data'
