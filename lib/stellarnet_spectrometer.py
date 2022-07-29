@@ -98,9 +98,6 @@ class Stellarnet_Spectrometer():
         lr = self.references['Light Reference']
         dr = self.references['Dark Reference']
 
-        print(df)
-        print(self.references)
-
         if len(data) != len(dr):
             logging.error('spectrum length does not match dark reference')
         if len(data) != len(lr):
