@@ -13,7 +13,7 @@ import pandas as pd
 from GUI_plotCanvas import PlotCanvas
 
 class MeasureWorker(QObject):
-    finished = Signal()
+    finished = Signal(str)
     progress = Signal(int)
     plotdata = Signal(pd.DataFrame)
 
@@ -51,7 +51,7 @@ class MeasureWorker(QObject):
                     while self.pause:
                         if self.stop_requested:
                             logging.warning('STOPPING run now')
-                            self.finished.emit()
+                            self.finished.emit('Run aborted')
                             return
                         time.sleep(1)
                     logging.warning('RESUMING run now')
@@ -59,7 +59,12 @@ class MeasureWorker(QObject):
                 # Construct the data path
                 datapath = csv.find_datapath(self.setup, run_df, row)
                 # call the measure function to get data
-                df = self.measure_func(self.setup, run_df.loc[row])
+                try:
+                    df = self.measure_func(self.setup, run_df.loc[row])
+                except Exception as e:
+                    logging.error(e)
+                    self.finished.emit('Run aborted')
+                    return
 
                 # write the df to txt file
                 csv.write_df_txt(df, datapath, merge=self.merge)
@@ -73,7 +78,7 @@ class MeasureWorker(QObject):
         
         csv.write_meta_df_txt(setup, run_df, merge=self.merge)
 
-        self.finished.emit()
+        self.finished.emit('Run Complete')
 
 class MeasureTab(QWidget):
 
@@ -190,7 +195,7 @@ class MeasureTab(QWidget):
         self.setLayout(vbox)
 
     def sizeHint(self):
-        return QSize(840, 600) 
+        return QSize(840, 600)
 
     def generate_run_df(self):
         self.run_df = csv.generate_run_df(self.setup)
@@ -221,7 +226,7 @@ class MeasureTab(QWidget):
         # Step 6: Start the thread
         self.thread.start()
         self.btn_run.setEnabled(False)
-        self.thread.finished.connect(self.run_complete)
+        self.worker.finished.connect(self.run_complete)
         self.worker.progress.connect(self.set_progress)
         self.worker.plotdata.connect(self.update_plot)
 
@@ -233,11 +238,11 @@ class MeasureTab(QWidget):
         data = plotdata[0]
         self.plot.set_data(data, title=title, legend_limit=0)
 
-    def run_complete(self):
+    def run_complete(self, status):
         self.btn_run.setEnabled(True)
         self.progbar.reset()
         self.btn_pause.setText('Pause')
-        logging.info('Run Complete')
+        logging.info(status)
 
     def pause_resume(self):
         if self.thread:
