@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame, QMessageBox,
     QVBoxLayout, QFileDialog, QPushButton, QLabel)
 from GUI_commonWidgets import QHLine
-from GUI_plotCanvas import PlotCanvas
+from GUI_plotCanvas import RefPlotCanvas
 import logging
 from lib.thorlabs_stage import Thorlabs_Stage
 from lib.stellarnet_spectrometer import Stellarnet_Spectrometer
@@ -169,16 +169,19 @@ class StageControl(QWidget):
 
 
         hbox_grid = QHBoxLayout()
-        hbox_grid.addStretch()
-        hbox_grid.addLayout(grid)
+        hbox_grid.addStretch(1)
+        hbox_grid.addLayout(grid, stretch=4)
 
         vbox = QVBoxLayout()
-        vbox.addWidget(QHLine())
-        vbox.addWidget(label)
+        # vbox.addWidget(label)
         vbox.addLayout(hbox_serial)
         vbox.addLayout(hbox_enable)
+        vbox.addSpacing(20)
         vbox.addLayout(hbox_grid)
         self.setLayout(vbox)
+
+        self.scan_serial_ports()
+        # self.connect()
 
     def scan_serial_ports(self):
         ports = self.stage.scan_serial_ports()
@@ -248,12 +251,12 @@ class SpectrometerControl(QWidget):
         self.btn_capture_spectrum = QPushButton("Capture")
         self.btn_capture_spectrum.clicked.connect(self.capture_spectrum)
         self.btn_capture_spectrum.setFixedWidth(btn_width)
+        
+        self.btn_clear_refs = QPushButton("Clear")
+        self.btn_clear_refs.clicked.connect(self.clear_references)
+        self.btn_clear_refs.setFixedWidth(btn_width)
 
-        self.btn_view_spectrum = QPushButton("View")
-        self.btn_view_spectrum.clicked.connect(self.plot)
-        self.btn_view_spectrum.setFixedWidth(btn_width)
-
-        self.plotcanvas = PlotCanvas()
+        self.plotcanvas = RefPlotCanvas()
 
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
@@ -271,7 +274,9 @@ class SpectrometerControl(QWidget):
 
         grid.addWidget(QLabel('Capture Spectrum'), 3, 0)
         grid.addWidget(self.btn_capture_spectrum, 3, 1)
-        grid.addWidget(self.btn_view_spectrum, 4, 1)
+
+        grid.addWidget(QLabel('Clear References'), 4, 0)
+        grid.addWidget(self.btn_clear_refs, 4, 1)
 
         self.label_scans_to_avg = QLabel(str(self.spec.scans_to_avg))
         self.label_int_time = QLabel(str(self.spec.int_time))
@@ -294,16 +299,19 @@ class SpectrometerControl(QWidget):
         grid.addWidget(QLabel('wl_max'), row_info+5, 0)
         grid.addWidget(self.label_wl_max, row_info+5, 1)
 
-        hbox_grid = QHBoxLayout()
-        hbox_grid.addStretch()
-        hbox_grid.addLayout(grid)
+        vbox_grid = QVBoxLayout()
+        vbox_grid.addLayout(grid)
+        vbox_grid.addStretch()
 
-        
-        vbox = QVBoxLayout()
-        vbox.addWidget(QHLine())
-        vbox.addWidget(label)
-        vbox.addLayout(hbox_grid)
-        self.setLayout(vbox)
+        hbox = QHBoxLayout()
+        hbox.addStretch()
+        hbox.addWidget(self.plotcanvas)
+        hbox.addLayout(vbox_grid)
+        hbox.addLayout(grid)
+
+        self.setLayout(hbox)
+
+        self.spec.connect()
 
     def update_settings_labels(self):
         self.label_scans_to_avg.setText(str(self.spec.scans_to_avg))
@@ -315,12 +323,19 @@ class SpectrometerControl(QWidget):
 
     def capture_light_ref(self):
         self.spec.capture_light_reference()
+        self.plot()
 
     def capture_dark_ref(self):
         self.spec.capture_dark_reference()
+        self.plot()
+
+    def clear_references(self):
+        self.spec.references = None
+        self.plot()
 
     def capture_spectrum(self):
         self.spec.get_spectrum()
+        self.plot()
 
     def setup_changed(self, setup):
         logging.debug(f"Spectrometer Control : got new setup")
@@ -333,14 +348,16 @@ class SpectrometerControl(QWidget):
         self.update_settings_labels()
 
     def plot(self):
-        # df = self.spec.last_capture
-        if (self.spec.light_reference is None) or (self.spec.dark_reference is None):
-            logging.error('Please capture light and dark references before plotting')
-            return
-        df =  pd.merge(self.spec.light_reference, self.spec.dark_reference, how='outer', on='wavelength')
-        if self.spec.last_capture_raw is not None:
-            df =  pd.merge(self.spec.last_capture_raw, df, how='outer', on='wavelength')
-        self.plotcanvas.set_data(df)
+        df = self.spec.references
+        if df is not None:
+            if (self.spec.last_capture_raw is not None):
+                df['Spectrum'] = self.spec.last_capture_raw['counts']
+
+            self.plotcanvas.set_data_counts(df)
+        else:
+            logging.debug('clearing axis')
+            self.plotcanvas.canvas.axes.cla()
+            self.plotcanvas.canvas.draw()
 
 class HardwareControl(QWidget):
 
@@ -351,8 +368,8 @@ class HardwareControl(QWidget):
 
         self.ready = False
 
-        label = QLabel("Hardware Setup")
-        label.setStyleSheet("font-weight: bold")
+        label = QLabel("Connect to hardware and set references")
+        # label.setStyleSheet("font-weight: bold")
 
         label_save = QLabel("References:")
         self.btn_save= QPushButton("Save")
@@ -366,29 +383,47 @@ class HardwareControl(QWidget):
         self.spectrometerControl=SpectrometerControl()
         self.stageControl = StageControl()
 
-        hbox = QHBoxLayout()
-        hbox.addStretch()
-        hbox.addWidget(label_save)
-        hbox.addWidget(self.btn_save)
-        hbox.addWidget(self.btn_load)
+        hbox_save = QHBoxLayout()
+        hbox_save.addStretch()
+        hbox_save.addWidget(label_save)
+        hbox_save.addWidget(self.btn_save)
+        hbox_save.addWidget(self.btn_load)
+
+        hbox_stage = QHBoxLayout()
+        hbox_stage.addStretch(1)
+        hbox_stage.addWidget(self.stageControl, stretch=10)
+        hbox_stage.addStretch(1)
+
+        hbox_spec = QHBoxLayout()
+        # hbox_spec.addStretch(1)
+        hbox_spec.addWidget(self.spectrometerControl, stretch=10)
+        hbox_spec.addStretch(1)
+
+        label_stage = QLabel("Thorlabs Stage")
+        label_stage.setStyleSheet("font-weight: bold")
+
+        label_spec = QLabel("Stellarnet Spectrometer")
+        label_spec.setStyleSheet("font-weight: bold")
 
         vbox = QVBoxLayout()
         vbox.addWidget(label)
-        vbox.addLayout(hbox)
-        vbox.addWidget(self.stageControl)
-        vbox.addWidget(self.spectrometerControl)
+        hbox_save_margins = QHBoxLayout()
+        hbox_save_margins.addStretch(1)
+        hbox_save_margins.addLayout(hbox_save, stretch=10)
+        hbox_save_margins.addStretch(1)
+        vbox.addLayout(hbox_save_margins)
+        vbox.addWidget(QHLine())
+        vbox.addWidget(label_stage)
+        vbox.addLayout(hbox_stage)
+        vbox.addWidget(QHLine())
+        vbox.addWidget(label_spec)
+        vbox.addLayout(hbox_spec)
 
-        hbox_margins = QHBoxLayout()
-        hbox_margins.addStretch(1)
-        hbox_margins.addLayout(vbox, 10)
-        hbox_margins.addStretch(1)
-
-        self.setLayout(hbox_margins)
+        self.setLayout(vbox)
 
     def save_references(self):
         refs = {
-            'light_ref' : self.spectrometerControl.spec.light_reference,
-            'dark_ref' : self.spectrometerControl.spec.dark_reference,
+            'spec_refs' : self.spectrometerControl.spec.references,
             'ref_ax'  : self.stageControl.stage.ref_ax,
             'ref_ay'  : self.stageControl.stage.ref_ay,
             'ref_bx'  : self.stageControl.stage.ref_bx,
@@ -399,18 +434,18 @@ class HardwareControl(QWidget):
 
     def load_references(self):
         refs = pickle.load(open("saved_references.p", "rb"))
-        self.spectrometerControl.spec.light_reference = refs['light_ref']
-        self.spectrometerControl.spec.dark_reference = refs['dark_ref']
+        self.spectrometerControl.spec.references = refs['spec_refs']
         self.stageControl.set_reference_a(refs['ref_ax'], refs['ref_ay'])
         self.stageControl.set_reference_b(refs['ref_bx'], refs['ref_by'])
+        self.spectrometerControl.plot()
 
     def check_status(self):
         self.ready = True
         text = ''
-        if self.spectrometerControl.spec.dark_reference is None:
+        if 'Dark Reference' not in self.spectrometerControl.spec.references:
             text += 'Dark Reference not set\n'
             self.ready = False
-        if self.spectrometerControl.spec.light_reference is None:
+        if 'Light Reference' not in self.spectrometerControl.spec.references:
             text += 'Light Reference not set\n'
             self.ready = False
 
