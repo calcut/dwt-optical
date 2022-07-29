@@ -30,55 +30,65 @@ class MeasureWorker(QObject):
         # This has come from csv.run_measure, but is interruptable and reports progress.
         logging.info(f"Running batch measurements as thread/worker")
 
-        # Duplicate the run_df so the original is not modified
-        # Prevents unexpected behaviour if calling this function multiple times.
-        run_df = self.run_df.copy()
-
+        # meta_df accumulates the metadata for rows that have been succesfully completed.
+        meta_df = pd.DataFrame()
+        meta_df.index.name = 'index'
+        
         progress = 0
-        for row in run_df.index:
+        for row in self.run_df.index:
             print(row)
-            info = run_df.loc[row]
+            meta_row = self.run_df.loc[row]
             progress +=1
             df = pd.DataFrame()
-            for rep in range(run_df.loc[row]['repeats']):
+            for rep in range(meta_row['repeats']):
                 if self.stop_requested:
-                    logging.warning('STOPPING run now')
-                    self.finished.emit()
+                    logging.warning('STOPPING run')
+                    self.save_and_abort(meta_df)
                     return
 
                 if self.pause:
-                    logging.warning('PAUSING run now')
+                    logging.warning('PAUSING run')
                     while self.pause:
                         if self.stop_requested:
-                            logging.warning('STOPPING run now')
-                            self.finished.emit('Run aborted')
+                            logging.warning('STOPPING run')
+                            self.save_and_abort(meta_df)
                             return
                         time.sleep(1)
-                    logging.warning('RESUMING run now')
+                    logging.warning('RESUMING run')
 
                 # Construct the data path
-                datapath = csv.find_datapath(self.setup, run_df, row)
+                datapath = csv.find_datapath(self.setup, self.run_df, row)
                 # call the measure function to get data
                 try:
-                    df = self.measure_func(self.setup, run_df.loc[row])
+                    df = self.measure_func(self.setup, meta_row)
                 except Exception as e:
                     logging.error(e)
-                    self.finished.emit('Run aborted')
+                    self.save_and_abort(meta_df)
                     return
 
                 # write the df to txt file
                 csv.write_df_txt(df, datapath, merge=self.merge)
 
             # Update the date column in the run_df
-            run_df.at[row, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+            meta_row['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+            meta_df = meta_df.append(meta_row)
+            # meta_df.at[row, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
 
             self.progress.emit(progress)
             self.plotdata.emit((df, row))
             logging.debug(f'Emitted {progress}')
         
-        csv.write_meta_df_txt(setup, run_df, merge=self.merge)
-
+        csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
         self.finished.emit('Run Complete')
+
+    def save_and_abort(self, meta_df):
+        #Need to save/merge the current meta_df
+        # otherwise there will be data files not present in the index file
+        logging.debug('saving meta_df after abort')
+        if len(meta_df) > 0:
+            csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
+        self.finished.emit('Run aborted')
+        
 
 class MeasureTab(QWidget):
 
