@@ -16,12 +16,12 @@ default_layout = {
     'name'      : 'default_layout',
     'category'  : 'layout',
     'map'       : {
-            'A01'   : [0.1, 0.1],
-            'A02'   : [0.1, 0.2],
-            'B01'   : [0.2, 0.1],
-            'B02'   : [0.2, 0.2],
-            'C01'   : [0.3, 0.1],
-            'C02'   : [0.3, 0.2],
+            'A01'   : [1.5, 0],
+            'A02'   : [3.0, 0],
+            'B01'   : [1.5, -1.5],
+            'B02'   : [3.0, -1.5],
+            'C01'   : [1.5, -3.0],
+            'C02'   : [3.0, -3.0],
     }
 }
 
@@ -66,14 +66,16 @@ default_sensor = {
 default_input_config = {
     'name'              : 'default_input_config',
     'category'          : 'input_config',
-    'fluids'            : ['waterA', 'waterB', 'waterC'],
+    'fluids'            : ['air'],
     'elements'          : 'all',
     'repeats'           : 3,
-    'wavelength_range'  : [400, 420, 0.5], #start, stop, step
-    'integration_time'  : 10,
-    'scans_to_avg'      : 1,
+    'wavelength_range'  : [400, 900, 0.5], #start, stop, step
+    'integration_time'  : 150,
+    'scans_to_avg'      : 3,
     'x_smooth'          : 0,
-    'x_timing'          : 1,   
+    'x_timing'          : 1,
+    'lightref_offset_x' : -0.75,
+    'lightref_interval' : 4, # Take a new light ref every [n]th element
 }
 
 default_output_config = {
