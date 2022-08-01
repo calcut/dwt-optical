@@ -32,6 +32,7 @@ class Stellarnet_Spectrometer():
 
         self.references = None
         self.last_capture_raw = None
+        self.num_lightrefs = 0
         self.spectrometer = None
 
     def __enter__(self):
@@ -120,13 +121,17 @@ class Stellarnet_Spectrometer():
             self.references['Dark Reference'] = dark_ref['Dark Reference']
         # TODO, some code to warn if dark reference looks wrong?
 
-    def capture_light_reference(self, dummy_val=11000):
+    def capture_light_reference(self, dummy_val=11000, history=False):
         light_ref = self.get_spectrum(as_percentage=False, dummy_low=dummy_val, dummy_high=dummy_val+1)
         light_ref.columns = ['wavelength', 'Light Reference']
+        self.num_lightrefs += 1
 
         if self.references is None:
             self.references = light_ref
         else:
+            if history and ('Light Reference' in self.references):
+                self.references[f'Lightref{self.num_lightrefs}'] = self.references['Light Reference']
+
             self.references['wavelength'] = light_ref['wavelength']
             self.references['Light Reference'] = light_ref['Light Reference']
         # TODO, some code to warn if light reference looks wrong?

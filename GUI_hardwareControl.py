@@ -256,6 +256,8 @@ class SpectrometerControl(QWidget):
         self.btn_clear_refs.clicked.connect(self.clear_references)
         self.btn_clear_refs.setFixedWidth(btn_width)
 
+        self.cbox_history = QCheckBox()
+
         self.plotcanvas = PlotCanvasBasic(ylabel='Counts')
 
         grid = QGridLayout()
@@ -278,6 +280,9 @@ class SpectrometerControl(QWidget):
         grid.addWidget(QLabel('Clear References'), 4, 0)
         grid.addWidget(self.btn_clear_refs, 4, 1)
 
+        grid.addWidget(QLabel('Keep Lightref history'), 5, 0)
+        grid.addWidget(self.cbox_history, 5, 1)
+
         self.label_scans_to_avg = QLabel(str(self.spec.scans_to_avg))
         self.label_int_time = QLabel(str(self.spec.int_time))
         self.label_x_timing = QLabel(str(self.spec.x_timing))
@@ -285,7 +290,7 @@ class SpectrometerControl(QWidget):
         self.label_wl_min = QLabel(str(self.spec.wl_min))
         self.label_wl_max = QLabel(str(self.spec.wl_max))
 
-        row_info = 5
+        row_info = 6
         grid.addWidget(QLabel('scans_to_avg'), row_info, 0)
         grid.addWidget(self.label_scans_to_avg, row_info, 1)
         grid.addWidget(QLabel('int_time'), row_info+1, 0)
@@ -322,7 +327,7 @@ class SpectrometerControl(QWidget):
         self.label_wl_max.setText(str(self.spec.wl_max))
 
     def capture_light_ref(self):
-        self.spec.capture_light_reference()
+        self.spec.capture_light_reference(history = self.cbox_history.checkState())
         self.plot()
 
     def capture_dark_ref(self):
@@ -331,6 +336,7 @@ class SpectrometerControl(QWidget):
 
     def clear_references(self):
         self.spec.references = None
+        self.spec.num_lightrefs = 0
         self.plot()
 
     def capture_spectrum(self):
@@ -474,8 +480,7 @@ class HardwareControl(QWidget):
         # if not self.ready:
         #     raise NotConnectedError(text)
 
-
-    def measure(self, setup, row):
+    def measure(self, setup, row, lightref_offset_x = None):
         self.check_status()
         if self.ready:
             # try:
@@ -485,7 +490,12 @@ class HardwareControl(QWidget):
 
             logging.info(f"\n\nMeasuring Element {element}")
             logging.info(f'{x_pos=} {y_pos=}')
-                
+
+            if lightref_offset_x:
+                logging.info(f"New lightref requested at: {x_pos+lightref_offset_x}, {y_pos}")
+                self.stageControl.stage.move_vs_ref(x_pos+lightref_offset_x, y_pos)
+                self.spectrometerControl.spec.capture_light_reference(history=self.spectrometerControl.cbox_history.checkState())
+
             self.stageControl.stage.move_vs_ref(x_pos, y_pos)
             df = self.spectrometerControl.spec.get_spectrum()
             self.spectrometerControl.plot()

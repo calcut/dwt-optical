@@ -34,9 +34,17 @@ class MeasureWorker(QObject):
         meta_df = pd.DataFrame()
         
         progress = 0
+        row_count = 0
         for row in self.run_df.index:
+            row_count += 1
             meta_row = self.run_df.loc[row]
             df = pd.DataFrame()
+
+            if row_count % self.setup['input_config']['lightref_interval'] == 0:
+                lr_offset_x = self.setup['input_config']['lightref_offset_x']
+            else:
+                lr_offset_x = None
+
             for rep in range(meta_row['repeats']):
                 progress +=1
                 if self.stop_requested:
@@ -44,11 +52,10 @@ class MeasureWorker(QObject):
                     self.save_and_abort(meta_df)
                     return
 
-                # Construct the data path
-                datapath = csv.find_datapath(self.setup, self.run_df, row)
                 # call the measure function to get data
                 try:
-                    df = self.measure_func(self.setup, meta_row)
+                    df = self.measure_func(self.setup, meta_row, lr_offset_x)
+                    lr_offset_x = None # don't keep requesting new light references
                 except Exception as e:
                     logging.error(e)
                     self.save_and_abort(meta_df)
@@ -66,6 +73,9 @@ class MeasureWorker(QObject):
 
                 self.progress.emit(progress)
                 self.plotdata.emit((df, f'{row} repeat{rep+1}'))
+
+                # Construct the data path
+                datapath = csv.find_datapath(self.setup, self.run_df, row)
                 # write the df to txt file
                 csv.write_df_txt(df, datapath, merge=self.merge)
 
