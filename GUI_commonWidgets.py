@@ -336,6 +336,7 @@ class MetaFilter(QWidget):
 
         logging.debug(f"MetaFilter : got new setup")
         self.meta_df = None
+        self.selection_df = None
         self.meta_df = csv.read_metadata(setup)
         
         # Update the 'key' combo boxes with fields from new meta_df 

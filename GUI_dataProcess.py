@@ -138,6 +138,7 @@ class DataProcess(QWidget):
 
     def setup_changed(self, setup):
         self.setup = setup
+        self.selection_df_changed(None)
 
     def selection_df_changed(self, selection_df):
         self.df = None
@@ -148,6 +149,10 @@ class DataProcess(QWidget):
       
         if self.df is None:
             self.set_data_from_selection_df()
+
+        if self.df is None:
+            logging.error('No data selected for processing')
+            return
 
         # This prevents the same procesing being re-applied every time
         # button is pressed
