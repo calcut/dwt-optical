@@ -234,7 +234,7 @@ class Thorlabs_Stage():
             y = round(y*math.cos(rads) + x*math.sin(rads), 2)
 
         if x == (self.pos_x-self.ref_ax) and y == (self.pos_y - self.ref_ay):
-            logging.info('already in position, not moving')
+            logging.debug('already in position, not moving')
             return
 
         x_counts = int((self.ref_ax + x) * self.encoder_pos_counts)
@@ -242,13 +242,13 @@ class Thorlabs_Stage():
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x21, chan_ident=1, position=x_counts))
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x22, chan_ident=1, position=y_counts))
         if self.port:
-            logging.info(f'moving to position {x},{y} vs reference {self.ref_ax},{self.ref_ay}')
+            logging.debug(f'moving to position {x},{y} vs reference {self.ref_ax},{self.ref_ay}')
             self._wait_for_move()
         else:
-            logging.info(f'SIMULATING moving to position {x},{y} vs reference {self.ref_ax},{self.ref_ay}')
+            logging.debug(f'SIMULATING moving to position {x},{y} vs reference {self.ref_ax},{self.ref_ay}')
             time.sleep(2)
 
-        logging.info(f'position = {x}, {y} after correcting for {self.slide_rotation}deg rotation')
+        logging.debug(f'position = {x}, {y} after correcting for {self.slide_rotation}deg rotation')
         self.pos_x = self.ref_ax + x
         self.pos_y = self.ref_ay + y
 
