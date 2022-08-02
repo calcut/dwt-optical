@@ -8,7 +8,7 @@ import numpy as np
 
 import warnings
 
-from FittingSubFunctions_17_11_21 import FindInflections
+from .FittingSubFunctions_17_11_21 import FindInflections
 
 # For Fittings Only
 
