@@ -33,6 +33,7 @@ class ExportTab(QWidget):
 
         # default_outfile = './export.txt'
         default_outfile = ''
+        default_statsfile = 'stats.txt'
 
         # Make a Vertical layout within the new tab
         vbox = QVBoxLayout()
@@ -45,36 +46,62 @@ class ExportTab(QWidget):
         label_output = QLabel("Output")
         label_output.setStyleSheet("font-weight: bold")
 
-        
         self.tbox_output = QLineEdit()
         self.tbox_output.setText(default_outfile)
+
+        self.tbox_stats = QLineEdit()
+        self.tbox_stats.setText(default_statsfile)
 
         btn_width = 80
         browse_output = QPushButton("Browse")
         browse_output.clicked.connect(self.get_output)
         browse_output.setFixedWidth(btn_width)
 
+        browse_stats = QPushButton("Browse")
+        browse_stats.clicked.connect(self.get_stats_path)
+        browse_stats.setFixedWidth(btn_width)
+
         self.btn_export = QPushButton("Export")
         self.btn_export.clicked.connect(self.run_export)
         self.btn_export.setFixedWidth(btn_width)
+
+        self.btn_export_stats = QPushButton("Export")
+        self.btn_export_stats.clicked.connect(self.run_stats)
+        self.btn_export_stats.setFixedWidth(btn_width)
+
+        btn_view_stats= QPushButton("View")
+        btn_view_stats.clicked.connect(self.view_stats)
+        btn_view_stats.setFixedWidth(btn_width)
 
         btn_view_export= QPushButton("View")
         btn_view_export.clicked.connect(self.view_export)
         btn_view_export.setFixedWidth(btn_width)
 
         hbox_outpath = QHBoxLayout()
-        hbox_outpath.addWidget(QLabel('Export csv file:'))
+        hbox_outpath.addWidget(QLabel('Export data file:'))
         hbox_outpath.addWidget(self.tbox_output)
         hbox_outpath.addWidget(browse_output)
+
+        hbox_statspath = QHBoxLayout()
+        hbox_statspath.addWidget(QLabel('Export stats file:'))
+        hbox_statspath.addWidget(self.tbox_stats)
+        hbox_statspath.addWidget(browse_stats)
 
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
         hbox_run.addWidget(self.btn_export)
         hbox_run.addWidget(btn_view_export)
 
+        hbox_stats = QHBoxLayout()
+        hbox_stats.addStretch()
+        hbox_stats.addWidget(self.btn_export_stats)
+        hbox_stats.addWidget(btn_view_stats)  
+
         vbox_output = QVBoxLayout()
         vbox_output.addLayout(hbox_outpath)
-        vbox_output.addLayout(hbox_run)   
+        vbox_output.addLayout(hbox_run) 
+        vbox_output.addLayout(hbox_statspath)
+        vbox_output.addLayout(hbox_stats)   
 
         # self.setupBrowse = SetupBrowse()
         self.metaFilter = MetaFilter()
@@ -125,6 +152,10 @@ class ExportTab(QWidget):
         outfile, _ = QFileDialog.getSaveFileName(self, "Select Output File:")
         self.tbox_output.setText(outfile)
 
+    def get_stats_path(self):
+        statsfile, _ = QFileDialog.getSaveFileName(self, "Select Stats Output File:")
+        self.tbox_stats.setText(statsfile)
+
     def run_export(self):
         outfile = self.tbox_output.text()
 
@@ -162,6 +193,13 @@ class ExportTab(QWidget):
         except AttributeError:
             logging.error("Please run export first")
 
+    def run_stats(self):
+        selection_df = self.metaFilter.selection_df
+        self.stats = csv.export_stats(self.setup, self.dataProcess.dp, selection_df, outfile='stats.txt')
+
+    def view_stats(self):
+        self.table_stats = ExportTable(self.stats, 'title')
+        self.table_stats.show()
 
 if __name__ == "__main__":
 
