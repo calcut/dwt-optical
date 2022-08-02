@@ -3,6 +3,9 @@ import numpy as np
 import logging
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+import Code_17_06_22.GeneralFunctions_17_06_22 as general_functions
+import Code_17_06_22.FittingFunctions_17_06_22 as fitting_functions
+import Code_17_06_22.FittingSubFunctions_17_06_22 as fitting_subfunctions
 
 def plot(df):
     for col in df:
@@ -44,6 +47,12 @@ class DataProcessor():
         self.apply_trim = True
         self.apply_interpolate = True
         self.apply_round = True
+
+        self.calc_fwhm = True
+        self.calc_min = True
+        self.calc_baseline = False
+        self.calc_height = True
+
 
     def process_dataframe(self, df):
         if self.apply_trim:
@@ -117,31 +126,45 @@ class DataProcessor():
         df = df.rolling(window=smooth_points).mean()
         return df
 
-    def fwhm(self, df):
-        for col in df:
-            if col == 'wavelength':
-                pass
-            else:
-                baseline=df[col][1:101].mean()
-                min = df[col][1:].min()
-                height = baseline - min
-                hm = min + (height/2)
-                flagdown=0
-                flagup=0
-                for i in range(30,len(df[col])):
-                    value=df[col][i]
-                    if value<=hm and flagdown==0:
-                        flagdown=1
-                        side1=df['wavelength'][i]
-                    if value>=hm and flagdown==1 and flagup==0 and df['wavelength'][i]-side1>10:
-                        flagup=1
-                        side2=df['wavelength'][i]
-                    if flagup==1 and flagdown==1:
-                        break
-                if flagup==0:
-                    side2=0
-                    side1=0
-                fwhm_num=side2-side1
-                print(f'{baseline=} {height=} {hm=} {fwhm_num}')
-        return fwhm_num, height, baseline
+    def get_stats(self, df, peak_type='Min', round_digits=2):
 
+        # this imports the example code rather than re-implementing it
+
+        stats_df = pd.DataFrame(index=df.columns[1:], dtype='float64')
+        WavelengthArray = df['wavelength'].tolist()
+        
+        for col in df.columns[1:]:
+
+            TransArray = df[col].tolist()
+
+            if (peak_type=="Max"):
+                for i in range(len(TransArray)):
+                    TransArray[i]=TransArray[i]*(-1)
+
+            fwhm, height, baseline = general_functions.FWHM(WavelengthArray, TransArray)
+            smoothed_peak = self._smoothed_peak(WavelengthArray, TransArray)
+
+            if self.calc_fwhm:
+                stats_df.at[col, 'FWHM'] = round(fwhm, round_digits)
+
+            if self.calc_baseline:
+                stats_df.at[col, 'Baseline'] = round(baseline, round_digits)
+
+            if self.calc_height:
+                stats_df.at[col, 'Height'] = round(height, round_digits)
+
+            if self.calc_min:
+                stats_df.at[col, 'Peak'] = round(smoothed_peak, round_digits)
+
+        return stats_df
+
+    def _smoothed_peak(self, Wavelength, TransArray):
+
+        # Cut at second differentials of polyfit at either side of lowest first
+        [WavelengthCut,TransArrayCut]=fitting_functions.PolynomialBasedCut(Wavelength,TransArray)
+        [TransArrayCut,WavelengthCut]=fitting_subfunctions.Reframe(WavelengthCut,TransArrayCut)
+
+        # Fit by extreme smoothing of the minima
+        peak=fitting_functions.SmoothAndSelect(WavelengthCut,TransArrayCut)
+
+        return peak

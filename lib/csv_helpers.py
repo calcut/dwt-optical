@@ -153,6 +153,42 @@ def select_from_metadata(metakey, metavalue, meta_df, regex=False):
         exactdf = meta_df.loc[meta_df[metakey].astype(str) == str(metavalue)]
         return(exactdf)
 
+def export_stats(setup, dp, meta_df=None, outfile=None):
+
+    if isinstance(meta_df, pd.DataFrame):
+        pass
+    else:
+        meta_df = read_metadata(setup)
+
+    exportstats = pd.DataFrame()
+
+    for row in meta_df.index:
+
+        # locate the datafile and read it in
+        datapath = find_datapath(setup, meta_df, row)
+        df = pd.read_csv(datapath, sep='\t')
+
+        df = dp.process_dataframe(df)
+        stats_df = dp.get_stats(df, peak_type='Min')
+
+        row_info = pd.DataFrame(index=df.columns[1:])
+        row_info['element'] = meta_df.loc[row]['element']
+        row_info['surface'] = meta_df.loc[row]['surface']
+        row_info['fluid'] = meta_df.loc[row]['fluid']
+
+        stats_df = pd.concat([row_info, stats_df], axis=1)
+
+        # Accumulate the dataframes in a large 'result' dataframe
+        exportstats = pd.concat([exportstats, stats_df], axis=0)
+
+    exportstats.sort_values(by=['element'], inplace=True)
+    exportstats.reset_index(drop=True, inplace=True)
+
+    if outfile:
+        logging.info(f"Writing to {outfile} ...")
+        exportstats.to_csv(outfile, sep='\t', na_rep='NA')
+        logging.info(f"Done")
+    return exportstats
 
 def export_dataframes(setup, meta_df=None, outfile=None, dp=None):
 
