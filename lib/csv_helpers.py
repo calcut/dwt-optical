@@ -254,82 +254,82 @@ def import_dir_to_csv(setup, input_dir, regex, separator='\t', merge=True):
         logging.error('import folder not found')
         return
 
-    for filename in sorted(os.listdir(input_dir)):
-        
-        match = re.search(regex, filename)
-        if not match:
-            logging.warning(F"regex not matched on filename: {filename}")
-            continue
+    for subdir, dirs, files in os.walk(input_dir):
+        for filename in files:
+            match = re.search(regex, filename)
+            if not match:
+                logging.warning(F"regex not matched on filename: {filename}")
+                continue
 
-        # Create a metadata dictionary with info extracted from filename
-        run_dict = match.groupdict()
+            # Create a metadata dictionary with info extracted from filename
+            run_dict = match.groupdict()
 
-        # If the element looks like an integer,
-        # convert to a string with zero padding
-        try: 
-            e = int(run_dict['element'])
-            run_dict['element'] = F"{e:02d}"
-        except ValueError:
-            #Otherwise, don't modify it
-            pass
+            # If the element looks like an integer,
+            # convert to a string with zero padding
+            try: 
+                e = int(run_dict['element'])
+                run_dict['element'] = F"{e:02d}"
+            except ValueError:
+                #Otherwise, don't modify it
+                pass
 
-        if 'date' not in run_dict:
+            if 'date' not in run_dict:
+                run_dict['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+
+            if 'instrument' not in run_dict:
+                run_dict['instrument'] = setup['instrument']['name']
+
+            if 'sensor' not in run_dict:
+                run_dict['sensor'] = setup['sensor']['name']
+
+            if 'element' not in run_dict: # This will be unusual
+                element = setup['input_config']['elements']
+                if type(element) == list:
+                    element = element[0]
+                run_dict['element'] = element
+                logging.warning('The REGEX should typically identify which element is used')
+                logging.warning(f"Using {element} as a default")
+
+            if 'structure' not in run_dict:
+                run_dict['structure'] = setup['sensor']['structure_map']['map'][run_dict['element']][0]
+
+            if 'surface' not in run_dict:
+                run_dict['surface'] = setup['sensor']['structure_map']['map'][run_dict['element']][0]
+
+            if 'fluid' not in run_dict:
+                run_dict['fluid'] = setup['input_config']['fluids'][0]
+
+            run_dict['repeats'] = pd.NA #Will be modified in write_meta_df_txt()
+
+            index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
+
+            run_dict['index'] = index
             run_dict['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
 
-        if 'instrument' not in run_dict:
-            run_dict['instrument'] = setup['instrument']['name']
+            for col in run_dict.keys():
+                # dtypes are not specified here, they get assigned when during read_metadata()
+                run_dict[col] = pd.Series([run_dict[col]])
+            run_df = pd.DataFrame(run_dict)
+            run_df.set_index('index', inplace=True)
 
-        if 'sensor' not in run_dict:
-            run_dict['sensor'] = setup['sensor']['name']
+            # Read the file contents into a dataframe
+            df = pd.read_csv(os.path.join(input_dir, subdir, filename), sep=separator)
+            
+            # Check how many repeats exist in the file and label them
+            # Assumes the first column represents 'wavelength'
+            reps = len(df.columns)-1
+            col_names = ['wavelength']
+            for r in range(reps):
+                col_names.append(f'rep{r+1:02d}')
+            df.columns = col_names
 
-        if 'element' not in run_dict: # This will be unusual
-            element = setup['input_config']['elements']
-            if type(element) == list:
-                element = element[0]
-            run_dict['element'] = element
-            logging.warning('The REGEX should typically identify which element is used')
-            logging.warning(f"Using {element} as a default")
+            datapath = find_datapath(setup, run_df, index)
 
-        if 'structure' not in run_dict:
-            run_dict['structure'] = setup['sensor']['structure_map']['map'][run_dict['element']][0]
+            write_df_txt(df, datapath, merge=merge)
+            write_meta_df_txt(setup, run_df, merge=merge)
 
-        if 'surface' not in run_dict:
-            run_dict['surface'] = setup['sensor']['structure_map']['map'][run_dict['element']][0]
-
-        if 'fluid' not in run_dict:
-            run_dict['fluid'] = setup['input_config']['fluids'][0]
-
-        run_dict['repeats'] = pd.NA #Will be modified in write_meta_df_txt()
-
-        index = '-'.join(run_dict[p] for p in setup['primary_metadata'])
-
-        run_dict['index'] = index
-        run_dict['date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
-
-        for col in run_dict.keys():
-            # dtypes are not specified here, they get assigned when during read_metadata()
-            run_dict[col] = pd.Series([run_dict[col]])
-        run_df = pd.DataFrame(run_dict)
-        run_df.set_index('index', inplace=True)
-
-        # Read the file contents into a dataframe
-        df = pd.read_csv(os.path.join(input_dir, filename), sep=separator)
-        
-        # Check how many repeats exist in the file and label them
-        # Assumes the first column represents 'wavelength'
-        reps = len(df.columns)-1
-        col_names = ['wavelength']
-        for r in range(reps):
-            col_names.append(f'rep{r+1:02d}')
-        df.columns = col_names
-
-        datapath = find_datapath(setup, run_df, index)
-
-        write_df_txt(df, datapath, merge=merge)
-        write_meta_df_txt(setup, run_df, merge=merge)
-
-        # Note, this function reads and writes the full metadata file
-        # each time, so room for improvement here.
+            # Note, this function reads and writes the full metadata file
+            # each time, so room for improvement here.
 
 def read_metadata(setup=json_setup.default_setup, filebuffer=None):
 
@@ -356,7 +356,9 @@ def read_metadata(setup=json_setup.default_setup, filebuffer=None):
                     parse_dates=['date'],
                     dtype=dtypes,
                     )
-    logging.debug(f'Loaded Metadata Index from {metapath}')
+
+    if not filebuffer:
+        logging.debug(f'Loaded Metadata Index from {metapath}')
        
     return meta_df
 
