@@ -99,6 +99,8 @@ class MeasureWorker(QObject):
 
 class MeasureTab(QWidget):
 
+    run_finished = Signal(str)
+
     def __init__(self, measure_func):
         QWidget.__init__(self)
         self.setObjectName(u"MeasureTab")
@@ -216,11 +218,8 @@ class MeasureTab(QWidget):
         return QSize(840, 600)
 
     def generate_run_df(self):
-        self.run_df = csv.generate_run_df(self.setup)
-
-        self.run_df['fluid'] = self.combo_fluid.currentText()
+        self.run_df = csv.generate_run_df(self.setup, fluid=self.combo_fluid.currentText())
         self.run_df['comment'] = self.tbox_comment.text()
-
         self.progbar.setMaximum(self.run_df['repeats'].sum())
 
     def preview_run_df(self):
@@ -261,6 +260,7 @@ class MeasureTab(QWidget):
         self.btn_run.setEnabled(True)
         self.progbar.reset()
         self.btn_pause.setText('Pause')
+        self.run_finished.emit(status)
         logging.info(status)
 
     def pause_resume(self):

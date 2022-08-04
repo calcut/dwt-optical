@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
         setupBrowse.new_setup.emit(setupBrowse.setup)
 
         # Allows the output tab to immediately update the combo boxes after a measurement run is complete.
-        self.measureTab.worker.finished.connect(self.exportTab.metaFilter.setup_changed)
+        self.measureTab.run_finished.connect(self.exportTab.metaFilter.setup_changed)
 
         self.setupTab = QWidget()
         self.runTab = QWidget()

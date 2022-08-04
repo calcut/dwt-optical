@@ -379,7 +379,7 @@ def read_metadata(setup=json_setup.default_setup, filebuffer=None):
 #     metapath = os.path.join(setup['datadir'], setup['metafile'])
 #     meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
 
-def generate_run_df(setup):
+def generate_run_df(setup, fluid=None):
     '''
     For doing a bulk run of measurements.
     This generates a list (dataframe) of metadata describing the measuremnts
@@ -405,22 +405,25 @@ def generate_run_df(setup):
 
     # Build the run list, row by row
     for e in elements:
-            row = {}
-            row['date'] = pd.NaT
-            row['instrument'] = setup['instrument']['name']
-            row['sensor'] = setup['sensor']['name']
-            row['element'] = e
-            row['structure'] = setup['sensor']['structure_map']['map'][e][0]
-            row['surface'] = setup['sensor']['surface_map']['map'][e][0]
+        row = {}
+        row['date'] = pd.NaT
+        row['instrument'] = setup['instrument']['name']
+        row['sensor'] = setup['sensor']['name']
+        row['element'] = e
+        row['structure'] = setup['sensor']['structure_map']['map'][e][0]
+        row['surface'] = setup['sensor']['surface_map']['map'][e][0]
+        if fluid:
+            row['fluid'] = fluid
+        else:
             row['fluid'] = setup['input_config']['fluids'][0]
-            row['repeats'] = setup['input_config']['repeats']
-            row['comment'] = ''
+        row['repeats'] = setup['input_config']['repeats']
+        row['comment'] = ''
 
-            # Build the index as a string based on primary metadata
-            row['index'] = '-'.join(row[p] for p in setup['primary_metadata'])
+        # Build the index as a string based on primary metadata
+        row['index'] = '-'.join(row[p] for p in setup['primary_metadata'])
 
-            for col in row.keys():
-                run_list[col].append(row[col])
+        for col in row.keys():
+            run_list[col].append(row[col])
 
     # Convert the lists into pandas series
     for col in run_list.keys():
