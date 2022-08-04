@@ -114,8 +114,8 @@ class StageControl(QWidget):
         hbox_enable = QHBoxLayout()
         hbox_enable.addStretch(1)
         hbox_enable.addWidget(QLabel("Motor Channels"))
-        hbox_enable.addWidget(self.btn_home)
         hbox_enable.addWidget(self.btn_enable)
+        hbox_enable.addWidget(self.btn_home)
         hbox_enable.addWidget(self.btn_disable)
 
         grid = QGridLayout()
