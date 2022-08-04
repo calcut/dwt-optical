@@ -68,9 +68,11 @@ class GUILogger(QWidget):
         self.gui_logHandler = GUILogHandler(self)
         logger.addHandler(self.gui_logHandler)
 
-        # font = QFont()
-        # font.setStyleHint(QFont.TypeWriter)
-        # font.setFamily('Monaco')
+        font = QFont()
+        font.setStyleHint(QFont.TypeWriter)
+        font.setFamily('Monaco')
+        font.setPointSize(10)
+        font.setBold(True)
         btn_width = 80
         logLabel = QLabel("Log Output:")
         btn_clear = QPushButton("Clear")
@@ -87,8 +89,8 @@ class GUILogger(QWidget):
         hbox_btn.addWidget(btn_close)
 
         self.logBox = QPlainTextEdit()
-        self.logBox.setStyleSheet("background-color: rgb(0, 43, 54);")
-        # self.logBox.setFont(font)
+        # self.logBox.setStyleSheet("background-color: rgb(0, 43, 54);")
+        self.logBox.setFont(font)
         self.logBox.setLineWrapMode(QPlainTextEdit.NoWrap)
 
         self.logVbox = QVBoxLayout()
