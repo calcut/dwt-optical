@@ -13,6 +13,10 @@ Glasgow University Research Project - Optical Tongue
       - The Libusb "Filter Wizard" tool may need to be re-run
    - Stage not detected / responding
       - try powering the stage controller off and on
+   - GUI hangs or has unexpected behaviour
+      - This could be caused by e.g. removing or editing data, setup or index files manually while it is open
+      - Close and reopen the GUI
+
 
 
 ## Installation
@@ -29,7 +33,7 @@ Glasgow University Research Project - Optical Tongue
     - Unplug and reinsert the USB cable
     - A new COM should appear in device manager under Ports
 
-### Stellarnet Spectrometer
+### Stellarnet Driver
 - Install the Stellarnet USB Driver
     - Available in this repo [lib/stellarnet_win/SWDriver64.exe](./lib/stellarnet_win/SWDriver64.exe) 
     - Also on Stellarnet USB Stick
@@ -41,13 +45,22 @@ Glasgow University Research Project - Optical Tongue
 
 - SpectraWiz software is not needed, but optional
 
+### Libusb Filter 
+   - This is required so python can communicate with the spectrometer
+      - Install from this repo
+      - [lib/stellarnet_win/libusb-win32-devel-filter-1.2.6.0.exe](./lib/stellarnet_win/libusb-win32-devel-filter-1.2.6.0.exe)
+   - Run the Filter Wizard tool to install a filter
+   - Select the Stellarnet Spectrometer from the list of devices
+      - NB **This step will need repeated** if the hardware setup changes 
+
+
 
 
 ### Python
    - Code has been tested with Python 3.10.6
    - Install python by your preferred means
    - Most straightforward is to install directly from [python.org](https://www.python.org/downloads/)
-      - Be sure to check the "Add to Path" box during installation
+      - Be sure to **check the "Add to Path"** box during installation
       - Alternatively use an environment manager like conda or pyenv
 
 ### Python Packages
