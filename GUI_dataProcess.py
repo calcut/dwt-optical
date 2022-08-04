@@ -76,8 +76,12 @@ class DataProcess(QWidget):
         self.grid.setColumnStretch(6,5) #Function Arg3 Name
         self.grid.setColumnStretch(7,5) #Function Arg3 Value
 
-
-        row_trim = 0
+        row_avg = 0
+        self.avg_reps = QCheckBox()
+        self.grid.addWidget(self.avg_reps, row_avg, 0)
+        self.grid.addWidget(QLabel("Average Measurement Repeats"), row_avg, 1, alignment=Qt.AlignLeft)
+    
+        row_trim = 1
         self.trim = QCheckBox()
         self.grid.addWidget(self.trim, row_trim, 0)
         self.grid.addWidget(QLabel("Wavelength Range"), row_trim, 1, alignment=Qt.AlignLeft)
@@ -92,7 +96,7 @@ class DataProcess(QWidget):
         self.trim_max_box.setValue(730)
         self.grid.addWidget(self.trim_max_box, row_trim, 5)
 
-        row_smooth = 1
+        row_smooth = 2
         self.smooth = QCheckBox()
         self.grid.addWidget(self.smooth, row_smooth, 0)
         self.grid.addWidget(QLabel("Smooth (rolling mean)"), row_smooth, 1, alignment=Qt.AlignLeft)
@@ -101,7 +105,7 @@ class DataProcess(QWidget):
         self.smoothpoints_box.setValue(3)
         self.grid.addWidget(self.smoothpoints_box, row_smooth, 3)
         
-        row_interpolate = 2
+        row_interpolate = 3
         self.interpolate = QCheckBox()
         self.grid.addWidget(self.interpolate, row_interpolate, 0)
         self.grid.addWidget(QLabel("Interpolate"), row_interpolate, 1, alignment=Qt.AlignLeft)
@@ -113,12 +117,12 @@ class DataProcess(QWidget):
         self.interpolate_sr_box.setStepType(QtWidgets.QAbstractSpinBox.StepType(1))
         self.grid.addWidget(self.interpolate_sr_box, row_interpolate, 3)
 
-        row_normalise = 3
+        row_normalise = 4
         self.normalise = QCheckBox()
         self.grid.addWidget(self.normalise, row_normalise, 0)
         self.grid.addWidget(QLabel("Normalise"), row_normalise, 1, alignment=Qt.AlignLeft)
 
-        row_round = 4
+        row_round = 5
         self.round = QCheckBox()
         self.grid.addWidget(self.round, row_round, 0)
         self.grid.addWidget(QLabel("Round"), row_round, 1, alignment=Qt.AlignLeft)
@@ -161,6 +165,13 @@ class DataProcess(QWidget):
         # button is pressed
         self.df = self.df_orig.copy()
         self.process_info=''
+
+        if self.avg_reps.isChecked():
+            logging.info('Averging Measurement Repeats')
+            self.dp.apply_avg_repeats = True
+            self.process_info += 'Measurement Repeats Averaged\n'
+        else:
+            self.dp.apply_avg_repeats = False
 
         if self.normalise.isChecked():
             logging.info('Normalising')
