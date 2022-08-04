@@ -1,15 +1,9 @@
-test.hdf5
-export.csv
+
 .DS_Store
-dummydata
 *.pyc
-raw
-sampledata
-export.tsv
 ~$*
-*.tsv
 build
 venv
-.qt_for_python
 dist
 venv-windows
+rootpath_cache

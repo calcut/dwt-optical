@@ -22,14 +22,21 @@ class SetupBrowse(QWidget):
 
     new_setup = Signal(dict)
 
-    def __init__(self, rootpath=None):
+    def __init__(self):
         QWidget.__init__(self)
 
+        self.rootpath = None
+
         try:
-            os.chdir(rootpath)
+            with open('rootpath_cache', 'r') as f:
+                self.rootpath = f.readline()
+            try:
+                os.chdir(self.rootpath)
+            except FileNotFoundError:
+                logging.warning('Working directory not found, please browse and select one')
+
         except FileNotFoundError:
-            logging.warning('Working directory not found, please browse and select one')
-        self.rootpath = rootpath
+            logging.warning('rootpath cache file not found')
 
         self.setup = csv.get_default_setup()
 
@@ -120,6 +127,11 @@ class SetupBrowse(QWidget):
             os.chdir(dir)
             self.update_setup_combo()
             logging.debug(f'setting root directory: {dir}')
+            cache_file = os.path.join(os.path.dirname(__file__), 'rootpath_cache')
+            with open(cache_file, 'w') as f:
+                f.write(self.rootpath)
+                logging.debug(f'Saved {cache_file}')
+
 
     def update_setup_combo(self, current_name='default_setup'):
         logging.debug(f"{current_name=}")

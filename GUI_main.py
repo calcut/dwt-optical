@@ -18,7 +18,7 @@ from GUI_exportTab import ExportTab
 from GUI_hardwareControl import HardwareControl
 
 class MainWindow(QMainWindow):
-    def __init__(self, rootpath):
+    def __init__(self):
         super(MainWindow, self).__init__()
         # self.ui = Ui_MainWindow()
         # self.ui.setupUi(self)
@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         self.importTab = ImportTab()
         self.exportTab = ExportTab()
 
-        setupBrowse = SetupBrowse(rootpath)
+        setupBrowse = SetupBrowse()
         setupBrowse.new_setup.connect(self.singleMeasureTab.setup_changed)
         setupBrowse.new_setup.connect(self.measureTab.setup_changed)
         setupBrowse.new_setup.connect(self.importTab.setup_changed)
@@ -77,8 +77,7 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
 
     app = QApplication(sys.argv)
-    rootpath = '/Users/calum/spectrometer/'
-    window = MainWindow(rootpath)
+    window = MainWindow()
     app.setWindowIcon(QtGui.QIcon(":/icons/full-spectrum.png"))
     sys.exit(app.exec())
 
