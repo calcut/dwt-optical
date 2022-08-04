@@ -3,6 +3,7 @@ import numpy as np
 import logging
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+import re
 import Code_17_06_22.GeneralFunctions_17_06_22 as general_functions
 import Code_17_06_22.FittingFunctions_17_06_22 as fitting_functions
 import Code_17_06_22.FittingSubFunctions_17_06_22 as fitting_subfunctions
@@ -42,6 +43,7 @@ class DataProcessor():
         self.round_decimals = 3
         self.interpolate_sampling_rate = 1.0
 
+        self.apply_avg_repeats = True
         self.apply_normalise = True
         self.apply_smooth = True
         self.apply_trim = True
@@ -55,6 +57,10 @@ class DataProcessor():
 
 
     def process_dataframe(self, df):
+
+        if self.apply_avg_repeats:
+            df = self.avg_repeats(df)
+
         if self.apply_trim:
             try:
                 df = self.trim(df, self.wavelength_trim_min, self.wavelength_trim_max)
@@ -85,6 +91,23 @@ class DataProcessor():
             except:
                 logging.exception("Unable to round")
 
+        return df
+
+    def avg_repeats(self, df):
+
+        # Remove any "repXX" from the column names
+        # This leaves a dataframe where repeats have identical column names
+        regex = re.compile("rep(.*)")
+        for col in df.columns[1:]:
+            newname = regex.sub("", col)
+            df.rename({col : newname}, axis=1, inplace=True)
+
+        # For the each of the new column names
+        # check if there are multiple columns and average if so
+        for col in df.columns[1:].unique():
+            if type(df[col]) == pd.DataFrame:
+                df[f"{col}avg"] = df[col].mean(axis=1)
+                df.drop(df[col], axis=1, inplace=True)
         return df
 
     def interpolate(self, df, SamplingRate):
