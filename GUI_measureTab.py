@@ -121,29 +121,31 @@ class MeasureTab(QWidget):
         self.measure_func = measure_func
 
         # Run_df
-        label_run_df = QLabel("Generate Run List")
+        label_run_df = QLabel("Run List")
         label_run_df.setStyleSheet("font-weight: bold")
-        label_run_idea = QLabel("[Could add import/export options here to allow manual editing?]")
 
-        btn_generate = QPushButton("Generate")
-        btn_generate.clicked.connect(self.generate_run_df)
-        btn_generate.setFixedWidth(btn_width)
+        self.combo_fluid = QComboBox()
+        self.combo_fluid.setEditable(True)
+
+        self.tbox_comment = QLineEdit()
 
         btn_preview_run_df= QPushButton("Preview")
         btn_preview_run_df.clicked.connect(self.preview_run_df)
         btn_preview_run_df.setFixedWidth(btn_width)
 
-        hbox_run_df_btns = QHBoxLayout()
-        hbox_run_df_btns.addWidget(label_run_idea)
-        hbox_run_df_btns.addStretch()
-        hbox_run_df_btns.addWidget(btn_generate)
-        hbox_run_df_btns.addWidget(btn_preview_run_df)
-
         hbox_run_df = QHBoxLayout()
+        hbox_run_df.addStretch(2)
+        hbox_run_df.addWidget(QLabel("Fluid"))
+        hbox_run_df.addWidget(self.combo_fluid, stretch=1)
+        hbox_run_df.addWidget(QLabel("Comment"))
+        hbox_run_df.addWidget(self.tbox_comment, stretch=1)
+        hbox_run_df.addWidget(btn_preview_run_df)
+
+        hbox_run_df_margins = QHBoxLayout()
         # hbox_run_df.addWidget(label_run_df)
-        hbox_run_df.addStretch(1)
-        hbox_run_df.addLayout(hbox_run_df_btns, stretch=10)
-        hbox_run_df.addStretch(1)
+        hbox_run_df_margins.addStretch(1)
+        hbox_run_df_margins.addLayout(hbox_run_df, stretch=10)
+        hbox_run_df_margins.addStretch(1)
 
         # Output Path
         label_output = QLabel("Output Directory Structure:")
@@ -200,7 +202,7 @@ class MeasureTab(QWidget):
         vbox.addWidget(QHLine())
         vbox.addWidget(label_run_df)
         # vbox.addWidget(label_run_idea)
-        vbox.addLayout(hbox_run_df)
+        vbox.addLayout(hbox_run_df_margins)
         vbox.addWidget(QHLine())
         vbox.addWidget(label_output)
         vbox.addLayout(hbox_output)
@@ -215,11 +217,14 @@ class MeasureTab(QWidget):
 
     def generate_run_df(self):
         self.run_df = csv.generate_run_df(self.setup)
+
+        self.run_df['fluid'] = self.combo_fluid.currentText()
+        self.run_df['comment'] = self.tbox_comment.text()
+
         self.progbar.setMaximum(self.run_df['repeats'].sum())
 
     def preview_run_df(self):
-        if self.run_df is None:
-            self.generate_run_df()
+        self.generate_run_df()
         self.runTable = MetaTable(self.run_df, "Run List DataFrame")
         self.runTable.show()
 
@@ -227,8 +232,7 @@ class MeasureTab(QWidget):
     def run_measurements(self):
 
         merge = self.cbox_merge.isChecked()
-        if self.run_df is None:
-            self.generate_run_df()
+        self.generate_run_df()
 
         self.thread = QThread()
 
@@ -275,6 +279,11 @@ class MeasureTab(QWidget):
     def setup_changed(self, setup):
         logging.debug(f"measureTab: got new setup {setup['name']}")
         self.setup = setup
+
+        # Update the fluid options
+        fluids = setup['input_config']['fluids']
+        self.combo_fluid.clear()
+        self.combo_fluid.addItems(fluids)
 
         # Update the output path displayed
         outpath = os.path.abspath(setup['datadir'])
