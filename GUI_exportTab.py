@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget,
     QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QProgressBar)
 import logging
 from GUI_dataProcess import DataProcess
-from GUI_tableView import ExportTable
+from GUI_tableView import ExportTable, PreviewTable
 from GUI_commonWidgets import QHLine, SetupBrowse, MetaFilter
 import lib.csv_helpers as csv
 import pandas as pd
@@ -23,45 +23,53 @@ class ExportWorker(QObject):
 
     def run_spectra(self):
         logging.info(f"running csv.export_dataframes with path={self.setup['datadir']} meta_df=\n{self.meta_df}")
-        self.export = csv.export_dataframes(self.setup, self.meta_df, self.outfile, dp=self.data_proc)
+        try:
+            self.export = csv.export_dataframes(self.setup, self.meta_df, self.outfile, dp=self.dp)
+        except Exception as e:
+            logging.error(e)
         self.finished.emit()
 
     def run_stats(self):
+        try:
+            self.export = pd.DataFrame()
+            progress = 0
+            row_num = 0
+            total = len(self.meta_df)
 
-        self.export = pd.DataFrame()
-        progress = 0
-        row_num = 0
-        total = len(self.meta_df)
+            for row in self.meta_df.index:
+                row_num += 1
+                progress = int(row_num/total * 100)
+                self.progress.emit(progress)
 
-        for row in self.meta_df.index:
-            row_num += 1
-            progress = int(row_num/total * 100)
-            self.progress.emit(progress)
+                # locate the datafile and read it in
+                datapath = csv.find_datapath(self.setup, self.meta_df, row)
+                df = pd.read_csv(datapath, sep='\t')
 
-            # locate the datafile and read it in
-            datapath = csv.find_datapath(self.setup, self.meta_df, row)
-            df = pd.read_csv(datapath, sep='\t')
+                # Add some metadata columns to the output
+                element = self.meta_df.loc[row]['element']
+                surface = self.meta_df.loc[row]['surface']
+                fluid = self.meta_df.loc[row]['fluid']
+                logging.info(f"Processing stats {fluid} {element} {progress}%")
 
-            # Add some metadata columns to the output
-            row_info = pd.DataFrame(index=df.columns[1:])
-            element = self.meta_df.loc[row]['element']
-            surface = self.meta_df.loc[row]['surface']
-            fluid = self.meta_df.loc[row]['fluid']
-            row_info['element'] = element
-            row_info['surface'] = surface
-            row_info['fluid'] = fluid
-            logging.info(f"Processing stats {fluid} {element} {progress}%")
+                df = self.dp.process_dataframe(df)
 
-            df = self.dp.process_dataframe(df)
-            stats_df = self.dp.get_stats(df, peak_type='Min')
-            stats_df = pd.concat([row_info, stats_df], axis=1)
+                row_info = pd.DataFrame(index=df.columns[1:])
+                row_info['element'] = element
+                row_info['surface'] = surface
+                row_info['fluid'] = fluid
 
-            # Accumulate the dataframes in a large 'result' dataframe
-            self.export = pd.concat([self.export, stats_df], axis=0)
+                stats_df = self.dp.get_stats(df, peak_type='Min')
+                stats_df = pd.concat([row_info, stats_df], axis=1)
 
-        self.export.sort_values(by=['element'], inplace=True)
-        self.export.reset_index(drop=True, inplace=True)
+                # Accumulate the dataframes in a large 'result' dataframe
+                self.export = pd.concat([self.export, stats_df], axis=0)
 
+            self.export.sort_values(by=['element'], inplace=True)
+            self.export.reset_index(drop=True, inplace=True)
+
+        except Exception as e:
+            logging.error(e)
+        
         self.finished.emit()
 
 class ExportTab(QWidget):
@@ -74,7 +82,6 @@ class ExportTab(QWidget):
         self.export = None
 
         self.format_options = ["Stats", "LDA Spectra"]
-        self.export_format = self.format_options[0]
 
         # Make a Vertical layout within the new tab
         vbox = QVBoxLayout()
@@ -194,9 +201,10 @@ class ExportTab(QWidget):
         self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp)
         self.worker.moveToThread(self.thread)
 
-        if self.export_format == self.format_options[0]:
+        export_format = self.combo_export.currentText()
+        if export_format == self.format_options[0]:
             self.thread.started.connect(self.worker.run_stats)
-        if self.export_format == self.format_options[1]:
+        if export_format == self.format_options[1]:
             self.thread.started.connect(self.worker.run_spectra)
 
         self.worker.finished.connect(self.thread.quit)
@@ -216,11 +224,14 @@ class ExportTab(QWidget):
         #     logging.info(line)
 
     def view_export(self):
-        title = os.path.abspath(self.tbox_output.text())
-        try:
-            self.table = ExportTable(self.export, title)
+        title = "Export Data"
+        if self.export is not None:
+            if self.combo_export.currentText == self.format_options[1]:
+                self.table = ExportTable(self.export, title)
+            else:
+                self.table = PreviewTable(self.export, title, process_info=self.dataProcess.process_info)
             self.table.show()
-        except AttributeError:
+        else:
             logging.error("Please run export first")
 
 if __name__ == "__main__":

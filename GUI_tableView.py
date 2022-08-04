@@ -277,8 +277,8 @@ class PreviewTable(QMainWindow):
         self.table.setSortingEnabled(True)
         self.table.setModel(self.model)
 
-        self.common_info = QLabel(f'Common Metadata:\n{common_info}')
-        self.process_info = QLabel(f'Process Info:\n{process_info}')
+        self.common_info = QLabel(common_info)
+        self.process_info = QLabel(process_info)
         hbox = QHBoxLayout()
         hbox.addWidget(self.common_info)
         hbox.addWidget(self.process_info)
