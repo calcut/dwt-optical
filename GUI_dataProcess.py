@@ -16,6 +16,8 @@ import lib.data_process
 
 class DataProcess(QWidget):
 
+    request_selection_df = Signal()
+
     def __init__(self):
         QWidget.__init__(self)
 
@@ -146,6 +148,7 @@ class DataProcess(QWidget):
         self.selection_df = selection_df
 
     def apply(self):
+        self.request_selection_df.emit()
       
         if self.df is None:
             self.set_data_from_selection_df()
