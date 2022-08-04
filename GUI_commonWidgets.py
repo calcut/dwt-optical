@@ -199,9 +199,6 @@ class MetaFilter(QWidget):
         label = QLabel("Select/Filter from Metadata file:")
 
         btn_width = 80
-        btn_apply_selection = QPushButton("Apply")
-        btn_apply_selection.clicked.connect(self.select_meta)
-        btn_apply_selection.setFixedWidth(btn_width)
 
         btn_preview_selection = QPushButton("Preview")
         btn_preview_selection.clicked.connect(self.preview_selection)
@@ -213,7 +210,6 @@ class MetaFilter(QWidget):
 
         hbox_selection = QHBoxLayout()
         hbox_selection.addStretch()
-        hbox_selection.addWidget(btn_apply_selection)
         hbox_selection.addWidget(btn_preview_selection)
 
         vbox.addWidget(label)
@@ -369,6 +365,7 @@ class MetaFilter(QWidget):
                 keyCombo.addItems(items)
 
     def preview_selection(self):
+        self.select_meta()
         title = 'Selected Data'
         try:
             self.selectedTable = MetaTable(self.selection_df, title)
