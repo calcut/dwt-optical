@@ -8,3 +8,4 @@ PySide6==6.3.1
 scikit_learn==1.1.1
 scipy==1.8.1
 thorlabs_apt_protocol==29.0.0
+pyusb==1.2.1
