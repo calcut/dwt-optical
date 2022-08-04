@@ -404,24 +404,23 @@ def generate_run_df(setup):
         elements = setup['input_config']['elements']
 
     # Build the run list, row by row
-    for f in setup['input_config']['fluids']:
-        for e in elements:
-                row = {}
-                row['date'] = pd.NaT
-                row['instrument'] = setup['instrument']['name']
-                row['sensor'] = setup['sensor']['name']
-                row['element'] = e
-                row['structure'] = setup['sensor']['structure_map']['map'][e][0]
-                row['surface'] = setup['sensor']['surface_map']['map'][e][0]
-                row['fluid'] = f
-                row['repeats'] = setup['input_config']['repeats']
-                row['comment'] = ''
+    for e in elements:
+            row = {}
+            row['date'] = pd.NaT
+            row['instrument'] = setup['instrument']['name']
+            row['sensor'] = setup['sensor']['name']
+            row['element'] = e
+            row['structure'] = setup['sensor']['structure_map']['map'][e][0]
+            row['surface'] = setup['sensor']['surface_map']['map'][e][0]
+            row['fluid'] = setup['input_config']['fluids'][0]
+            row['repeats'] = setup['input_config']['repeats']
+            row['comment'] = ''
 
-                # Build the index as a string based on primary metadata
-                row['index'] = '-'.join(row[p] for p in setup['primary_metadata'])
+            # Build the index as a string based on primary metadata
+            row['index'] = '-'.join(row[p] for p in setup['primary_metadata'])
 
-                for col in row.keys():
-                    run_list[col].append(row[col])
+            for col in row.keys():
+                run_list[col].append(row[col])
 
     # Convert the lists into pandas series
     for col in run_list.keys():
