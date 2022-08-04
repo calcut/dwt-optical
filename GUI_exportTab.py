@@ -21,7 +21,7 @@ class ExportWorker(QObject):
         self.data_proc = data_proc
 
     def run(self):
-        logging.info(f"running csv.export_dataframes with path={self.setup['path']} meta_df=\n{self.meta_df}")
+        logging.info(f"running csv.export_dataframes with path={self.setup['datadir']} meta_df=\n{self.meta_df}")
         self.export = csv.export_dataframes(self.setup, self.meta_df, self.outfile, dp=self.data_proc)
         self.finished.emit()
 
