@@ -55,6 +55,8 @@ class MeasureWorker(QObject):
                 # call the measure function to get data
                 try:
                     df = self.measure_func(self.setup, meta_row, lr_offset_x)
+                    timestamp = pd.Timestamp.utcnow().timestamp()
+                    df.rename(columns={"transmission (%)" : timestamp }, inplace=True)
                     lr_offset_x = None # don't keep requesting new light references
                 except Exception as e:
                     logging.error(e)
