@@ -11,6 +11,7 @@ import logging
 from lib.thorlabs_stage import Thorlabs_Stage
 from lib.stellarnet_spectrometer import Stellarnet_Spectrometer
 import pickle
+import lib.csv_helpers as csv
 
 # class NotConnectedError(Exception):
 #     """ Raised when running dummy/simulated hardware """
@@ -111,6 +112,10 @@ class StageControl(QWidget):
         self.move_x = QLineEdit('0')
         self.move_y = QLineEdit('0')
 
+        self.btn_save_rotation = QPushButton("Save CSV")
+        self.btn_save_rotation.clicked.connect(self.save_rotation_csv)
+        self.btn_save_rotation.setFixedWidth(btn_width)
+
         hbox_enable = QHBoxLayout()
         hbox_enable.addStretch(1)
         hbox_enable.addWidget(QLabel("Motor Channels"))
@@ -166,6 +171,7 @@ class StageControl(QWidget):
         self.label_rotation = QLabel(str(self.stage.slide_rotation))
         grid.addWidget(self.label_rotation, row_rotation, 2) 
         grid.addWidget(QLabel('degrees'), row_rotation, 3)       
+        grid.addWidget(self.btn_save_rotation, row_rotation, 4)       
 
 
         hbox_grid = QHBoxLayout()
@@ -224,6 +230,15 @@ class StageControl(QWidget):
 
     def move(self):
         self.stage.move_vs_ref(float(self.move_x.text()), float(self.move_y.text()))
+
+    def save_rotation_csv(self):
+        outfile, _ = QFileDialog.getSaveFileName(self, "Select Output File:", f"slide_rotation_map_{self.sensor_name}.csv")
+        csv.export_slide_rotation_csv(self.stage.slide_rotation, self.pos_map, outfile)
+
+    def setup_changed(self, setup):
+        self.pos_map = setup['sensor']['layout']['map']
+        self.sensor_name = setup['sensor']['name']
+        logging.debug(f"Stage Control : got new setup")
 
 class SpectrometerControl(QWidget):
 

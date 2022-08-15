@@ -9,6 +9,7 @@ import copy
 from IPython.display import display
 import logging
 import time
+import math
 
 import lib.json_setup as json_setup
 
@@ -626,3 +627,32 @@ def bulk_process(setup_in, setup_out, delete_input=False, merge_out=False):
 
     if delete_input:
         shutil.rmtree(setup_in['path'])
+
+
+def export_slide_rotation_csv(rotation_deg, pos_map, filepath):
+
+    corr_map = pos_map.copy()
+    # python uses radians by default
+    rads = math.radians(rotation_deg)
+
+    for element, coords in  pos_map.items():
+        x=coords[0]
+        y=coords[1]
+        # # correct for rotation
+        x = round(x*math.cos(rads) - y*math.sin(rads), 2)
+        y = round(y*math.cos(rads) + x*math.sin(rads), 2)
+
+        corr_map[element] = [x, y]
+
+    with open(filepath, 'w') as f:
+        f.write(f'Angle = {rotation_deg} degrees\n')
+
+        f.write(f'Element,X Orig,Y Orig,X Corrected,Y Corrected, X Adjustment,Y Adjustment\n')
+        for key in pos_map.keys():
+            x_orig = pos_map[key][0]
+            y_orig = pos_map[key][1]
+            x_corr = corr_map[key][0]
+            y_corr = corr_map[key][1]
+            x_adj = round(x_corr - x_orig, 5)
+            y_adj = round(y_corr - y_orig, 5)
+            f.write(f'{key},{x_orig},{y_orig},{x_corr},{y_corr},{x_adj},{y_adj}\n')
