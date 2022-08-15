@@ -272,7 +272,7 @@ class MeasureTab(QWidget):
     def update_plot(self, plotdata):
         title = plotdata[1]
         data = plotdata[0]
-        self.plot.set_data(data, title=title)
+        self.plot.set_data(data, title=title, ylim=[-10,120])
 
     def run_complete(self, status):
         self.btn_run.setEnabled(True)

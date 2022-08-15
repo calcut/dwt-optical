@@ -210,7 +210,7 @@ class PlotCanvasBasic(QWidget):
 
         self.setLayout(vbox)
 
-    def set_data(self, df, title=None):
+    def set_data(self, df, title=None, ylim=None, xlim=None):
         self.canvas.axes.cla()
         df.plot(ax=self.canvas.axes,
                 x='wavelength', 
@@ -218,9 +218,18 @@ class PlotCanvasBasic(QWidget):
                 xlabel = self.xlabel,
                 ylabel = self.ylabel,
                 legend = self.legend_visible)
+
+        if xlim:
+            self.canvas.axes.set_xlim(xlim)
+        if ylim:
+            self.canvas.axes.set_ylim(ylim)
         self.canvas.draw()
 
 if __name__ == "__main__":
+
+    with open('rootpath_cache', 'r') as f:
+        rootpath = f.readline()
+    os.chdir(rootpath)
 
     app = QtWidgets.QApplication(sys.argv)
     logger = logging.getLogger()
@@ -229,12 +238,12 @@ if __name__ == "__main__":
 
     meta_tbox = './imported/index.txt'
 
-    meta_df = csv.read_metadata(meta_tbox)
+    setup = csv.get_default_setup()
+    meta_df = csv.read_metadata(setup)
     metapath = os.path.abspath(meta_tbox)
     path = os.path.dirname(metapath)
-    selection_df = csv.select_from_metadata('element', '01', meta_df)
-    selection_df = csv.select_from_metadata('fluid', 'Beer', selection_df)
-    df, title = csv.merge_dataframes(selection_df, path)
+    selection_df = csv.select_from_metadata('fluid', 'air', meta_df)
+    df, title = csv.merge_dataframes(setup, selection_df)
 
     plot.set_data(df, title)
     plot.update()
