@@ -167,6 +167,9 @@ class DataProcessor():
             fwhm, height, baseline = general_functions.FWHM(WavelengthArray, TransArray)
             smoothed_peak = self._smoothed_peak(WavelengthArray, TransArray)
 
+            if self.calc_min:
+                stats_df.at[col, 'Peak'] = round(smoothed_peak, round_digits)
+
             if self.calc_fwhm:
                 stats_df.at[col, 'FWHM'] = round(fwhm, round_digits)
 
@@ -175,9 +178,6 @@ class DataProcessor():
 
             if self.calc_height:
                 stats_df.at[col, 'Height'] = round(height, round_digits)
-
-            if self.calc_min:
-                stats_df.at[col, 'Peak'] = round(smoothed_peak, round_digits)
 
         return stats_df
 
