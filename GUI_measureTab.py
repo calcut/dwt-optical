@@ -1,7 +1,7 @@
 
 import sys
 import os
-from PySide6.QtCore import QObject, QThread, Signal, QSize
+from PySide6.QtCore import QObject, QThread, Signal, QSize, QTimer
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget, QCheckBox,
     QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QProgressBar)
 import logging
@@ -179,10 +179,17 @@ class MeasureTab(QWidget):
         self.btn_stop.setFixedWidth(btn_width)
 
         self.progbar = QProgressBar()
+        self.proglabel = QLabel("00:00 / 00:00")
+        self.progtimer = QTimer()
+        self.elapsed_time = 0
+        self.estimated_total_time = 0
+        self.progtimer.timeout.connect(self.increment_elapsed_time)
+
         self.plot = PlotCanvasBasic()
 
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
+        hbox_run.addWidget(self.proglabel)
         hbox_run.addWidget(self.progbar)
         hbox_run.addWidget(self.btn_run)
         hbox_run.addWidget(self.btn_pause)
@@ -244,12 +251,23 @@ class MeasureTab(QWidget):
         # Step 6: Start the thread
         self.thread.start()
         self.btn_run.setEnabled(False)
+        self.elapsed_time = 0
+        self.progtimer.start(100)
         self.worker.finished.connect(self.run_complete)
         self.worker.progress.connect(self.set_progress)
         self.worker.plotdata.connect(self.update_plot)
 
     def set_progress(self, progress):
         self.progbar.setValue(progress)
+        max = self.progbar.maximum()
+        measure_time = self.elapsed_time / progress
+        self.estimated_total_time =  round(max * measure_time, 1)
+        
+    def increment_elapsed_time(self):
+        self.elapsed_time += 0.1
+        elapsed = time.strftime('%M:%S', time.gmtime(self.elapsed_time))
+        total = time.strftime('%M:%S', time.gmtime(self.estimated_total_time))
+        self.proglabel.setText(f"{elapsed} / {total}")
 
     def update_plot(self, plotdata):
         title = plotdata[1]
@@ -259,6 +277,7 @@ class MeasureTab(QWidget):
     def run_complete(self, status):
         self.btn_run.setEnabled(True)
         self.progbar.reset()
+        self.progtimer.stop()
         self.btn_pause.setText('Pause')
         self.run_finished.emit(status)
         logging.info(status)
@@ -267,14 +286,17 @@ class MeasureTab(QWidget):
         if self.thread:
             if self.btn_pause.text() == "Pause":
                 self.worker.pause = True
+                self.progtimer.stop()
                 self.btn_pause.setText('Resume')
             else:
                 self.worker.pause = False
+                self.progtimer.start(100)
                 self.btn_pause.setText('Pause')
         
     def stop_measurements(self):
         if self.thread:
             self.worker.stop_requested = True
+            self.progtimer.stop()
 
     def setup_changed(self, setup):
         logging.debug(f"measureTab: got new setup {setup['name']}")
