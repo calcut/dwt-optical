@@ -178,8 +178,7 @@ class ExportTab(QWidget):
         self.dataProcess.setup_changed(setup)
 
     def get_output(self):
-        # outfile, _ = QFileDialog.getSaveFileName(self, "Select Output File:")
-        outfile, _ = QFileDialog.getOpenFileName(self, "Select Output File:")
+        outfile, _ = QFileDialog.getSaveFileName(self, "Select Output File:")
         self.tbox_output.setText(outfile)
 
     def save_export(self):
