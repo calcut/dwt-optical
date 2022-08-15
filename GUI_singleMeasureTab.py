@@ -10,6 +10,7 @@ from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
 from GUI_plotCanvas import PlotCanvasBasic
 import lib.csv_helpers as csv
+import lib.json_setup as json_setup
 import pandas as pd
 
 class SingleMeasureTab(QWidget):
@@ -40,12 +41,10 @@ class SingleMeasureTab(QWidget):
         grid.setContentsMargins(0, 0, 0, 0)
 
         self.tbox_instrument = QLineEdit()
-        self.tbox_instrument.setReadOnly(True)
         grid.addWidget(QLabel("Instrument"), 0, 0)
         grid.addWidget(self.tbox_instrument, 0, 1)
 
         self.tbox_sensor = QLineEdit()
-        self.tbox_sensor.setReadOnly(True)
         grid.addWidget(QLabel("Sensor"), 1, 0)
         grid.addWidget(self.tbox_sensor, 1, 1)    
 
@@ -55,18 +54,21 @@ class SingleMeasureTab(QWidget):
         grid.addWidget(QLabel("Element"), 2, 0)
         grid.addWidget(self.combo_element, 2, 1)
 
-        self.tbox_layout = QLineEdit()
-        self.tbox_layout.setReadOnly(True)
+        self.tbox_pos_x = QLineEdit()
+        self.tbox_pos_y = QLineEdit()
+        hbox_pos = QHBoxLayout()
+        hbox_pos.addWidget(QLabel('X'))
+        hbox_pos.addWidget(self.tbox_pos_x)
+        hbox_pos.addWidget(QLabel('Y'))
+        hbox_pos.addWidget(self.tbox_pos_y)
         grid.addWidget(QLabel("Position"), 3, 0)
-        grid.addWidget(self.tbox_layout, 3, 1)
+        grid.addLayout(hbox_pos, 3, 1)
 
         self.tbox_structure = QLineEdit()
-        self.tbox_structure.setReadOnly(True)
         grid.addWidget(QLabel("Structure"), 4, 0)
         grid.addWidget(self.tbox_structure, 4, 1)
 
         self.tbox_surface = QLineEdit()
-        self.tbox_surface.setReadOnly(True)
         grid.addWidget(QLabel("Surface"), 5, 0)
         grid.addWidget(self.tbox_surface, 5, 1)
 
@@ -85,8 +87,7 @@ class SingleMeasureTab(QWidget):
         hbox_grid.addStretch(1)
 
         # Output Path
-        # label_output = QLabel("Output Directory Structure")
-        label_output = QLabel("Output currently not saved")
+        label_output = QLabel("Output")
         label_output.setStyleSheet("font-weight: bold")
         self.tbox_outpath = QLineEdit()
         self.tbox_outpath.setReadOnly(True)
@@ -94,7 +95,7 @@ class SingleMeasureTab(QWidget):
         # Merge
         label_merge = QLabel('Merge into existing files')
         self.cbox_merge = QCheckBox()
-        self.cbox_merge.setChecked(True)
+        self.cbox_merge.setChecked(False)
         hbox_merge = QHBoxLayout()
         hbox_merge.addWidget(self.cbox_merge)
         hbox_merge.addWidget(label_merge)
@@ -105,19 +106,24 @@ class SingleMeasureTab(QWidget):
         btn_run.clicked.connect(self.run_measurement)
         btn_run.setFixedWidth(btn_width)
 
+        btn_save= QPushButton("Save")
+        btn_save.clicked.connect(self.save_measurement)
+        btn_save.setFixedWidth(btn_width)
+
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
         hbox_run.addWidget(btn_run)
+        hbox_run.addWidget(btn_save)
 
         vbox_output = QVBoxLayout()
         vbox_output.addWidget(self.tbox_outpath)
         vbox_output.addLayout(hbox_merge)
-        # vbox_output.addLayout(hbox_run)
+        vbox_output.addLayout(hbox_run)
 
         hbox_output = QHBoxLayout()
         hbox_output.addStretch(1)
-        hbox_output.addLayout(hbox_run, stretch=10)
-        # hbox_output.addLayout(vbox_output, stretch=10)
+        # hbox_output.addLayout(hbox_run, stretch=10)
+        hbox_output.addLayout(vbox_output, stretch=10)
         hbox_output.addStretch(1)
 
         self.plot = PlotCanvasBasic()
@@ -142,54 +148,83 @@ class SingleMeasureTab(QWidget):
 
     def run_measurement(self):
         
-        element = self.combo_element.currentText()
-        fluid = self.combo_fluid.currentText()
-        comment = self.tbox_comment.text()
-
-        # merge = self.cbox_merge.isChecked()  
-
         run_dict = {
             'date'          : pd.Timestamp.utcnow().strftime('%Y-%m-%d'),
-            'instrument'    : self.setup['instrument']['name'],
-            'sensor'        : self.setup['sensor']['name'],
-            'element'       : element,
-            'structure'     : self.setup['sensor']['structure_map']['map'][element][0],
-            'surface'       : self.setup['sensor']['surface_map']['map'][element][0],
-            'fluid'         : fluid,
+            'instrument'    : self.tbox_instrument.text(),
+            'sensor'        : self.tbox_sensor.text(),
+            'element'       : self.combo_element.currentText(),
+            'structure'     : self.tbox_structure.text(),
+            'surface'       : self.tbox_surface.text(),
+            'fluid'         : self.combo_fluid.currentText(),
             'repeats'       : 1,
-            'comment'       : comment
+            'comment'       : self.tbox_comment.text()
         }
 
+        # To manually override the position
+        modified_setup = self.setup.copy()
+        element = self.combo_element.currentText()
+        modified_setup['sensor']['layout']['map'][element][0] = float(self.tbox_pos_x.text())
+        modified_setup['sensor']['layout']['map'][element][1] = float(self.tbox_pos_y.text())
+
+        row = '-'.join(run_dict[p] for p in self.setup['primary_metadata'])
+        run_dict['index'] = row
+
+        # Awkward way to get into a "run dataframe"
+        # but this is done to mirror the batch measure version
+        run_list = json_setup.default_metadata_columns.copy()
+        run_list.pop('name')
+
+        for col in run_dict.keys():
+            run_list[col] = [run_dict[col]]
+
+        self.run_df = pd.DataFrame(run_list)
+        self.run_df.set_index('index', inplace=True)
+
         try:
-            df = self.measure_func(self.setup, run_dict)
+            self.df = self.measure_func(modified_setup, self.run_df.loc[row])
         except Exception as e:
             logging.error(e)
             return
+
+        self.plot.set_data(self.df)
         
-        self.plot.set_data(df)
+
+    def save_measurement(self):
+
+        merge = self.cbox_merge.isChecked()
+
+        row = self.run_df.index[0]
+        datapath = csv.find_datapath(self.setup, self.run_df, row)
+        csv.write_df_txt(self.df, datapath, merge)
+        logging.info(f'saved to {datapath}')
+
+        self.run_df.at[row, 'date'] = pd.Timestamp.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        csv.write_meta_df_txt(self.setup, self.run_df, merge)
 
     def element_changed(self, element):
         try:
             layout = self.setup['sensor']['layout']['map'][element]
-            if type(layout) == list:
-                layout = f'{layout[0]}, {layout[1]}'
         except KeyError:
-            layout = 'Unknown - Please update the setup file'
+            pass
+            # layout = 'Unknown - Please update the setup file'
 
         try:
             surface = self.setup['sensor']['surface_map']['map'][element]
             if type(surface) == list:
                 surface = f'{surface[0]}, {surface[1]}'
         except KeyError:
-            surface = 'Unknown - Please update the setup file'
+            pass
+            # surface = 'Unknown - Please update the setup file'
 
         try:
             structure = self.setup['sensor']['structure_map']['map'][element]
             if type(structure) == list:
                 structure = f'{structure[0]}, {structure[1]}'
         except KeyError:
-            structure = 'Unknown - Please update the setup file'
-        self.tbox_layout.setText(layout)
+            pass
+            # structure = 'Unknown - Please update the setup file'
+        self.tbox_pos_x.setText(str(layout[0]))
+        self.tbox_pos_y.setText(str(layout[1]))
         self.tbox_surface.setText(surface)
         self.tbox_structure.setText(structure)
 
