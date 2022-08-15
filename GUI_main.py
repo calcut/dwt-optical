@@ -79,8 +79,9 @@ class MainWindow(QMainWindow):
  
 
 if __name__ == "__main__":
-
+    
     app = QApplication(sys.argv)
+    app.setStyle('Fusion')
     window = MainWindow()
     app.setWindowIcon(QtGui.QIcon(":/icons/full-spectrum.png"))
     sys.exit(app.exec())
