@@ -1,12 +1,11 @@
-import os
 import sys
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget,
-    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QProgressBar)
+    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox)
 import logging
 from GUI_dataProcess import DataProcess
 from GUI_tableView import ExportTable, PreviewTable
-from GUI_commonWidgets import QHLine, SetupBrowse, MetaFilter
+from GUI_commonWidgets import QHLine, MetaFilter
 import lib.csv_helpers as csv
 import pandas as pd
 
@@ -14,12 +13,13 @@ class ExportWorker(QObject):
     finished = Signal()
     progress = Signal(int)
 
-    def __init__(self, setup, meta_df, data_proc=None):
+    def __init__(self, setup, meta_df, data_proc=None, std_dev=True):
         super().__init__()
         self.setup = setup
         self.meta_df = meta_df
         self.outfile = None
         self.dp = data_proc
+        self.std_dev = std_dev
 
     def run_spectra(self):
         logging.info(f"running csv.export_dataframes with path={self.setup['datadir']} meta_df=\n{self.meta_df}")
@@ -36,30 +36,18 @@ class ExportWorker(QObject):
             row_num = 0
             total = len(self.meta_df)
 
+            if self.dp.apply_avg_repeats and self.std_dev:
+                std_dev = True
+            else:
+                std_dev = False
+
             for row in self.meta_df.index:
                 row_num += 1
                 progress = int(row_num/total * 100)
                 self.progress.emit(progress)
 
-                # locate the datafile and read it in
-                datapath = csv.find_datapath(self.setup, self.meta_df, row)
-                df = pd.read_csv(datapath, sep='\t')
-
-                # Add some metadata columns to the output
-                element = self.meta_df.loc[row]['element']
-                surface = self.meta_df.loc[row]['surface']
-                fluid = self.meta_df.loc[row]['fluid']
-                logging.info(f"Processing stats {fluid} {element} {progress}%")
-
-                df = self.dp.process_dataframe(df)
-
-                row_info = pd.DataFrame(index=df.columns[1:])
-                row_info['element'] = element
-                row_info['surface'] = surface
-                row_info['fluid'] = fluid
-
-                stats_df = self.dp.get_stats(df, peak_type='Min')
-                stats_df = pd.concat([row_info, stats_df], axis=1)
+                logging.info(f"Processing stats {progress}%")
+                stats_df = csv.get_stats_single(self.setup, self.dp, self.meta_df, row, peak_type='Min', std_deviation=std_dev)
 
                 # Accumulate the dataframes in a large 'result' dataframe
                 self.export = pd.concat([self.export, stats_df], axis=0)
@@ -81,7 +69,7 @@ class ExportTab(QWidget):
         default_outfile = 'export.txt'
         self.export = None
 
-        self.format_options = ["Stats", "LDA Spectra"]
+        self.format_options = ["Stats", "Stats (No Std Dev)", "LDA Spectra"]
 
         # Make a Vertical layout within the new tab
         vbox = QVBoxLayout()
@@ -197,13 +185,19 @@ class ExportTab(QWidget):
         self.dataProcess.apply()
         selection_df = self.metaFilter.selection_df
 
-        self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp)
-        self.worker.moveToThread(self.thread)
 
         export_format = self.combo_export.currentText()
         if export_format == self.format_options[0]:
+            self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp, std_dev=True)
+            self.worker.moveToThread(self.thread)
             self.thread.started.connect(self.worker.run_stats)
         if export_format == self.format_options[1]:
+            self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp, std_dev=False)
+            self.worker.moveToThread(self.thread)
+            self.thread.started.connect(self.worker.run_stats)
+        if export_format == self.format_options[2]:
+            self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp, self.std_dev)
+            self.worker.moveToThread(self.thread)
             self.thread.started.connect(self.worker.run_spectra)
 
         self.worker.finished.connect(self.thread.quit)
@@ -217,10 +211,6 @@ class ExportTab(QWidget):
     def export_complete(self):
         self.btn_apply.setEnabled(True)
         self.export = self.worker.export
-        # logging.info('Export Complete, Summary:\n')
-        # summary = self.worker.export.to_string(max_cols=15, max_rows=15)
-        # for line in summary.splitlines():
-        #     logging.info(line)
 
     def view_export(self):
         title = "Export Data"

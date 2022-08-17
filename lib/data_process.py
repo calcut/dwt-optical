@@ -149,7 +149,7 @@ class DataProcessor():
         df = df.rolling(window=smooth_points).mean()
         return df
 
-    def get_stats(self, df, peak_type='Min', round_digits=2):
+    def get_stats(self, df, peak_type='Min', round_digits=3, std_deviation=False):
 
         # this imports the example code rather than re-implementing it
 
@@ -179,7 +179,18 @@ class DataProcessor():
             if self.calc_height:
                 stats_df.at[col, 'Height'] = round(height, round_digits)
 
-        return stats_df
+
+        if std_deviation:
+
+            stats_avg_df = pd.DataFrame(index=['averaged'], dtype='float64')
+            for col in stats_df.columns:
+                stats_avg_df[f"{col}"] = round(stats_df[col].mean(axis=0), round_digits)
+            for col in stats_df.columns:
+                stats_avg_df[f"{col}-SD"] = round(stats_df[col].std(axis=0), round_digits)
+            return stats_avg_df
+
+        else:
+            return stats_df
 
     def _smoothed_peak(self, Wavelength, TransArray):
 
