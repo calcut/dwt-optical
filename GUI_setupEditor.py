@@ -277,7 +277,7 @@ class TableWidget(QTableWidget):
             col_list = range(1, cols+1)
             map_dict = {}
             for row, col in [(row, col) for row in row_list for col in col_list]:
-                map_dict[F"{row}{col:02d}"] = detail_box.text()
+                map_dict[F"{row}{col:02d}"] = json_setup.parse_string(detail_box.text())
 
             self.dictionary['map'] = map_dict
             self.build_table()
