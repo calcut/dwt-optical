@@ -54,6 +54,7 @@ class DataProcessor():
         self.calc_min = True
         self.calc_baseline = False
         self.calc_height = True
+        self.calc_inflections = True
 
 
     def process_dataframe(self, df):
@@ -179,6 +180,10 @@ class DataProcessor():
             if self.calc_height:
                 stats_df.at[col, 'Height'] = round(height, round_digits)
 
+            if self.calc_inflections:
+                inflection_min, inflection_max = self._get_inflections(df['wavelength'], df[col], trim_nm=100, smooth_points=30) 
+                stats_df.at[col, 'InflectionMin'] = round(inflection_min, round_digits)
+                stats_df.at[col, 'InflectionMax'] = round(inflection_max, round_digits)
 
         if std_deviation:
 
@@ -202,3 +207,23 @@ class DataProcessor():
         peak=fitting_functions.SmoothAndSelect(WavelengthCut,TransArrayCut)
 
         return peak
+
+    def _get_inflections(self, wl_series, trans_series, trim_nm=100, smooth_points=30):
+
+        # smooth first
+        trans_smoothed = trans_series.rolling(window=smooth_points, center=True).mean()
+
+        # Get the wavelength of the literal minimum
+        wl_minimum = wl_series.iloc[trans_smoothed.idxmin()]
+
+        # trim the derivative at +/- trim_nm around the minimum
+        trans_smoothed = trans_smoothed.loc[wl_series >= wl_minimum -trim_nm]
+        trans_smoothed = trans_smoothed.loc[wl_series <= wl_minimum +trim_nm]
+
+        # This does a simple delta y / delta x type of derivative
+        trans_deriv = trans_smoothed.diff() / wl_series.diff()
+
+        inflection_min = wl_series.iloc[trans_deriv.idxmin()]
+        inflection_max = wl_series.iloc[trans_deriv.idxmax()]
+
+        return inflection_min, inflection_max 
