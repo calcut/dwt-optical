@@ -488,7 +488,7 @@ def write_df_txt(df, datapath, merge=True):
         if merge:
             logging.info(f'Merging into existing {datapath}')
 
-            with open(datapath, 'r+') as f:
+            with open(datapath, 'r+', newline='') as f:
                 existing_df = pd.read_csv(f, sep='\t')
 
                 df = pd.merge(existing_df, df, how='outer', on='wavelength', sort=True)
