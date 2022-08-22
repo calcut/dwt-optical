@@ -146,7 +146,7 @@ class DataProcessor():
         return df
 
     def smooth(self, df, smooth_points=3):
-        df = df.rolling(window=smooth_points).mean()
+        df = df.rolling(window=smooth_points, center=True).mean()
         return df
 
     def get_stats(self, df, peak_type='Min', round_digits=3, std_deviation=False):
