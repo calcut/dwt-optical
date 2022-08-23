@@ -201,11 +201,11 @@ class DataProcess(QWidget):
             self.dp.apply_trim = False
 
         if self.interpolate.isChecked():
-            samplerate = self.interpolate_sr_box.value()
+            samplerate = round(self.interpolate_sr_box.value(),3)
             logging.info(f'Interpolating to rate of {samplerate}nm')
             self.dp.interpolate_sampling_rate = samplerate
             self.dp.apply_interpolate = True
-            self.process_info += f'Interploated to rate of {samplerate}nm\n'
+            self.process_info += f'interpolated to rate of {samplerate}nm\n'
         else:
             self.dp.apply_interpolate = False
 
