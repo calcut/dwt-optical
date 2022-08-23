@@ -140,7 +140,7 @@ class DataProcess(QWidget):
             self.df, self.title = csv.merge_dataframes(self.setup, self.selection_df)
             self.df_orig = self.df.copy()
             self.title_orig = self.title
-            logging.info(f'Selected data contains {len(self.df.columns)-1} measurements')
+            logging.info(f'Selected data contains {len(self.df.columns)} measurements')
 
     def setup_changed(self, setup):
         self.setup = setup
@@ -224,7 +224,7 @@ class DataProcess(QWidget):
         self.process_info = self.process_info[:-1]
 
         if self.plotcanvas.plot_visible:
-            self.plot(apply=False)
+            self.plot(dont_apply=True)
         
     def preview(self):
         if self.df is None:
@@ -237,12 +237,17 @@ class DataProcess(QWidget):
             process_info= self.process_info)
         self.selectedTable.show()
 
-    def plot(self, apply=True):
-        if apply:
+    def plot(self, dont_apply=False):
+
+        # double negative here because arguements are always false when called by button(?)
+        if not dont_apply:
             self.apply() # Apply latest changes first
-        print(f'{len(self.df.columns)=}')
         if len(self.df.columns) == 1:
-            stats_df = self.dp.get_stats(self.df, std_deviation=True, round_digits=self.dp.round_decimals)
+            try:
+                stats_df = self.dp.get_stats(self.df, std_deviation=True, round_digits=self.dp.round_decimals)
+            except Exception as e:
+                stats_df = None
+                logging.warning(f'Could not show stats: {e}')
         else: 
             stats_df = None
         self.plotcanvas.set_data(self.df, self.title, self.process_info, stats_df=stats_df)
