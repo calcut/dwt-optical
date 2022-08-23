@@ -26,10 +26,12 @@ class SetupBrowse(QWidget):
         QWidget.__init__(self)
 
         self.rootpath = None
+        previous_setup = None
 
         try:
             with open('rootpath_cache', 'r') as f:
-                self.rootpath = f.readline()
+                self.rootpath = f.readline().strip()
+                previous_setup = f.readline().strip()
             try:
                 os.chdir(self.rootpath)
             except FileNotFoundError:
@@ -116,7 +118,7 @@ class SetupBrowse(QWidget):
         self.setLayout(vbox)
 
         # Populate the fields:
-        self.update_setup_combo()
+        self.update_setup_combo(previous_setup)
         self.setup_combo.currentIndexChanged.connect(self.update_setup_json)
 
     def browse_path(self):
@@ -127,10 +129,14 @@ class SetupBrowse(QWidget):
             os.chdir(dir)
             self.update_setup_combo()
             logging.debug(f'setting root directory: {dir}')
-            cache_file = os.path.join(os.path.dirname(__file__), 'rootpath_cache')
-            with open(cache_file, 'w') as f:
-                f.write(self.rootpath)
-                logging.debug(f'Saved {cache_file}')
+            self.update_cache_file()
+
+    def update_cache_file(self):
+        cache_file = os.path.join(os.path.dirname(__file__), 'rootpath_cache')
+        with open(cache_file, 'w') as f:
+            f.write(self.rootpath+'\n')
+            f.write(self.setup_combo.currentText())
+            logging.debug(f'Saved {cache_file}')
 
 
     def update_setup_combo(self, current_name='default_setup'):
@@ -166,6 +172,7 @@ class SetupBrowse(QWidget):
             self.tbox_metapath.setText(self.metapath)
             logging.debug(f"New Setup dict: {self.setup['name']}")
             self.new_setup.emit(self.setup)
+            self.update_cache_file()
         else:
             logging.error(f'No Setup File found at {self.setuppath}')
 
