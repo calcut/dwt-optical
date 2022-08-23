@@ -249,13 +249,10 @@ def export_dataframes(setup, meta_df=None, outfile=None, dp=None):
             return
 
         header_row_names = ['Surface', 'Element', 'Wavelength']
-        # This might be broken!
-        header_rows= [[f'{surface}'],[F'{e}'], element_df.index]
-        # header_rows= [[f'{surface}'],[F'{e}'], element_df.loc['wavelength']]
+        header_rows= [[f'{surface}'],[F'{e}'], element_df.columns]
         col_ix = pd.MultiIndex.from_product(header_rows, names = header_row_names)
 
         element_df.columns = col_ix
-        # element_df.drop('wavelength', inplace=True)
         frames.append(element_df)
 
 
