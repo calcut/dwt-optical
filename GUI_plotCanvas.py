@@ -127,16 +127,16 @@ class PlotCanvas(QtWidgets.QMainWindow):
     #             self.canvas.draw_idle()
     
     def set_data(self, df, title=None, info=None, legend_limit=15, stats_df=None):
-        lines = len(df.columns)
+        numlines = len(df.columns)
 
-        if lines > legend_limit:
+        if numlines > legend_limit:
             self.legend_visible = False
         else:
             self.legend_visible = True
 
-        if lines > 100:
+        if numlines > 500:
             msg = QtWidgets.QMessageBox()
-            ret = msg.information(self,'', (f"This will plot {lines} lines,"
+            ret = msg.information(self,'', (f"This will plot {numlines} lines,"
              +" which may take some time.\n\nContinue?"), msg.Yes | msg.No)
 
             if ret == msg.No:
@@ -148,7 +148,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
         if info is not None:
             self.process_info.setText(info)
 
-        logging.info(f'Plotting {lines} lines')
+        logging.debug(f'Plotting {numlines} lines')
         self.canvas.axes.cla()
         df.plot(ax=self.canvas.axes,
                 title=title,
@@ -160,8 +160,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
         self.canvas.draw()
         self.canvas.mpl_connect('pick_event', self.onpick)
         # self.canvas.mpl_connect("motion_notify_event", self.hover)
-        self.show()
-        self.plot_visible = True
+
 
 
         lines = self.canvas.axes.get_lines()
@@ -174,25 +173,28 @@ class PlotCanvas(QtWidgets.QMainWindow):
         self.ax = self.canvas.axes
 
         if stats_df is not None:
-            # try:
-            row = stats_df.index[0]
-            inflection_min = stats_df.loc[row]['InflectionMin']
-            inflection_max = stats_df.loc[row]['InflectionMax']
-            fwhm = stats_df.loc[row]['FWHM']
-            peak = stats_df.loc[row]['Peak']
-            height = stats_df.loc[row]['Height']
-            min = df[df.columns[0]].min()
-            min_wl = df[df.columns[0]].idxmin()
-            half_max=min+height/2
-            self.ax.axvline(x=peak, label=f"Peak={peak}nm", color='r')
-            self.ax.axvline(x=inflection_min, label=f"InflectionMin={inflection_min}nm", color='c')
-            self.ax.axvline(x=inflection_max, label=f"InflectionMax={inflection_max}nm", color='c')
-            self.ax.hlines(y=half_max, xmin=min_wl-fwhm/2, xmax=min_wl+fwhm/2, label=f"FWHM={fwhm}nm", color='m')
-            self.ax.axhline(y=min+height, label=f"Height={height}%", color='g')
-            # self.ax.axhline(y=0.5, color='r')
-            self.canvas.draw()
-            # except Exception as e:
-            #     logging.warning(f'Could not plot stats: {e}') 
+            try:
+                trans = df[df.columns[0]]
+                row = stats_df.index[0]
+                inflection_min = stats_df.loc[row]['Infl_L']
+                inflection_max = stats_df.loc[row]['Infl_R']
+                fwhm = stats_df.loc[row]['FWHM']
+                peak = stats_df.loc[row]['Peak']
+                height = stats_df.loc[row]['Height']
+
+                # Recalculate some FWHM details to position lines on plot
+                min = trans.min()
+                half_max=min+height/2
+                hm_range = trans[trans <= half_max].index
+                
+                self.ax.axvline(x=peak, label=f"Peak={peak}nm", color='r')
+                self.ax.axvline(x=inflection_min, label=f"Infl_L={inflection_min}nm", color='c')
+                self.ax.axvline(x=inflection_max, label=f"Infl_R={inflection_max}nm", color='c')
+                self.ax.hlines(y=half_max, xmin=hm_range[0], xmax=hm_range[-1], label=f"FWHM={fwhm}nm", color='m')
+                self.ax.axhline(y=min+height, label=f"Height={height}%", color='g')
+                # self.canvas.draw()
+            except Exception as e:
+                logging.warning(f'Could not plot stats: {e}') 
 
         if self.legend_visible:
             for legline, pltline in zip(self.ax.legend().get_lines(), lines):
@@ -202,6 +204,10 @@ class PlotCanvas(QtWidgets.QMainWindow):
                 # legend lines and vice versa
                 self.pltline_dict[pltline] = legline
                 self.legline_dict[legline] = pltline
+
+        self.canvas.draw()
+        self.show()
+        self.plot_visible = True
 
         # crs = mplcursors.cursor(self.canvas.axes, hover=True)
         crs = mplcursors.cursor(self.canvas.axes)
@@ -253,7 +259,7 @@ if __name__ == "__main__":
     import lib.data_process
 
     with open('rootpath_cache', 'r') as f:
-        rootpath = f.readline()
+        rootpath = f.readline().strip()
     os.chdir(rootpath)
 
     app = QtWidgets.QApplication(sys.argv)
@@ -282,13 +288,9 @@ if __name__ == "__main__":
     plot.set_data(df, title, stats_df=stats_df)
     plot.update()
 
-
-    
-
-
-
-    plot.resize(1024, 768)
+    # plot.resize(1024, 768)
     plot.show()
+    plot.set_data(df, title, stats_df=stats_df)
 
     sys.exit(app.exec())
 
