@@ -126,8 +126,8 @@ class PlotCanvas(QtWidgets.QMainWindow):
     #             self.annot.set_visible(False)
     #             self.canvas.draw_idle()
     
-    def set_data(self, df, title=None, info=None, legend_limit=15):
-        lines = len(df.columns) -1
+    def set_data(self, df, title=None, info=None, legend_limit=15, stats_df=None):
+        lines = len(df.columns)
 
         if lines > legend_limit:
             self.legend_visible = False
@@ -152,10 +152,11 @@ class PlotCanvas(QtWidgets.QMainWindow):
         self.canvas.axes.cla()
         df.plot(ax=self.canvas.axes,
                 title=title,
-                x='wavelength', 
+                # x='wavelength', 
                 xlabel = 'Wavelength (nm)',
                 ylabel = 'Transmission (%)',
                 legend = self.legend_visible)
+
         self.canvas.draw()
         self.canvas.mpl_connect('pick_event', self.onpick)
         # self.canvas.mpl_connect("motion_notify_event", self.hover)
@@ -171,7 +172,28 @@ class PlotCanvas(QtWidgets.QMainWindow):
             line.set_color(color+'ff')
 
         self.ax = self.canvas.axes
-        
+
+        if stats_df is not None:
+            # try:
+            row = stats_df.index[0]
+            inflection_min = stats_df.loc[row]['InflectionMin']
+            inflection_max = stats_df.loc[row]['InflectionMax']
+            fwhm = stats_df.loc[row]['FWHM']
+            peak = stats_df.loc[row]['Peak']
+            height = stats_df.loc[row]['Height']
+            min = df[df.columns[0]].min()
+            min_wl = df[df.columns[0]].idxmin()
+            half_max=min+height/2
+            self.ax.axvline(x=peak, label=f"Peak={peak}nm", color='r')
+            self.ax.axvline(x=inflection_min, label=f"InflectionMin={inflection_min}nm", color='c')
+            self.ax.axvline(x=inflection_max, label=f"InflectionMax={inflection_max}nm", color='c')
+            self.ax.hlines(y=half_max, xmin=min_wl-fwhm/2, xmax=min_wl+fwhm/2, label=f"FWHM={fwhm}nm", color='m')
+            self.ax.axhline(y=min+height, label=f"Height={height}%", color='g')
+            # self.ax.axhline(y=0.5, color='r')
+            self.canvas.draw()
+            # except Exception as e:
+            #     logging.warning(f'Could not plot stats: {e}') 
+
         if self.legend_visible:
             for legline, pltline in zip(self.ax.legend().get_lines(), lines):
                 legline.set_picker(True)  # Enable picking on the legend lines.
@@ -213,7 +235,7 @@ class PlotCanvasBasic(QWidget):
     def set_data(self, df, title=None, ylim=None, xlim=None):
         self.canvas.axes.cla()
         df.plot(ax=self.canvas.axes,
-                x='wavelength', 
+                # x='wavelength', 
                 title = title,
                 xlabel = self.xlabel,
                 ylabel = self.ylabel,
@@ -227,6 +249,9 @@ class PlotCanvasBasic(QWidget):
 
 if __name__ == "__main__":
 
+    import lib.json_setup as json_setup
+    import lib.data_process
+
     with open('rootpath_cache', 'r') as f:
         rootpath = f.readline()
     os.chdir(rootpath)
@@ -236,16 +261,25 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     plot = PlotCanvas()
 
-    meta_tbox = './imported/index.txt'
-
-    setup = csv.get_default_setup()
+    setup_path = "setup/20220818_s44076.json"
+    setup = json_setup.json_to_dict(setup_path)
     meta_df = csv.read_metadata(setup)
-    metapath = os.path.abspath(meta_tbox)
-    path = os.path.dirname(metapath)
-    selection_df = csv.select_from_metadata('fluid', 'air', meta_df)
+    selection_df = csv.select_from_metadata('fluid', 'Air', meta_df)
+    selection_df = csv.select_from_metadata('element', 'A01', meta_df)
+    
     df, title = csv.merge_dataframes(setup, selection_df)
 
-    plot.set_data(df, title)
+    dp = lib.data_process.DataProcessor()
+    dp.apply_avg_repeats = True
+    dp.apply_normalise = False
+    dp.apply_smooth = False
+    dp.apply_trim = True
+    dp.apply_interpolate = False
+    dp.apply_round = False
+    df = dp.process_dataframe(df)
+    stats_df = dp.get_stats(df)
+    # stats_df = None
+    plot.set_data(df, title, stats_df=stats_df)
     plot.update()
 
 
