@@ -568,7 +568,7 @@ def write_meta_df_txt(setup, meta_df, merge=True):
             dup_count = 0
             for dup in meta_df[meta_df.index.duplicated()].index:
                 dup_count += 1
-                display(meta_df.loc[dup])
+                logging.warning(f'Index Conflict: {meta_df.loc[dup]}')
 
             if dup_count > 0:
                 logging.warning(f'{dup_count} duplicate index values detected, cannot write metadata file')
