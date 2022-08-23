@@ -80,6 +80,8 @@ class Stellarnet_Spectrometer():
         if self.wl_round:
             df['wavelength'] = df['wavelength'].round(self.wl_round)
 
+        df.set_index('wavelength', inplace=True)
+
         self.last_capture_raw = df.copy()
 
         if as_percentage:
