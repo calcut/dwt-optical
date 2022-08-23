@@ -196,7 +196,7 @@ class ExportTab(QWidget):
             self.worker.moveToThread(self.thread)
             self.thread.started.connect(self.worker.run_stats)
         if export_format == self.format_options[2]:
-            self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp, self.std_dev)
+            self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp, std_dev=False)
             self.worker.moveToThread(self.thread)
             self.thread.started.connect(self.worker.run_spectra)
 
@@ -215,7 +215,7 @@ class ExportTab(QWidget):
     def view_export(self):
         title = "Export Data"
         if self.export is not None:
-            if self.combo_export.currentText == self.format_options[1]:
+            if self.combo_export.currentText() == self.format_options[2]:
                 self.table = ExportTable(self.export, title)
             else:
                 self.table = PreviewTable(self.export, title, process_info=self.dataProcess.process_info)
