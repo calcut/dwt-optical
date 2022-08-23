@@ -4,7 +4,7 @@ import logging
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import re
-import Code_17_06_22.GeneralFunctions_17_06_22 as general_functions
+# import Code_17_06_22.GeneralFunctions_17_06_22 as general_functions
 import Code_17_06_22.FittingFunctions_17_06_22 as fitting_functions
 import Code_17_06_22.FittingSubFunctions_17_06_22 as fitting_subfunctions
 
@@ -123,7 +123,12 @@ class DataProcessor():
             except ValueError as e:
                 logging.error(e+"\nThis may be because multiple columns have identical names")
 
-        return pd.DataFrame(result)
+        result['wavelength'] = wavel_new
+
+        df_interpolated = pd.DataFrame(result)
+        df_interpolated.set_index('wavelength', inplace=True)
+
+        return df_interpolated
 
     def trim(self, df, wl_min, wl_max):
         df = df.loc[df.index >= wl_min]
@@ -160,7 +165,8 @@ class DataProcessor():
                 for i in range(len(TransArray)):
                     TransArray[i]=TransArray[i]*(-1)
 
-            fwhm, height, baseline = general_functions.FWHM(WavelengthArray, TransArray)
+            # fwhm, height, baseline = general_functions.FWHM(WavelengthArray, TransArray)
+            fwhm, height, baseline = self.FWHM(df, col)
             smoothed_peak = self._smoothed_peak(WavelengthArray, TransArray)
 
             if self.calc_min:
@@ -177,8 +183,8 @@ class DataProcessor():
 
             if self.calc_inflections:
                 inflection_min, inflection_max = self._get_inflections(df, col, trim_nm=100, smooth_points=30) 
-                stats_df.at[col, 'InflectionMin'] = round(inflection_min, round_digits)
-                stats_df.at[col, 'InflectionMax'] = round(inflection_max, round_digits)
+                stats_df.at[col, 'Infl_L'] = round(inflection_min, round_digits)
+                stats_df.at[col, 'Infl_R'] = round(inflection_max, round_digits)
 
         if std_deviation:
 
@@ -229,3 +235,17 @@ class DataProcessor():
         inflection_max = trans_deriv.idxmax()
 
         return inflection_min, inflection_max 
+
+    def FWHM(self, df, col):
+
+        trans = df[col]
+        baseline = trans.iloc[1:101].mean()
+        min = trans.iloc[1:].min()
+        height = baseline - min
+        half_max = min + height/2
+
+        # get wavelengths where the data is <= half max
+        hm_range = trans[trans <= half_max].index
+        fwhm = hm_range[-1] - hm_range[0]
+
+        return fwhm, height, baseline
