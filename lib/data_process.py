@@ -10,10 +10,7 @@ import Code_17_06_22.FittingSubFunctions_17_06_22 as fitting_subfunctions
 
 def plot(df):
     for col in df:
-        if col == 'wavelength':
-           pass
-        else:
-            plt.plot(df['wavelength'], df[col], label=col)
+        plt.plot(df.index, df[col], label=col)
 
     plt.legend()
     plt.xlabel("Wavelength (nm)", fontsize=20)
@@ -99,13 +96,13 @@ class DataProcessor():
         # Remove any "repXX" from the column names
         # This leaves a dataframe where repeats have identical column names
         regex = re.compile("rep(.*)")
-        for col in df.columns[1:]:
+        for col in df.columns:
             newname = regex.sub("", col)
             df.rename({col : newname}, axis=1, inplace=True)
 
         # For the each of the new column names
         # check if there are multiple columns and average if so
-        for col in df.columns[1:].unique():
+        for col in df.columns.unique():
             if type(df[col]) == pd.DataFrame:
                 df[f"{col}avg"] = df[col].mean(axis=1)
                 df.drop(df[col], axis=1, inplace=True)
@@ -113,37 +110,30 @@ class DataProcessor():
 
     def interpolate(self, df, SamplingRate):
 
-        wl_min = df['wavelength'].min()
-        wl_max = df['wavelength'].max()
+        wl_min = df.index.min()
+        wl_max = df.index.max()
 
         wavel_new = np.arange(wl_min, wl_max, SamplingRate)
         result = {}
         for col in df:
-            if col == 'wavelength':
-                result[col] = wavel_new
-            else:
-                try:
-                    f= interp1d(df['wavelength'], df[col],
-                                    'linear', fill_value='linear')
-                    result[col] = f(wavel_new)
-                except ValueError as e:
-                    logging.error(e+"\nThis may be because multiple columns have identical names")
+            try:
+                f= interp1d(df.index, df[col],
+                                'linear', fill_value='linear')
+                result[col] = f(wavel_new)
+            except ValueError as e:
+                logging.error(e+"\nThis may be because multiple columns have identical names")
 
         return pd.DataFrame(result)
 
     def trim(self, df, wl_min, wl_max):
-        df = df.loc[df['wavelength'] >= wl_min]
-        df = df.loc[df['wavelength'] <= wl_max]
+        df = df.loc[df.index >= wl_min]
+        df = df.loc[df.index <= wl_max]
         return df
-
 
     def normalise(self, df):
         for col in df:
-            if col == 'wavelength':
-                pass
-            else:
-                maxval = df[col].max()
-                df[col] = df[col] / maxval
+            maxval = df[col].max()
+            df[col] = df[col] / maxval
         return df
 
     def smooth(self, df, smooth_points=3):
@@ -153,11 +143,10 @@ class DataProcessor():
     def get_stats(self, df, peak_type='Min', round_digits=3, std_deviation=False):
 
         # this imports the example code rather than re-implementing it
-
-        stats_df = pd.DataFrame(index=df.columns[1:], dtype='float64')
-        WavelengthArray = df['wavelength'].tolist()
+        stats_df = pd.DataFrame(index=df.columns, dtype='float64')
+        WavelengthArray = df.index.tolist()
         
-        for col in df.columns[1:]:
+        for col in df.columns:
 
             TransArray = df[col].tolist()
 
@@ -181,7 +170,7 @@ class DataProcessor():
                 stats_df.at[col, 'Height'] = round(height, round_digits)
 
             if self.calc_inflections:
-                inflection_min, inflection_max = self._get_inflections(df['wavelength'], df[col], trim_nm=100, smooth_points=30) 
+                inflection_min, inflection_max = self._get_inflections(df, col, trim_nm=100, smooth_points=30) 
                 stats_df.at[col, 'InflectionMin'] = round(inflection_min, round_digits)
                 stats_df.at[col, 'InflectionMax'] = round(inflection_max, round_digits)
 
@@ -208,22 +197,29 @@ class DataProcessor():
 
         return peak
 
-    def _get_inflections(self, wl_series, trans_series, trim_nm=100, smooth_points=30):
+    def _get_inflections(self, df, col, trim_nm=100, smooth_points=30):
+        
+        # Currently processes only a single column
+        trans_series = df[col]
 
         # smooth first
         trans_smoothed = trans_series.rolling(window=smooth_points, center=True).mean()
 
         # Get the wavelength of the literal minimum
-        wl_minimum = wl_series.iloc[trans_smoothed.idxmin()]
+        wl_minimum = trans_smoothed.idxmin()
 
-        # trim the derivative at +/- trim_nm around the minimum
-        trans_smoothed = trans_smoothed.loc[wl_series >= wl_minimum -trim_nm]
-        trans_smoothed = trans_smoothed.loc[wl_series <= wl_minimum +trim_nm]
+        # trim at +/- trim_nm around the minimum
+        trans_smoothed = trans_smoothed.loc[trans_smoothed.index >= wl_minimum -trim_nm]
+        trans_smoothed = trans_smoothed.loc[trans_smoothed.index <= wl_minimum +trim_nm]
+
+        # create a wavelength series so the .diff() function on it
+        wl_series = trans_smoothed.index.to_series()
 
         # This does a simple delta y / delta x type of derivative
         trans_deriv = trans_smoothed.diff() / wl_series.diff()
-
-        inflection_min = wl_series.iloc[trans_deriv.idxmin()]
-        inflection_max = wl_series.iloc[trans_deriv.idxmax()]
+        
+        # Inflections are the wavelengths of the min and max of the derivative
+        inflection_min = trans_deriv.idxmin()
+        inflection_max = trans_deriv.idxmax()
 
         return inflection_min, inflection_max 

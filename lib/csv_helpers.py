@@ -31,7 +31,7 @@ def dummy_measurement(setup, row):
     size = len(dummywavelength)
     dummydata = list(np.random.random_sample(size))
     dummycsv = {'wavelength' : dummywavelength, 'transmission' : dummydata}
-    df = pd.DataFrame(data=dummycsv, dtype=np.float32)
+    df = pd.DataFrame(data=dummycsv, dtype=np.float32, index='wavelength')
 
     timestamp = pd.Timestamp.utcnow().timestamp()
     df.rename(columns={"transmission" : timestamp }, inplace=True)
@@ -64,7 +64,7 @@ def simple_measurement(setup, element, fluid, measure_func, merge=True, comment=
     run_measure(setup, run_df, measure_func, merge=merge)
 
     datapath = find_datapath(setup, run_df, index)
-    df = pd.read_csv(datapath, sep='\t')
+    df = pd.read_csv(datapath, sep='\t', index_col='wavelength')
     return df
 
 
@@ -108,12 +108,12 @@ def merge_dataframes(setup, meta_df):
 
         # locate the datafile and read it in
         datapath = find_datapath(setup, meta_df, row)
-        df = pd.read_csv(datapath, sep='\t')
+        df = pd.read_csv(datapath, sep='\t', index_col='wavelength')
 
         # Name the output columns based on metadata
-        col_names = ['wavelength']
+        col_names = []
         n=0
-        for col in df.columns[1:]:
+        for col in df.columns:
             n += 1
             if len(individual_meta) > 0:
                 name = '_'.join(meta_df.loc[row][i] for i in individual_meta)
@@ -187,12 +187,12 @@ def get_stats_single(setup, dp, meta_df, row, peak_type='Min', std_deviation=Tru
 
     # locate the datafile and read it in
     datapath = find_datapath(setup, meta_df, row)
-    df = pd.read_csv(datapath, sep='\t')
+    df = pd.read_csv(datapath, sep='\t', index_col='wavelength')
 
     # Name the output columns (replace timestamps)
-    col_names = ['wavelength']
+    col_names = []
     n=0
-    for col in df.columns[1:]:
+    for col in df.columns:
         n += 1
         col_names.append(f'rep{n:02d}')
     df.columns = col_names
@@ -213,7 +213,7 @@ def get_stats_single(setup, dp, meta_df, row, peak_type='Min', std_deviation=Tru
         row_info = pd.DataFrame(index=[row])
         stats_df.rename({"averaged" : row}, axis=0, inplace=True)
     else:
-        row_info = pd.DataFrame(index=df.columns[1:])
+        row_info = pd.DataFrame(index=df.columns)
 
     row_info['element'] = meta_df.loc[row]['element']
     row_info['surface'] = meta_df.loc[row]['surface']
@@ -249,11 +249,13 @@ def export_dataframes(setup, meta_df=None, outfile=None, dp=None):
             return
 
         header_row_names = ['Surface', 'Element', 'Wavelength']
-        header_rows= [[f'{surface}'],[F'{e}'], element_df.loc['wavelength']]
+        # This might be broken!
+        header_rows= [[f'{surface}'],[F'{e}'], element_df.index]
+        # header_rows= [[f'{surface}'],[F'{e}'], element_df.loc['wavelength']]
         col_ix = pd.MultiIndex.from_product(header_rows, names = header_row_names)
 
         element_df.columns = col_ix
-        element_df.drop('wavelength', inplace=True)
+        # element_df.drop('wavelength', inplace=True)
         frames.append(element_df)
 
 
@@ -481,7 +483,7 @@ def write_df_txt(df, datapath, merge=True):
     # Check if the file exists, then write the data 
     if not os.path.isfile(datapath):
         logging.info(f'Saving into new file {datapath}')
-        df.to_csv(datapath, index=False, sep='\t', mode='w')
+        df.to_csv(datapath, sep='\t', mode='w')
 
     # If file exists, read it, merge, then rewrite the data
     else:
@@ -489,25 +491,24 @@ def write_df_txt(df, datapath, merge=True):
             logging.info(f'Merging into existing {datapath}')
 
             with open(datapath, 'r+', newline='') as f:
-                existing_df = pd.read_csv(f, sep='\t')
+                existing_df = pd.read_csv(f, sep='\t', index_col='wavelength')
 
                 df = pd.merge(existing_df, df, how='outer', on='wavelength', sort=True)
 
                 #relabel columns  -  Unless they are timestamped
-                col_names = ['wavelength']
+                col_names = []
                 n=0
-                for col in df.columns[1:]:
+                for col in df.columns:
                     n += 1
                     try:
                         pd.Timestamp(float(col), unit='s')
                         col_names.append(col)
                     except ValueError:
-                        # col_names.append(f'rep{col}')
                         col_names.append(f"rep{n:02d}")
                 df.columns = col_names
                     
                 f.seek(0,0)
-                df.to_csv(f, index=False, sep='\t', mode='w')
+                df.to_csv(f, sep='\t', mode='w')
         else:
             logging.warning(f'{datapath} exists, and merge=False, did not write')
 
@@ -580,8 +581,8 @@ def write_meta_df_txt(setup, meta_df, merge=True):
             for row in meta_df[meta_df['repeats'].isnull()].index:
                 datapath = find_datapath(setup, meta_df, row)
                 with open(datapath, 'r') as d:
-                    df = pd.read_csv(d, sep='\t')
-                reps = len(df.columns) -1
+                    df = pd.read_csv(d, sep='\t', index_col='wavelength')
+                reps = len(df.columns)
                 meta_df.at[row, 'repeats'] = reps
         
     meta_df.to_csv(metapath, index=True, sep='\t', na_rep='', date_format='%Y-%m-%d')
@@ -645,7 +646,7 @@ def bulk_process(setup_in, setup_out, delete_input=False, merge_out=False):
 
         try:
             with open(datapath_in, 'r') as f:
-                df = pd.read_csv(f, sep='\t')
+                df = pd.read_csv(f, sep='\t', index_col='wavelength')
             write_df_txt(df, datapath_out, merge=merge_out)
 
         except FileNotFoundError as e:
