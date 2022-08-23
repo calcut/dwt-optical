@@ -138,6 +138,12 @@ class DataProcessor():
 
     def smooth(self, df, smooth_points=3):
         df = df.rolling(window=smooth_points, center=True).mean()
+
+        # fill any NaN values
+        # the rolling mean generates NaN at the start and end, which can trip up other processing
+        df.fillna(method='pad', inplace=True)
+        df.fillna(method='backfill', inplace=True)
+
         return df
 
     def get_stats(self, df, peak_type='Min', round_digits=3, std_deviation=False):
