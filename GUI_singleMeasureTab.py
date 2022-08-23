@@ -182,6 +182,8 @@ class SingleMeasureTab(QWidget):
 
         try:
             self.df = self.measure_func(modified_setup, self.run_df.loc[row])
+            timestamp = pd.Timestamp.utcnow().timestamp()
+            self.df.rename(columns={"transmission (%)" : timestamp }, inplace=True)        
         except Exception as e:
             logging.error(e)
             return
@@ -211,7 +213,7 @@ class SingleMeasureTab(QWidget):
         try:
             surface = self.setup['sensor']['surface_map']['map'][element]
             if type(surface) == list:
-                surface = f'{surface[0]}, {surface[1]}'
+                surface = f'{surface[0]}'
         except KeyError:
             pass
             # surface = 'Unknown - Please update the setup file'
@@ -219,7 +221,7 @@ class SingleMeasureTab(QWidget):
         try:
             structure = self.setup['sensor']['structure_map']['map'][element]
             if type(structure) == list:
-                structure = f'{structure[0]}, {structure[1]}'
+                structure = f'{structure[0]}'
         except KeyError:
             pass
             # structure = 'Unknown - Please update the setup file'
