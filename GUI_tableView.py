@@ -265,6 +265,9 @@ class PreviewTable(QMainWindow):
     def __init__(self, dataframe, title, common_info='', process_info=''):
         super().__init__()
 
+        # make sure not to modify the original dataframe
+        df=dataframe.copy()
+
         centralwidget = QWidget()
         centralwidget.setObjectName(u"centralwidget")
         self.setCentralWidget(centralwidget)
@@ -272,7 +275,13 @@ class PreviewTable(QMainWindow):
         self.setWindowTitle(title)
 
         self.table = QTableView()
-        self.model = PreviewModel(dataframe)
+        df['wavelength'] = df.index
+
+        # reorder so wavelength is first
+        cols = df.columns.tolist()
+        cols = cols[-1:] + cols[:-1]
+        df = df[cols]
+        self.model = PreviewModel(df)
 
         self.table.setSortingEnabled(True)
         self.table.setModel(self.model)
