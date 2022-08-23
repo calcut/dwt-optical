@@ -224,7 +224,7 @@ class DataProcess(QWidget):
         self.process_info = self.process_info[:-1]
 
         if self.plotcanvas.plot_visible:
-            self.plotcanvas.set_data(self.df, self.title, self.process_info)
+            self.plot(apply=False)
         
     def preview(self):
         if self.df is None:
@@ -237,9 +237,15 @@ class DataProcess(QWidget):
             process_info= self.process_info)
         self.selectedTable.show()
 
-    def plot(self):
-        self.apply() # Apply latest changes first
-        self.plotcanvas.set_data(self.df, self.title, self.process_info)
+    def plot(self, apply=True):
+        if apply:
+            self.apply() # Apply latest changes first
+        print(f'{len(self.df.columns)=}')
+        if len(self.df.columns) == 1:
+            stats_df = self.dp.get_stats(self.df, std_deviation=True, round_digits=self.dp.round_decimals)
+        else: 
+            stats_df = None
+        self.plotcanvas.set_data(self.df, self.title, self.process_info, stats_df=stats_df)
 
 if __name__ == "__main__":
 
