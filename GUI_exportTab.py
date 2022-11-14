@@ -53,7 +53,7 @@ class ExportWorker(QObject):
                 self.export = pd.concat([self.export, stats_df], axis=0)
 
             self.export.sort_values(by=['element'], inplace=True)
-            self.export.reset_index(drop=True, inplace=True)
+            # self.export.reset_index(drop=True, inplace=True)
 
         except Exception as e:
             logging.error(e)

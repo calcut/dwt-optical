@@ -9,8 +9,8 @@ if os == 'Windows':
     from .stellarnet_win import stellarnet_driver3 as sn
     logging.info('Using Stellarnet Windows driver')
 elif os == 'Darwin':
-    from .stellarnet_mac import stellarnet_driver3 as sn
-    logging.info('Using Stellarnet Mac driver')
+    # from .stellarnet_mac import stellarnet_driver3 as sn
+    logging.critical('Stellarnet Driver not supported on Mac')
 elif os == 'Linux' and platform.machine() == 'armv7l':
     from .stellarnet_rpi import stellarnet_driver3 as sn
     logging.info('Using Stellarnet RaspberryPi driver')

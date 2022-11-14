@@ -275,12 +275,9 @@ class PreviewTable(QMainWindow):
         self.setWindowTitle(title)
 
         self.table = QTableView()
-        df['wavelength'] = df.index
+        df.insert(loc=0, column="Index", value=df.index)
+        df.reset_index(drop=True, inplace=True)
 
-        # reorder so wavelength is first
-        cols = df.columns.tolist()
-        cols = cols[-1:] + cols[:-1]
-        df = df[cols]
         self.model = PreviewModel(df)
 
         self.table.setSortingEnabled(True)
