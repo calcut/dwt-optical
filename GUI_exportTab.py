@@ -13,13 +13,17 @@ class ExportWorker(QObject):
     finished = Signal()
     progress = Signal(int)
 
-    def __init__(self, setup, meta_df, data_proc=None, std_dev=True):
+    def __init__(self, setup, meta_df, data_proc=None, std_dev=False):
         super().__init__()
         self.setup = setup
         self.meta_df = meta_df
         self.outfile = None
         self.dp = data_proc
-        self.std_dev = std_dev
+
+        if self.dp.apply_avg_repeats == False:
+            self.std_dev = False
+        else:
+            self.std_dev = std_dev
 
     def run_spectra(self):
         logging.info(f"running csv.export_dataframes with path={self.setup['datadir']} meta_df=\n{self.meta_df}")
@@ -69,7 +73,7 @@ class ExportTab(QWidget):
         default_outfile = 'export.txt'
         self.export = None
 
-        self.format_options = ["Stats", "Stats (No Std Dev)", "LDA Spectra"]
+        self.format_options = ["Stats", "Stats (with Std Dev)", "LDA Spectra"]
 
         # Make a Vertical layout within the new tab
         vbox = QVBoxLayout()
@@ -188,11 +192,11 @@ class ExportTab(QWidget):
 
         export_format = self.combo_export.currentText()
         if export_format == self.format_options[0]:
-            self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp, std_dev=True)
+            self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp, std_dev=False)
             self.worker.moveToThread(self.thread)
             self.thread.started.connect(self.worker.run_stats)
         if export_format == self.format_options[1]:
-            self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp, std_dev=False)
+            self.worker = ExportWorker(self.setup, selection_df, self.dataProcess.dp, std_dev=True)
             self.worker.moveToThread(self.thread)
             self.thread.started.connect(self.worker.run_stats)
         if export_format == self.format_options[2]:
