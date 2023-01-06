@@ -21,6 +21,7 @@ class ExportWorker(QObject):
         self.dp = data_proc
 
         if self.dp.apply_avg_repeats == False:
+            logging.warning("Std Dev requires 'Average Measurement Repeats' to be selected")
             self.std_dev = False
         else:
             self.std_dev = std_dev
