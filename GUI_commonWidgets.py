@@ -207,9 +207,15 @@ class MetaFilter(QWidget):
 
         btn_width = 80
 
+        self.setup = None
+
         btn_preview_selection = QPushButton("Preview")
         btn_preview_selection.clicked.connect(self.preview_selection)
         btn_preview_selection.setFixedWidth(btn_width)
+
+        btn_refresh = QPushButton("Refresh File")
+        btn_refresh.clicked.connect(self.refresh_from_index)
+        btn_refresh.setFixedWidth(btn_width)
 
         self.grid_sel = QGridLayout()
         self.grid_sel.setContentsMargins(0, 0, 0, 0)
@@ -219,7 +225,12 @@ class MetaFilter(QWidget):
         hbox_selection.addStretch()
         hbox_selection.addWidget(btn_preview_selection)
 
-        vbox.addWidget(label)
+        hbox_top = QHBoxLayout()
+        hbox_top.addWidget(label)
+        hbox_top.addStretch()
+        hbox_top.addWidget(btn_refresh)
+
+        vbox.addLayout(hbox_top)
         vbox.addLayout(self.grid_sel)
         vbox.addLayout(hbox_selection)
         self.setLayout(vbox)
@@ -350,6 +361,7 @@ class MetaFilter(QWidget):
     def setup_changed(self, setup):
 
         logging.debug(f"MetaFilter : got new setup")
+        self.setup = setup
         self.meta_df = None
         self.selection_df = None
         self.meta_df = csv.read_metadata(setup)
@@ -370,6 +382,12 @@ class MetaFilter(QWidget):
                 items = self.meta_df.columns.tolist()
                 keyCombo.addItem('')
                 keyCombo.addItems(items)
+
+    def refresh_from_index(self):
+        if self.setup is None:
+            logging.warning("can't refresh index file, setup file not found")
+        else:
+            self.setup_changed(self.setup)
 
     def preview_selection(self):
         self.select_meta()
