@@ -546,14 +546,16 @@ def write_meta_df_txt(setup, meta_df, merge=True):
             existing_df = read_metadata(setup)
                 
             for row in meta_df.index:
+
+                # zero out the repeat count for a clean merge, will restore later
+                meta_df.at[row, 'repeats'] = pd.NA
                 if row in existing_df.index:
-                    # zero out the repeat count for a clean merge, will restore later
-                    meta_df.at[row, 'repeats'] = pd.NA
                     existing_df.at[row, 'repeats'] = pd.NA
 
-                    # Also set the date modified to 'now'
-                    date = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
-                    meta_df.at[row, 'date'] = date
+                # Also set the date modified to 'now'
+                date = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+                meta_df.at[row, 'date'] = date
+                if row in existing_df.index:
                     existing_df.at[row, 'date'] = date
                     
             meta_df = pd.concat([existing_df, meta_df])
