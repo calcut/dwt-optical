@@ -33,7 +33,26 @@ class MeasureWorker(QObject):
         # meta_df accumulates the metadata for rows that have been succesfully completed.
         meta_df = pd.DataFrame()
         
+
+        gsp = 0
+        if 'grid_spacing' in self.setup['input_config']:
+            gsp = float(self.setup['input_config']['grid_spacing'])
+
+        grid_measure_coords = [[0,0]]
+        if 'grid_shape' in self.setup['input_config']:
+            shape = self.setup['input_config']['grid_shape']
+            if shape == '3x3_grid':
+                grid_measure_coords = [[0,0], [-gsp, -gsp], [-gsp, 0], [-gsp, gsp], [0, -gsp], [0, gsp], [gsp, -gsp], [gsp, 0], [gsp, gsp]]
+            elif shape == 'cross':
+                grid_measure_coords = [[0,0], [-gsp, 0], [gsp, 0], [0, gsp], [0,-gsp]]
+            elif shape == 'None':
+                pass
+            else:
+                logging.warning(f'Grid shape "{shape}" not recognised, valid options are "3x3_grid", "cross" or "None"')
+
         progress = 0
+        total_measurements = self.run_df['repeats'].sum()*len(grid_measure_coords)
+
         row_count = 0
         for row in self.run_df.index:
             row_count += 1
@@ -45,41 +64,47 @@ class MeasureWorker(QObject):
             else:
                 lr_offset_x = None
 
-            for rep in range(meta_row['repeats']):
-                progress +=1
-                if self.stop_requested:
-                    logging.warning('STOPPING run')
-                    self.save_and_abort(meta_df)
-                    return
 
-                # call the measure function to get data
-                try:
-                    df = self.measure_func(self.setup, meta_row, lr_offset_x)
-                    timestamp = pd.Timestamp.utcnow().timestamp()
-                    df.rename(columns={"transmission (%)" : timestamp }, inplace=True)
-                    lr_offset_x = None # don't keep requesting new light references
-                except Exception as e:
-                    logging.error(e)
-                    self.save_and_abort(meta_df)
-                    return
-           
-                if self.pause:
-                    logging.warning('PAUSING run')
-                    while self.pause:
-                        if self.stop_requested:
-                            logging.warning('STOPPING run')
-                            self.save_and_abort(meta_df)
-                            return
-                        time.sleep(1)
-                    logging.warning('RESUMING run')
+            for g in grid_measure_coords:
+                x_modifier = g[0]
+                y_modifier = g[1]
+                for rep in range(meta_row['repeats']):
+                    progress +=1
+                    progress_percent = int(progress / total_measurements * 100)
+                    logging.debug(f'{progress_percent}% {row}, grid {g}, repeat {rep+1}')
+                    if self.stop_requested:
+                        logging.warning('STOPPING run')
+                        self.save_and_abort(meta_df)
+                        return
 
-                self.progress.emit(progress)
-                self.plotdata.emit((df, f'{row} repeat{rep+1}'))
+                    # call the measure function to get data
+                    try:
+                        df = self.measure_func(self.setup, meta_row, lr_offset_x, x_modifier, y_modifier)
+                        timestamp = pd.Timestamp.utcnow().timestamp()
+                        df.rename(columns={"transmission (%)" : timestamp }, inplace=True)
+                        lr_offset_x = None # don't keep requesting new light references
+                    except Exception as e:
+                        logging.error(e)
+                        self.save_and_abort(meta_df)
+                        return
+            
+                    if self.pause:
+                        logging.warning('PAUSING run')
+                        while self.pause:
+                            if self.stop_requested:
+                                logging.warning('STOPPING run')
+                                self.save_and_abort(meta_df)
+                                return
+                            time.sleep(1)
+                        logging.warning('RESUMING run')
 
-                # Construct the data path
-                datapath = csv.find_datapath(self.setup, self.run_df, row)
-                # write the df to txt file
-                csv.write_df_txt(df, datapath, merge=self.merge)
+                    self.progress.emit(progress_percent)
+                    self.plotdata.emit((df, f'{row} repeat{rep+1}'))
+
+                    # Construct the data path
+                    datapath = csv.find_datapath(self.setup, self.run_df, row)
+                    # write the df to txt file
+                    csv.write_df_txt(df, datapath, merge=self.merge)
 
             # Update the date column in the run_df
             meta_df = pd.concat([meta_df, pd.DataFrame(meta_row).T])
@@ -181,6 +206,7 @@ class MeasureTab(QWidget):
         self.btn_stop.setFixedWidth(btn_width)
 
         self.progbar = QProgressBar()
+        self.progbar.setMaximum(100)
         self.proglabel = QLabel("00:00 / 00:00")
         self.progtimer = QTimer()
         self.elapsed_time = 0
@@ -229,7 +255,6 @@ class MeasureTab(QWidget):
     def generate_run_df(self):
         self.run_df = csv.generate_run_df(self.setup, fluid=self.combo_fluid.currentText())
         self.run_df['comment'] = self.tbox_comment.text()
-        self.progbar.setMaximum(self.run_df['repeats'].sum())
 
     def preview_run_df(self):
         self.generate_run_df()
