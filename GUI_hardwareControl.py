@@ -495,13 +495,13 @@ class HardwareControl(QWidget):
         # if not self.ready:
         #     raise NotConnectedError(text)
 
-    def measure(self, setup, row, lightref_offset_x = None):
+    def measure(self, setup, row, lightref_offset_x=None, x_modifier=0, y_modifier=0):
         self.check_status()
         if self.ready:
             # try:
             element = row['element']
-            x_pos = setup['sensor']['layout']['map'][element][0]
-            y_pos = setup['sensor']['layout']['map'][element][1]
+            x_pos = setup['sensor']['layout']['map'][element][0] + x_modifier
+            y_pos = setup['sensor']['layout']['map'][element][1] + y_modifier
 
             logging.info(f"\n\nMeasuring Element {element}")
             logging.info(f'{x_pos=} {y_pos=}')
