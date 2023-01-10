@@ -29,7 +29,8 @@ class SetupBrowse(QWidget):
         previous_setup = None
 
         try:
-            with open('rootpath_cache', 'r') as f:
+            cache_file = os.path.join(os.path.dirname(__file__), 'rootpath_cache')
+            with open(cache_file, 'r') as f:
                 self.rootpath = f.readline().strip()
                 previous_setup = f.readline().strip()
             try:
