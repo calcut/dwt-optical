@@ -211,15 +211,24 @@ class Thorlabs_Stage():
 
     def move_abs(self, x, y):
 
-        x_counts = int(x * self.encoder_pos_counts)
-        y_counts = int(y * self.encoder_pos_counts)
+        # Clamp values between 0 and home x2
+        x_lim = min(max(0,x),self.home_pos_x*2)
+        y_lim = min(max(0,y),self.home_pos_y*2)
+
+        if (x > self.home_pos_x*2) or x < 0:
+            logging.warning(f'X position {x} out of bounds for stage, limiting to {x_lim}mm')
+        if (y > self.home_pos_y*2) or y < 0:
+            logging.warning(f'X position {y} out of bounds for stage, limiting to {y_lim}mm')
+
+        x_counts = int(x_lim * self.encoder_pos_counts)
+        y_counts = int(y_lim * self.encoder_pos_counts)
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x21, chan_ident=1, position=x_counts))
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x22, chan_ident=1, position=y_counts))
         if self.port:
-            logging.info(f'moving to position {x},{y}')
+            logging.info(f'moving to position {x_lim},{y_lim}')
             self._wait_for_move()
         else:
-            logging.info(f'SIMULATING moving to position {x},{y}')
+            logging.info(f'SIMULATING moving to position {x_lim},{y_lim}')
             time.sleep(0.5)
         self.pos_x = x
         self.pos_y = y
@@ -237,8 +246,20 @@ class Thorlabs_Stage():
             logging.debug('already in position, not moving')
             return
 
-        x_counts = int((self.ref_ax + x) * self.encoder_pos_counts)
-        y_counts = int((self.ref_ay + y) * self.encoder_pos_counts)
+        x_abs = self.ref_ax + x
+        y_abs = self.ref_ay + y
+
+        # Clamp values between 0 and home x2
+        x_lim = min(max(0,x_abs),self.home_pos_x*2)
+        y_lim = min(max(0,y_abs),self.home_pos_y*2)
+
+        if (x_abs > self.home_pos_x*2) or x_abs < 0:
+            logging.warning(f'X position {x_abs} out of bounds for stage, limiting to {x_lim}mm')
+        if (y_abs > self.home_pos_y*2) or y_abs < 0:
+            logging.warning(f'Y position {y_abs} out of bounds for stage, limiting to {y_lim}mm')
+
+        x_counts = int(x_lim * self.encoder_pos_counts)
+        y_counts = int(y_lim * self.encoder_pos_counts)
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x21, chan_ident=1, position=x_counts))
         self._apt_cmd(apt.mot_move_absolute(source=1, dest=0x22, chan_ident=1, position=y_counts))
         if self.port:
