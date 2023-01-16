@@ -79,28 +79,37 @@ class SetupBrowse(QWidget):
         self.tbox_metapath = QLineEdit()
         self.tbox_metapath.setReadOnly(True)
 
+        label_selected_sensor = QLabel("Sensor:")
+        self.tbox_selected_sensor = QLineEdit()
+        self.tbox_selected_sensor.setReadOnly(True)
+
         btn_view_meta = QPushButton("View")
         btn_view_meta.clicked.connect(self.view_meta)
         btn_view_meta.setFixedWidth(btn_width)
 
         grid = QGridLayout()
         grid.addWidget(label_root, 0, 0)
-        grid.addWidget(self.tbox_root, 0, 1, 1, 2)
-        grid.addWidget(btn_browse_setup, 0, 3)
+        grid.addWidget(self.tbox_root, 0, 1, 1, 4)
+        grid.addWidget(btn_browse_setup, 0, 5)
 
         grid.addWidget(label_setup, 1, 0)
-        grid.addWidget(self.setup_combo, 1, 1)
-        grid.addWidget(btn_reload_setup, 1, 2)
-        grid.addWidget(btn_edit_setup, 1, 3)
+        grid.addWidget(self.setup_combo, 1, 1, 1, 3)
+        grid.addWidget(btn_reload_setup, 1, 4)
+        grid.addWidget(btn_edit_setup, 1, 5)
 
-        grid.addWidget(label_metapath, 2, 0)
-        grid.addWidget(self.tbox_metapath, 2, 1, 2, 2)
-        grid.addWidget(btn_view_meta, 2, 3)
+        grid.addWidget(label_metapath, 2, 2)
+        grid.addWidget(self.tbox_metapath, 2, 3, 1, 2)
+        grid.addWidget(btn_view_meta, 2, 5)
 
-        grid.setColumnStretch(0, 0)
-        grid.setColumnStretch(1, 1)
-        grid.setColumnStretch(3, 0)
-        grid.setColumnStretch(4, 0)
+        grid.addWidget(label_selected_sensor, 2, 0)
+        grid.addWidget(self.tbox_selected_sensor, 2, 1)
+
+        grid.setColumnStretch(0, 0) # Label 1
+        grid.setColumnStretch(1, 1) # Box 1
+        grid.setColumnStretch(2, 0) # Label 2
+        grid.setColumnStretch(3, 1) # Box 2 
+        grid.setColumnStretch(4, 0) # Secondary Button 
+        grid.setColumnStretch(5, 0) # Main Button 
 
         hbox = QHBoxLayout()
         hbox.addStretch(1)
@@ -171,6 +180,7 @@ class SetupBrowse(QWidget):
             self.setup = json_setup.json_to_dict(self.setuppath)
             self.metapath = os.path.join(self.setup['datadir'], self.setup['metafile'])
             self.tbox_metapath.setText(self.metapath)
+            self.tbox_selected_sensor.setText(self.setup['sensor']['name'])
             logging.debug(f"New Setup dict: {self.setup['name']}")
             self.new_setup.emit(self.setup)
             self.update_cache_file()
