@@ -76,6 +76,8 @@ default_input_config = {
     'x_timing'          : 1,
     'lightref_offset_x' : -0.75,
     'lightref_interval' : 4, # Take a new light ref every [n]th element
+    'delay_between_reps': 0, #seconds
+    'grid_spacing'      : "None", #valid options are 'None','3x3_grid' or 'cross'
 }
 
 default_output_config = {
