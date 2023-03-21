@@ -55,6 +55,7 @@ class SetupBrowse(QWidget):
         btn_reload_setup = QPushButton("Reload")
         btn_reload_setup.clicked.connect(self.update_setup_json)
         btn_reload_setup.setFixedWidth(btn_width)
+        btn_reload_setup.setToolTip("Resets parameters on the tabs below, if they are defined in the setup file")
 
         label_root = QLabel("Root Path:")
         self.tbox_root = QLineEdit()
@@ -227,6 +228,7 @@ class MetaFilter(QWidget):
         btn_refresh = QPushButton("Refresh File")
         btn_refresh.clicked.connect(self.refresh_from_index)
         btn_refresh.setFixedWidth(btn_width)
+        btn_refresh.setToolTip("Useful if new measurements have just been captured")
 
         self.grid_sel = QGridLayout()
         self.grid_sel.setContentsMargins(0, 0, 0, 0)
