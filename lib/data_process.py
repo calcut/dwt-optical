@@ -138,7 +138,8 @@ class DataProcessor():
     def normalise(self, df):
         for col in df:
             maxval = df[col].max()
-            df[col] = df[col] / maxval
+            minval = df[col].min()
+            df[col] = (df[col]-minval) / maxval
         return df
 
     def smooth(self, df, smooth_points=3):
