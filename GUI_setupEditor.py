@@ -134,6 +134,7 @@ class TableWidget(QTableWidget):
                 btn_new_map = QPushButton('New Map')
                 btn_new_map.setMaximumHeight(self.saveButton.height())
                 btn_new_map.clicked.connect(self.new_map)
+                btn_new_map.setToolTip("Can alternatively use map_generator.ipynb jupyter notebook to help automate this")
 
                 self.setCellWidget(row, 1, btn_new_map)
                 
