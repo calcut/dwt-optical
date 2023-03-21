@@ -13,6 +13,7 @@ import logging
 from matplotlib.font_manager import json_load
 import lib.csv_helpers as csv
 import lib.json_setup as json_setup
+from lib.tooltip_text import tooltips
 import string
 from pathlib import Path
 
@@ -46,9 +47,16 @@ class TableWidget(QTableWidget):
         for row, key in enumerate(self.dictionary):
             value = self.dictionary[key]
 
+            tip = None
+            try:
+                tip = tooltips[self.dictionary["category"]][key]
+            except KeyError:
+                pass
+
             if key == 'name':
                 self.saveButton = QPushButton('Save')
                 self.saveButton.clicked.connect(self.save_json)
+                self.saveButton.setToolTip("savebuttontooltip")
                 self.setCellWidget(row, 1, self.saveButton)
                 if self.dictionary['category'] != 'setup':
                     self.setItem(row, 0, QTableWidgetItem(str(value)))
@@ -67,31 +75,39 @@ class TableWidget(QTableWidget):
                 self.setup_combo.setCurrentIndex(current_index)
                 self.setup_combo.currentIndexChanged.connect(self.setup_changed)
                 self.setup_combo.editTextChanged.connect(self.new_setup_name)
+                self.setup_combo.setToolTip(tip)
                 self.setCellWidget(row, 0, self.setup_combo)
 
 
-            elif type(value) == str and value[0] == '*':
-                # Check if the field can be expanded (i.e. is effectively a nested dictionary)
-                # This is indicated by a string starting with *
-                
-                current_name = value[1:]
-                options = combo_options_dict[key]
-                # Sort in case insensitive alphabetical order
-                options.sort(key=str.lower)
-                combo = QComboBox()
-                for o in options:
-                    combo.addItem(o)
-                current_index = options.index(current_name)
-                combo.setCurrentIndex(current_index)
-                combo.currentIndexChanged.connect(self.combo_changed)
-                self.setCellWidget(row, 0, combo)
-                self.combo_tracker[key] = combo
+            if type(value) == str:
+                try:
+                    if value[0] == '*':
+                        # Check if the field can be expanded (i.e. is effectively a nested dictionary)
+                        # This is indicated by a string starting with *
+                        
+                        current_name = value[1:]
+                        options = combo_options_dict[key]
+                        # Sort in case insensitive alphabetical order
+                        options.sort(key=str.lower)
+                        combo = QComboBox()
+                        for o in options:
+                            combo.addItem(o)
+                        current_index = options.index(current_name)
+                        combo.setCurrentIndex(current_index)
+                        combo.currentIndexChanged.connect(self.combo_changed)
+                        combo.setToolTip(tip)
 
-                viewButton = QPushButton('View')
-                viewButton.clicked.connect(self.view_subtable)
-                self.setCellWidget(row, 1, viewButton)
+                        self.setCellWidget(row, 0, combo)
+                        self.combo_tracker[key] = combo
 
-            elif key == 'map':
+                        viewButton = QPushButton('View')
+                        viewButton.clicked.connect(self.view_subtable)
+                        self.setCellWidget(row, 1, viewButton)
+                except IndexError:
+                    # can happen with an empty string
+                    pass
+
+            if key == 'map':
                 # A special case where we can embed a table within the table
 
                 self.maptable = QTableWidget()
@@ -125,14 +141,18 @@ class TableWidget(QTableWidget):
                 # This sets category to read only
                 cell_item = QTableWidgetItem(str(value))
                 cell_item.setFlags(Qt.ItemIsEnabled)
+                cell_item.setToolTip(tip)
                 self.setItem(row, 0, cell_item)
 
             else:
                 cell_item = QTableWidgetItem(str(value))
+                cell_item.setToolTip(tip)
                 self.setItem(row, 0, cell_item)
+
 
         addButton = QPushButton('Add Row')
         addButton.clicked.connect(self.add_row)
+        addButton.setToolTip("Insert a new custom field")
         row = self.rowCount() -1
         self.setCellWidget(row, 1, addButton)
         self.setVerticalHeaderItem(row, QTableWidgetItem(''))
@@ -562,7 +582,7 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
 
     # setup = csv.get_default_setup()
-    filepath = '/Users/calum/spectrometer/setup/default_setup.json'
+    filepath = '/Users/calum/Desktop/spectrometer/setup/default_setup.json'
 
     window = SetupEditor(filepath, 'Setup Editor')
 
