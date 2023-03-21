@@ -59,11 +59,11 @@ class MeasureWorker(QObject):
             meta_row = self.run_df.loc[row]
             df = pd.DataFrame()
 
-            if row_count % self.setup['input_config']['lightref_interval'] == 0:
-                lr_offset_x = self.setup['input_config']['lightref_offset_x']
-            else:
-                lr_offset_x = None
-
+            lightref_interval = self.setup['input_config']['lightref_interval']
+            lr_offset_x = None
+            if lightref_interval > 0:
+                if row_count % lightref_interval == 0:
+                    lr_offset_x = self.setup['input_config']['lightref_offset_x']                
 
             for g in grid_measure_coords:
                 x_modifier = g[0]
@@ -105,6 +105,12 @@ class MeasureWorker(QObject):
                     datapath = csv.find_datapath(self.setup, self.run_df, row)
                     # write the df to txt file
                     csv.write_df_txt(df, datapath, merge=self.merge)
+
+                    if 'delay_between_reps' in self.setup['input_config']:
+                        delay = self.setup['input_config']['delay_between_reps']
+                        if delay > 0:
+                            logging.info(f"delaying for {delay}s")
+                            time.sleep(delay)
 
             # Update the date column in the run_df
             meta_df = pd.concat([meta_df, pd.DataFrame(meta_row).T])
