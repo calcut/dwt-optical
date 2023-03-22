@@ -146,6 +146,47 @@ class DataProcess(QWidget):
         self.setup = setup
         self.selection_df_changed(None)
 
+        try:
+            self.avg_reps.setChecked(setup['output_config']['average_repeats'][0])
+        except:
+            logging.warning("Could not parse setup['output_config']['average_repeats']")
+
+        try:
+            wl_settings = setup['output_config']['wavelength_range']
+            self.trim.setChecked(wl_settings[0])
+            self.trim_min_box.setValue(wl_settings[1])
+            self.trim_max_box.setValue(wl_settings[2])
+        except:
+            logging.warning("Could not parse setup['output_config']['wavelength_range']")
+
+        try:
+            smooth_settings = setup['output_config']['smooth']
+            self.smooth.setChecked(smooth_settings[0])
+            self.smoothpoints_box.setValue(smooth_settings[1])
+        except:
+            logging.warning("Could not parse setup['output_config']['smooth']")
+
+        try:
+            interpolate_settings = setup['output_config']['interpolate']
+            self.interpolate.setChecked(interpolate_settings[0])
+            self.interpolate_sr_box.setValue(interpolate_settings[1])
+        except:
+            logging.warning("Could not parse setup['output_config']['interpolate']")
+
+        try:
+            normalise_settings = setup['output_config']['normalise']
+            self.normalise.setChecked(normalise_settings[0])
+        except:
+            logging.warning("Could not parse setup['output_config']['normalise']")
+
+        try:
+            round_settings = setup['output_config']['round']
+            self.round.setChecked(round_settings[0])
+            self.round_box.setValue(round_settings[1])
+        except:
+            logging.warning("Could not parse setup['output_config']['round']")
+
+
     def selection_df_changed(self, selection_df):
         self.df = None
         self.title = None

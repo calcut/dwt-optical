@@ -45,7 +45,7 @@ class MeasureWorker(QObject):
                 grid_measure_coords = [[0,0], [-gsp, -gsp], [-gsp, 0], [-gsp, gsp], [0, -gsp], [0, gsp], [gsp, -gsp], [gsp, 0], [gsp, gsp]]
             elif shape == 'cross':
                 grid_measure_coords = [[0,0], [-gsp, 0], [gsp, 0], [0, gsp], [0,-gsp]]
-            elif shape == 'None':
+            elif shape == 'None' or shape == None:
                 pass
             else:
                 logging.warning(f'Grid shape "{shape}" not recognised, valid options are "3x3_grid", "cross" or "None"')

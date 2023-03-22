@@ -1,5 +1,6 @@
 import os
 import json
+import ast
 import logging
 from pathlib import Path
 
@@ -84,6 +85,7 @@ default_output_config = {
     'name'               : 'default_output_config',
     'category'           : 'output_config',
                            #Enabled, parameters
+    'average_repeats'    : [True],
     'wavelength_range'   : [True, 540, 730], # wl_min = 540, wl_max = 730
     'smooth'             : [True, 3], # smooth_points = 3
     'interpolate'        : [True, 1],  # sample_rate = 1
@@ -259,22 +261,8 @@ def parse_string(string):
     # Helpful for GUI text boxes.
 
     # Also tries to format numbers as floats/integers
+    output = ast.literal_eval(string)
 
-    if string.startswith('[') and string.endswith(']'):
-        try:
-            output = json.loads(string)
-        except json.decoder.JSONDecodeError:
-            string = switch_quotes(string)
-            output = json.loads(string)
-    else: output = string
-
-    try:
-        output = float(output)
-        if output.is_integer():
-            output = int(output)
-    except:
-        pass
-    
     return output
     
 if __name__ == "__main__":

@@ -169,6 +169,11 @@ class ExportTab(QWidget):
         self.setup = setup
         self.metaFilter.setup_changed(setup)
         self.dataProcess.setup_changed(setup)
+        try:
+            self.tbox_output.setText(setup['output_config']['outfile'])
+        except:
+            logging.warning("Could not parse setup['output_config']['outfile']")
+
 
     def get_output(self):
         outfile, _ = QFileDialog.getSaveFileName(self, "Select Output File:")
