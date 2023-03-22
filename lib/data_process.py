@@ -139,7 +139,7 @@ class DataProcessor():
         for col in df:
             maxval = df[col].max()
             minval = df[col].min()
-            df[col] = (df[col]-minval) / maxval
+            df[col] = (df[col]-minval) / (maxval - minval)
         return df
 
     def smooth(self, df, smooth_points=3):
