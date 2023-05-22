@@ -261,7 +261,11 @@ def parse_string(string):
     # Helpful for GUI text boxes.
 
     # Also tries to format numbers as floats/integers
-    output = ast.literal_eval(string)
+    try:
+        output = ast.literal_eval(string)
+    except ValueError:
+        # literal_eval doesn't cope with generic strings
+        output = string
 
     return output
     
