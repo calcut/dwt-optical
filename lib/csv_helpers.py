@@ -115,11 +115,14 @@ def merge_dataframes(setup, meta_df):
         n=0
         for col in df.columns:
             n += 1
+            # Convert the timestamp to a human-readable format
+            timestamp = pd.to_datetime(col,unit='s').strftime('%Y-%m-%d_%H:%M:%S')
+
             if len(individual_meta) > 0:
                 name = '_'.join(meta_df.loc[row][i] for i in individual_meta)
-                col_names.append(f'{name}_rep{n:02d}')
+                col_names.append(f'{name}_rep{n:02d}_{timestamp}')
             else:
-                col_names.append(f'rep{n:02d}')
+                col_names.append(f'rep{n:02d}_{timestamp}')
         df.columns = col_names
 
         # Accumulate the dataframes in a large 'result' dataframe
@@ -189,12 +192,14 @@ def get_stats_single(setup, dp, meta_df, row, peak_type='Min', std_deviation=Tru
     datapath = find_datapath(setup, meta_df, row)
     df = pd.read_csv(datapath, sep='\t', index_col='wavelength')
 
-    # Name the output columns (replace timestamps)
+    # Name the output columns (extract timestamps and leave columns named rep01 etc.)
     col_names = []
+    timestamps = []
     n=0
     for col in df.columns:
         n += 1
-        col_names.append(f'rep{n:02d}')
+        col_names.append(f'{row}_rep{n:02d}')
+        timestamps.append(pd.to_datetime(col,unit='s').strftime('%Y-%m-%d_%H:%M:%S'))
     df.columns = col_names
 
     if std_deviation:
@@ -210,10 +215,12 @@ def get_stats_single(setup, dp, meta_df, row, peak_type='Min', std_deviation=Tru
     stats_df = dp.get_stats(df, peak_type, round_digits=round_digits, std_deviation=std_deviation) 
 
     if std_deviation:
-        row_info = pd.DataFrame(index=[row])
-        stats_df.rename({"averaged" : row}, axis=0, inplace=True)
+        row_info = pd.DataFrame(index=[f"{row}_avg"])
+        stats_df.rename({"averaged" : f"{row}_avg"}, axis=0, inplace=True)
     else:
         row_info = pd.DataFrame(index=df.columns)
+        if not dp.apply_avg_repeats:
+            row_info['timestamp'] = timestamps
 
     row_info['element'] = meta_df.loc[row]['element']
     row_info['surface'] = meta_df.loc[row]['surface']
