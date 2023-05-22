@@ -19,12 +19,11 @@ class ExportWorker(QObject):
         self.meta_df = meta_df
         self.outfile = None
         self.dp = data_proc
+        self.std_dev = std_dev
 
-        if self.dp.apply_avg_repeats == False:
-            logging.warning("Std Dev requires 'Average Measurement Repeats' to be selected")
-            self.std_dev = False
-        else:
-            self.std_dev = std_dev
+        if self.dp.apply_avg_repeats == False and std_dev == True:
+            logging.warning("Enabling Std Dev means 'Average Measurement Repeats' is effectively selected")
+        
 
     def run_spectra(self):
         logging.info(f"running csv.export_dataframes with path={self.setup['datadir']} meta_df=\n{self.meta_df}")
@@ -41,24 +40,20 @@ class ExportWorker(QObject):
             row_num = 0
             total = len(self.meta_df)
 
-            if self.dp.apply_avg_repeats and self.std_dev:
-                std_dev = True
-            else:
-                std_dev = False
-
             for row in self.meta_df.index:
                 row_num += 1
                 progress = int(row_num/total * 100)
                 self.progress.emit(progress)
 
                 logging.info(f"Processing stats {progress}%")
-                stats_df = csv.get_stats_single(self.setup, self.dp, self.meta_df, row, peak_type='Min', std_deviation=std_dev)
+                stats_df = csv.get_stats_single(self.setup, self.dp, self.meta_df, row, peak_type='Min', std_deviation=self.std_dev)
 
                 # Accumulate the dataframes in a large 'result' dataframe
                 self.export = pd.concat([self.export, stats_df], axis=0)
 
-            self.export.sort_values(by=['element'], inplace=True)
-            # self.export.reset_index(drop=True, inplace=True)
+            self.export.sort_index(inplace=True)
+            self.export.sort_values(by=['element'], inplace=True, kind="stable")
+
 
         except Exception as e:
             logging.error(e)
