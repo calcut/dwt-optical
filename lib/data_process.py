@@ -95,7 +95,7 @@ class DataProcessor():
 
         # Remove any "repXX" from the column names
         # This leaves a dataframe where repeats have identical column names
-        regex = re.compile("rep(.*)")
+        regex = re.compile("_rep(.*)")
         for col in df.columns:
             newname = regex.sub("", col)
             df.rename({col : newname}, axis=1, inplace=True)
@@ -104,8 +104,11 @@ class DataProcessor():
         # check if there are multiple columns and average if so
         for col in df.columns.unique():
             if type(df[col]) == pd.DataFrame:
-                df[f"{col}avg"] = df[col].mean(axis=1)
+                df[f"{col}_avg"] = df[col].mean(axis=1)
                 df.drop(df[col], axis=1, inplace=True)
+            else:
+                # Rename the column to include _avg, even if only 1 measurement 
+                df.rename({col : f"{col}_avg"}, axis=1, inplace=True)
         return df
 
     def interpolate(self, df, SamplingRate):
