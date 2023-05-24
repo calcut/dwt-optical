@@ -31,7 +31,8 @@ def dummy_measurement(setup, row):
     size = len(dummywavelength)
     dummydata = list(np.random.random_sample(size))
     dummycsv = {'wavelength' : dummywavelength, 'transmission' : dummydata}
-    df = pd.DataFrame(data=dummycsv, dtype=np.float32, index='wavelength')
+    df = pd.DataFrame(data=dummycsv, dtype=np.float32)
+    df.set_index("wavelength", inplace=True)
 
     timestamp = pd.Timestamp.utcnow().timestamp()
     df.rename(columns={"transmission" : timestamp }, inplace=True)
