@@ -461,28 +461,31 @@ class HardwareControl(QWidget):
         self.stageControl.set_reference_b(refs['ref_bx'], refs['ref_by'])
         self.spectrometerControl.plot()
 
-    def check_status(self):
+    def check_status(self, spectrometer=True, stage=True):
         self.ready = True
         text = ''
-        if self.spectrometerControl.spec.references is None:
-            text += 'Spectrometer References not set\n'
-            self.ready = False
-        else:
-            if 'Dark Reference' not in self.spectrometerControl.spec.references:
-                text += 'Dark Reference not set\n'
+        if spectrometer:
+            if self.spectrometerControl.spec.references is None:
+                text += 'Spectrometer References not set\n'
                 self.ready = False
-            if 'Light Reference' not in self.spectrometerControl.spec.references:
-                text += 'Light Reference not set\n'
-                self.ready = False
+            else:
+                if 'Dark Reference' not in self.spectrometerControl.spec.references:
+                    text += 'Dark Reference not set\n'
+                    self.ready = False
+                if 'Light Reference' not in self.spectrometerControl.spec.references:
+                    text += 'Light Reference not set\n'
+                    self.ready = False
 
-        if self.stageControl.stage.ref_ax == 0 :
-            self.ready = False
-            text += 'Stage reference A not set\n'
-        if self.stageControl.stage.ref_bx == 0 :
-            self.ready = False
-            text += 'Stage reference B not set\n'
+        if stage:
+            if self.stageControl.stage.ref_ax == 0 :
+                self.ready = False
+                text += 'Stage reference A not set\n'
+            if self.stageControl.stage.ref_bx == 0 :
+                self.ready = False
+                text += 'Stage reference B not set\n'
 
         if not self.ready:
+            logging.error(text)
             raise ReferencesError(text)
 
         # text = ''
@@ -494,6 +497,16 @@ class HardwareControl(QWidget):
         #     self.ready = False
         # if not self.ready:
         #     raise NotConnectedError(text)
+
+    def measure_no_move(self):
+        self.check_status(stage=False)
+        if self.ready:
+            logging.info(f"\n\nMeasuring without moving stage")
+            df = self.spectrometerControl.spec.get_spectrum()
+            self.spectrometerControl.plot()
+            return df
+        else:
+            raise Exception(f'Hardware not ready')
 
     def measure(self, setup, row, lightref_offset_x=None, x_modifier=0, y_modifier=0):
         self.check_status()

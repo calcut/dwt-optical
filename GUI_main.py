@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout,
 QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget, QSplitter)
 from GUI_commonWidgets import SetupBrowse
 from GUI_measureTab import MeasureTab
+from GUI_episodicTab import EpisodicTab
 from GUI_singleMeasureTab import SingleMeasureTab
 
 import lib.csv_helpers as csv
@@ -38,12 +39,14 @@ class MainWindow(QMainWindow):
         self.log = GUILogger(self)
         self.hardwareTab = HardwareControl()
         self.singleMeasureTab = SingleMeasureTab(measure_func=self.hardwareTab.measure)
+        self.episodicTab = EpisodicTab(measure_func=self.hardwareTab.measure_no_move)
         self.measureTab = MeasureTab(measure_func=self.hardwareTab.measure)
         self.importTab = ImportTab()
         self.exportTab = ExportTab()
 
         setupBrowse = SetupBrowse()
         setupBrowse.new_setup.connect(self.singleMeasureTab.setup_changed)
+        setupBrowse.new_setup.connect(self.episodicTab.setup_changed)
         setupBrowse.new_setup.connect(self.measureTab.setup_changed)
         setupBrowse.new_setup.connect(self.importTab.setup_changed)
         setupBrowse.new_setup.connect(self.exportTab.setup_changed)
@@ -53,6 +56,7 @@ class MainWindow(QMainWindow):
 
         # Allows the output tab to immediately update the combo boxes after a measurement run is complete.
         self.measureTab.run_finished.connect(setupBrowse.update_setup_json)
+        self.episodicTab.run_finished.connect(setupBrowse.update_setup_json)
 
         self.setupTab = QWidget()
         self.runTab = QWidget()
@@ -61,6 +65,7 @@ class MainWindow(QMainWindow):
         tabWidget = QTabWidget(centralwidget)
         tabWidget.addTab(self.hardwareTab, "Hardware")
         tabWidget.addTab(self.singleMeasureTab, "Single Measure")
+        tabWidget.addTab(self.episodicTab, "Episodic Measure")
         tabWidget.addTab(self.measureTab, "Batch Measure")
         tabWidget.addTab(self.importTab, "Import")
         tabWidget.addTab(self.exportTab, "Export")
