@@ -2,6 +2,7 @@ from email.errors import CloseBoundaryNotFoundDefect
 import sys
 import logging
 import os
+import signal
 
 from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot, Qt
@@ -85,6 +86,7 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     window = MainWindow()
