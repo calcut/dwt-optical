@@ -9,7 +9,12 @@ matplotlib.use('Qt5Agg')
 import pandas as pd
 import logging
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
+import pyqtgraph as pg
+
+
+import signal
+import numpy as np
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -253,6 +258,35 @@ class PlotCanvasBasic(QWidget):
             self.canvas.axes.set_ylim(ylim)
         self.canvas.draw()
 
+class Pyqtgraph_canvas(QWidget):
+    def __init__(self):
+        QWidget.__init__(self)
+
+        axis = pg.DateAxisItem(orientation='bottom')
+
+        self.line = pg.PlotCurveItem(clear=True, pen="g")
+
+        self.xData = np.array([])
+        self.yData = np.array([])
+
+        self.graphWidget = pg.PlotWidget(
+            labels={'left': 'Peak Wavelength (nm)'},
+            axisItems={'bottom': axis}
+        )
+        self.graphWidget.addItem(self.line)
+        vbox = QtWidgets.QVBoxLayout(self)
+        vbox.addWidget(self.graphWidget)
+
+        self.setLayout(vbox)
+        self.resize(1000,400)
+
+    def append_datapoint(self, x, y):
+
+        self.yData = np.append(self.yData, y)
+        self.xData = np.append(self.xData, x)
+        self.line.setData(x=self.xData, y=self.yData)
+
+
 if __name__ == "__main__":
 
     import lib.json_setup as json_setup
@@ -262,10 +296,10 @@ if __name__ == "__main__":
         rootpath = f.readline().strip()
     os.chdir(rootpath)
 
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QtWidgets.QApplication(sys.argv)
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    plot = PlotCanvas()
 
     setup_path = "setup/20220818_s44076.json"
     setup = json_setup.json_to_dict(setup_path)
@@ -285,12 +319,15 @@ if __name__ == "__main__":
     df = dp.process_dataframe(df)
     stats_df = dp.get_stats(df)
     # stats_df = None
-    plot.set_data(df, title, stats_df=stats_df)
-    plot.update()
+    # plot.set_data(df, title, stats_df=stats_df)
+    # plot.update()
 
-    # plot.resize(1024, 768)
+   
+    plot = Pyqtgraph_canvas()
+
     plot.show()
-    plot.set_data(df, title, stats_df=stats_df)
+
+    print(f'{stats_df=}')
 
     sys.exit(app.exec())
 

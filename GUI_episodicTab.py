@@ -18,10 +18,12 @@ from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
 import lib.csv_helpers as csv
 import lib.json_setup as json_setup
+import lib.data_process
 
+import signal
 import time
 import pandas as pd
-from GUI_plotCanvas import PlotCanvas, PlotCanvasBasic
+from GUI_plotCanvas import Pyqtgraph_canvas
 
 class EpisodicWorker(QObject):
     finished = Signal(str)
@@ -45,40 +47,19 @@ class EpisodicWorker(QObject):
 
         self.runs = 0
 
-    def capture_save_spectrum(self):
+        # Dummy data processor, everything disabled for now
+        self.dp = lib.data_process.DataProcessor()
+        self.dp.apply_avg_repeats = False
+        self.dp.apply_normalise = False
+        self.dp.apply_smooth = False
+        self.dp.apply_trim = False
+        self.dp.apply_interpolate = False
+        self.dp.apply_round = False
 
-        # call the measure function to get data
-        # try:
-        self.runs += 1
-        logging.info(f"capturing run {self.runs}")
-        df = self.measure_func()
-        timestamp = pd.Timestamp.utcnow().timestamp()
-        df.rename(columns={"transmission (%)" : timestamp }, inplace=True)
-
-        # Construct the data path
-        filename = '-'.join(self.meta_dict[p] for p in self.setup['primary_metadata'])
-        subdir=[]
-        for s in self.setup['subdirs']:
-            subdir.append(self.meta_dict[s])
-        subdir = os.path.join(*subdir)
-        datapath = os.path.join(self.setup['datadir'], subdir, f'{filename}.txt')
-        
-        # write the df to txt file
-        csv.write_df_txt(df, datapath, merge=self.merge)
-
-        # update the index
-        meta_df = pd.DataFrame(self.meta_dict, index=[filename])
-        meta_df.index.name = 'index'
-        csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
-
-        self.progress.emit(self.runs)
-        self.plotdata.emit((df, f'{filename} run{self.runs}'))
-
-
-        # except Exception as e:
-        #     logging.error(e)
-        #     self.finished.emit('Run aborted')
-
+        # dp.smooth_points = 3
+        # dp.wavelength_trim_min = 540
+        # dp.wavelength_trim_max = 730
+        # dp.round_decimals = 3
 
     def run(self):
         # This has come from csv.run_measure, but is interruptable and reports progress.
@@ -91,6 +72,45 @@ class EpisodicWorker(QObject):
         self.service_timer.timeout.connect(self.service)
         self.service_timer.setInterval(100)
         self.service_timer.start()
+
+    def capture_save_spectrum(self):
+
+        # call the measure function to get data
+        try:
+            self.runs += 1
+            logging.info(f"capturing run {self.runs}")
+            df = self.measure_func()
+            timestamp = pd.Timestamp.utcnow().timestamp()
+            df.rename(columns={"transmission (%)" : timestamp }, inplace=True)
+
+            # Construct the data path
+            filename = '-'.join(self.meta_dict[p] for p in self.setup['primary_metadata'])
+            subdir=[]
+            for s in self.setup['subdirs']:
+                subdir.append(self.meta_dict[s])
+            subdir = os.path.join(*subdir)
+            datapath = os.path.join(self.setup['datadir'], subdir, f'{filename}.txt')
+            
+            # write the df to txt file
+            csv.write_df_txt(df, datapath, merge=self.merge)
+
+            # update the index
+            meta_df = pd.DataFrame(self.meta_dict, index=[filename])
+            meta_df.index.name = 'index'
+            csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
+
+            measurement_stats = self.dp.get_stats(df, peak_type='Min', round_digits=self.dp.round_decimals, std_deviation=False)
+            measurement_stats['timestamp'] = pd.to_datetime(measurement_stats.index,unit='s')
+            measurement_stats['fluid'] = self.meta_dict['fluid']
+
+            self.progress.emit(self.runs)
+            self.plotdata.emit((df, f'{filename} run{self.runs}', measurement_stats))
+
+        except Exception as e:
+            logging.error(e)
+            self.finished.emit('Run aborted')
+
+
     
     def service(self):
 
@@ -138,7 +158,7 @@ class EpisodicTab(QWidget):
         )
         label_info.setToolTip(tooltip_info)
 
-        self.run_df = None
+        self.stats_df = None
         self.measure_func = measure_func
 
         # Run parameters
@@ -239,7 +259,7 @@ class EpisodicTab(QWidget):
 
         self.elapsed_time = 0
 
-        self.plot = PlotCanvasBasic()
+        self.plot = Pyqtgraph_canvas()
 
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
@@ -319,7 +339,13 @@ class EpisodicTab(QWidget):
     def update_plot(self, plotdata):
         title = plotdata[1]
         data = plotdata[0]
-        self.plot.set_data(data, title=title, ylim=[-10,120])
+        measurement_stats = plotdata[2]
+
+        self.stats_df = pd.concat([measurement_stats, self.stats_df])
+
+        series = measurement_stats.iloc[0]
+
+        self.plot.append_datapoint(x = series['timestamp'].timestamp(), y = series["Peak"])
 
     def run_complete(self, status):
         self.btn_run.setEnabled(True)
@@ -395,7 +421,11 @@ class EpisodicTab(QWidget):
 
 if __name__ == "__main__":
 
+    with open('rootpath_cache', 'r') as f:
+        rootpath = f.readline().strip()
+    os.chdir(rootpath)
 
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     app = QApplication(sys.argv)
     logger = logging.getLogger()
@@ -405,5 +435,8 @@ if __name__ == "__main__":
     window.setup_changed(setup)
     window.resize(1024, 768)
     window.show()
+
+    stats_df = pd.read_csv("temp.csv")
+    window.plot.show_stats(stats_df)
     sys.exit(app.exec())
 
