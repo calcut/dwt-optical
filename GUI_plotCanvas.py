@@ -8,6 +8,7 @@ matplotlib.use('Qt5Agg')
 
 import pandas as pd
 import logging
+import random
 
 from PySide6 import QtCore, QtWidgets
 import pyqtgraph as pg
@@ -264,28 +265,44 @@ class Pyqtgraph_canvas(QWidget):
 
         axis = pg.DateAxisItem(orientation='bottom')
 
-        self.line = pg.PlotCurveItem(clear=True, pen="g")
-
-        self.xData = np.array([])
-        self.yData = np.array([])
+        self.lines = {}
 
         self.graphWidget = pg.PlotWidget(
             labels={'left': 'Peak Wavelength (nm)'},
-            axisItems={'bottom': axis}
+            axisItems={'bottom': axis},
         )
-        self.graphWidget.addItem(self.line)
+        self.graphWidget.addLegend()
+
         vbox = QtWidgets.QVBoxLayout(self)
         vbox.addWidget(self.graphWidget)
 
         self.setLayout(vbox)
         self.resize(1000,400)
 
-    def append_datapoint(self, x, y):
+    def add_line(self, name):
 
-        self.yData = np.append(self.yData, y)
-        self.xData = np.append(self.xData, x)
-        self.line.setData(x=self.xData, y=self.yData)
+        print(f'adding line {name=}')
 
+        self.lines[name] = {'line' : None,
+                        'xdata' : np.array([]),
+                        'ydata' : np.array([])}
+        
+        color = pg.intColor(list(self.lines.keys()).index(name))
+        self.lines[name]['line'] = self.graphWidget.plot([], [], name=name, pen={"color": color})
+
+    def append_datapoint(self, x, y, name):
+
+        if not name in self.lines.keys():
+            self.add_line(name)
+
+        self.lines[name]['xdata'] = np.append(self.lines[name]['xdata'], x)
+        self.lines[name]['ydata'] = np.append(self.lines[name]['ydata'], y)
+
+        self.lines[name]['line'].setData(x=self.lines[name]['xdata'], y=self.lines[name]['ydata'])
+
+        # self.yData = np.append(self.yData, y)
+        # self.xData = np.append(self.xData, x)
+        # self.line.setData(x=self.xData, y=self.yData)
 
 if __name__ == "__main__":
 
@@ -324,6 +341,13 @@ if __name__ == "__main__":
 
    
     plot = Pyqtgraph_canvas()
+    plot.append_datapoint(1, 2, "fluidZ")
+    plot.append_datapoint(2, 3, "fluidZ")
+    plot.append_datapoint(3, 4, "fluidX")
+    plot.append_datapoint(4, 3, "fluidX")
+    plot.append_datapoint(5, 4, "fluidY")
+    plot.append_datapoint(6, 3, "fluidY")
+
 
     plot.show()
 

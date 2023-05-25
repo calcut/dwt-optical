@@ -345,7 +345,7 @@ class EpisodicTab(QWidget):
 
         series = measurement_stats.iloc[0]
 
-        self.plot.append_datapoint(x = series['timestamp'].timestamp(), y = series["Peak"])
+        self.plot.append_datapoint(x = series['timestamp'].timestamp(), y = series["Peak"], name=series["fluid"])
 
     def run_complete(self, status):
         self.btn_run.setEnabled(True)
