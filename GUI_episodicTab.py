@@ -163,41 +163,6 @@ class EpisodicTab(QWidget):
         self.stats_df = None
         self.measure_func = measure_func
 
-        # Run parameters
-
-        rungrid = QGridLayout()
-        rungrid.setContentsMargins(0, 0, 0, 0)
-        rungrid.setColumnMinimumWidth(1, 100)
-
-        self.time_interval = QTimeEdit()
-        self.time_interval.setDisplayFormat("HH:mm:ss")
-        self.time_interval.setCurrentSectionIndex(2)
-        self.time_interval.setFixedWidth = btn_width*2
-        self.time_interval.setTime(QTime(0,0,1))
-        # self.time_interval.editingFinished.connect(self.interval_changed)
-        self.time_interval.timeChanged.connect(self.interval_changed)
-
-        rungrid.addWidget(QLabel("Measurement Interval (HH:mm:ss)"), 0, 0, 1, 1, alignment=Qt.AlignRight)
-        rungrid.addWidget(self.time_interval, 0, 1, 1, 2)
-
-        btn_metadata_update = QPushButton("Update")
-        btn_metadata_update.setFixedWidth(btn_width)
-        btn_metadata_update.clicked.connect(self.generate_run_dict)
-        rungrid.addWidget(QLabel("Update Metadata during run"),1,0, alignment=Qt.AlignRight)
-        rungrid.addWidget(btn_metadata_update,1,2)
-
-        self.radio_spectrum = QRadioButton("Spectrum")
-        self.radio_spectrum.setChecked(True)
-        self.radio_spectrum.toggled.connect(lambda:self.plot_type(self.radio_spectrum))
-        self.radio_peak = QRadioButton("Peak")
-        self.radio_peak.setChecked(False)
-        self.radio_peak.toggled.connect(lambda:self.plot_type(self.radio_peak))
-
-        rungrid.addWidget(QLabel("Plot Type"),2,0, alignment=Qt.AlignRight)
-        rungrid.addWidget(self.radio_spectrum,2,1, Qt.AlignCenter)
-        rungrid.addWidget(self.radio_peak,2,2, Qt.AlignCenter)
-
-
        # Metadata
         label_metadata = QLabel("Measurement Metadata")
         label_metadata.setStyleSheet("font-weight: bold")
@@ -225,6 +190,28 @@ class EpisodicTab(QWidget):
         hbox_grid.addStretch(1)
 
 
+        self.time_interval = QTimeEdit()
+        self.time_interval.setDisplayFormat("HH:mm:ss")
+        self.time_interval.setCurrentSectionIndex(2)
+        self.time_interval.setFixedWidth = btn_width*2
+        self.time_interval.setTime(QTime(0,0,1))
+        # self.time_interval.editingFinished.connect(self.interval_changed)
+        self.time_interval.timeChanged.connect(self.interval_changed)
+
+
+
+        btn_metadata_update = QPushButton("Update")
+        btn_metadata_update.setFixedWidth(btn_width)
+        btn_metadata_update.clicked.connect(self.generate_run_dict)
+
+        self.radio_spectrum = QRadioButton("Spectrum")
+        self.radio_spectrum.setChecked(True)
+        self.radio_spectrum.toggled.connect(lambda:self.plot_type(self.radio_spectrum))
+        self.radio_peak = QRadioButton("Peak")
+        self.radio_peak.setChecked(False)
+        self.radio_peak.toggled.connect(lambda:self.plot_type(self.radio_peak))
+
+
         # Output Path
         label_output = QLabel("Output:")
         label_output.setStyleSheet("font-weight: bold")
@@ -235,15 +222,13 @@ class EpisodicTab(QWidget):
         self.tbox_statspath = QLineEdit()
         self.tbox_statspath.setReadOnly(False)
 
-        # Merge
-        label_merge = QLabel('Merge into existing files')
-        self.cbox_merge = QCheckBox()
-        self.cbox_merge.setChecked(True)
+        btn_view_export= QPushButton("View")
+        btn_view_export.clicked.connect(self.view_export)
+        btn_view_export.setFixedWidth(btn_width)
 
-        hbox_merge = QHBoxLayout()
-        hbox_merge.addWidget(self.cbox_merge)
-        hbox_merge.addWidget(label_merge)
-        hbox_merge.addStretch()
+        browse_output = QPushButton("Browse")
+        browse_output.clicked.connect(self.get_output)
+        browse_output.setFixedWidth(btn_width)
 
         self.btn_run= QPushButton("Run")
         self.btn_run.clicked.connect(self.run_measurements)
@@ -257,11 +242,31 @@ class EpisodicTab(QWidget):
         self.btn_stop.clicked.connect(self.stop_measurements)
         self.btn_stop.setFixedWidth(btn_width)
 
-        self.elapsed_time = 0
-
         self.plot_peak = Pyqtgraph_canvas()
         self.plot_peak.hide()
         self.plot_spectrum = PlotCanvasBasic()
+
+
+        rungrid = QGridLayout()
+        rungrid.setContentsMargins(0, 0, 0, 0)
+        rungrid.setRowMinimumHeight(2,20)
+        # rungrid.setColumnMinimumWidth(1, 100)
+
+        rungrid.addWidget(QLabel('Spectral Data:'),0,0, alignment=Qt.AlignLeft)
+        rungrid.addWidget(self.tbox_outpath,0,1,1,5)
+
+        rungrid.addWidget(QLabel('Stats file:'), 1, 0)
+        rungrid.addWidget(self.tbox_statspath, 1,1,1,3)
+        rungrid.addWidget(browse_output,1, 4, 1, 1)
+        rungrid.addWidget(btn_view_export, 1, 5, 1, 1)
+
+        rungrid.addWidget(QLabel("Measurement Interval (HH:mm:ss):"), 3, 3, 1, 1, alignment=Qt.AlignRight)
+        rungrid.addWidget(self.time_interval, 3, 4, 1, 2, alignment=Qt.AlignRight)
+        rungrid.addWidget(QLabel("Update Metadata during run:"),4,3, alignment=Qt.AlignRight)
+        rungrid.addWidget(btn_metadata_update,4,5)
+        rungrid.addWidget(QLabel("Plot Type:"),5,3, alignment=Qt.AlignRight)
+        rungrid.addWidget(self.radio_spectrum,5,4, Qt.AlignRight)
+        rungrid.addWidget(self.radio_peak,5,5, Qt.AlignRight)
 
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
@@ -269,29 +274,22 @@ class EpisodicTab(QWidget):
         hbox_run.addWidget(self.btn_pause)
         hbox_run.addWidget(self.btn_stop)
 
-        btn_view_export= QPushButton("View")
-        btn_view_export.clicked.connect(self.view_export)
-        btn_view_export.setFixedWidth(btn_width)
-
-        browse_output = QPushButton("Browse")
-        browse_output.clicked.connect(self.get_output)
-        browse_output.setFixedWidth(btn_width)
 
 
-        hbox_outpath = QHBoxLayout()
-        hbox_outpath.addWidget(QLabel('Spectral Data:'))
-        hbox_outpath.addWidget(self.tbox_outpath)
 
-        hbox_statspath = QHBoxLayout()
-        hbox_statspath.addWidget(QLabel('Stats file:'))
-        hbox_statspath.addWidget(self.tbox_statspath, stretch=3)
-        hbox_statspath.addWidget(browse_output)
-        hbox_statspath.addWidget(btn_view_export)
+        # hbox_outpath = QHBoxLayout()
+        # hbox_outpath.addWidget(QLabel('Spectral Data:'))
+        # hbox_outpath.addWidget(self.tbox_outpath)
+
+        # hbox_statspath = QHBoxLayout()
+        # hbox_statspath.addWidget(QLabel('Stats file:'))
+        # hbox_statspath.addWidget(self.tbox_statspath, stretch=3)
+        # hbox_statspath.addWidget(browse_output)
+        # hbox_statspath.addWidget(btn_view_export)
 
         vbox_output = QVBoxLayout()
-        vbox_output.addLayout(hbox_outpath)
-        vbox_output.addLayout(hbox_statspath)
-        vbox_output.addLayout(hbox_merge)
+        # vbox_output.addLayout(hbox_outpath)
+        # vbox_output.addLayout(hbox_statspath)
         vbox_output.addLayout(rungrid)
         vbox_output.addLayout(hbox_run)
         hbox_output = QHBoxLayout()
@@ -339,7 +337,8 @@ class EpisodicTab(QWidget):
 
     def run_measurements(self):
 
-        merge = self.cbox_merge.isChecked()
+        # merge = self.cbox_merge.isChecked()
+        merge = True
         self.generate_run_dict()
 
         interval = self.time_interval.time()
@@ -360,7 +359,6 @@ class EpisodicTab(QWidget):
         # Step 6: Start the thread
         self.thread.start()
         self.btn_run.setEnabled(False)
-        self.elapsed_time = 0
         self.worker.finished.connect(self.run_complete)
         # self.worker.progress.connect(self.set_progress)
         self.worker.plotdata.connect(self.update_plot)
