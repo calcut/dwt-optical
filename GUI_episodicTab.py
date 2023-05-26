@@ -385,6 +385,7 @@ class EpisodicTab(QWidget):
         measurement_stats.at[series.name, 'runtime_s'] = runtime_s
         measurement_stats.at[series.name, 'timestamp'] = timestamp_str
 
+        data.columns = ['spectrum']
         self.plot_spectrum.set_data(data, title, stats_df=measurement_stats)
 
         self.stats_df = pd.concat([measurement_stats, self.stats_df])
