@@ -212,7 +212,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
                 self.legline_dict[legline] = pltline
 
         self.canvas.draw()
-        self.show()
+        # self.show()
         self.plot_visible = True
 
         # crs = mplcursors.cursor(self.canvas.axes, hover=True)
@@ -236,15 +236,19 @@ class PlotCanvasBasic(QWidget):
         # Create the maptlotlib FigureCanvas object,
         # which defines a single set of axes as self.axes.
         self.canvas = MplCanvas(self, width=8, height=5, dpi=80)
+        self.ax = self.canvas.axes
         self.plot_visible = False
         self.legend_visible = True
+
+
+
 
         vbox = QtWidgets.QVBoxLayout()
         vbox.addWidget(self.canvas)
 
         self.setLayout(vbox)
 
-    def set_data(self, df, title=None, ylim=None, xlim=None):
+    def set_data(self, df, title=None, ylim=None, xlim=None, stats_df=None):
         self.canvas.axes.cla()
         df.plot(ax=self.canvas.axes,
                 # x='wavelength', 
@@ -257,21 +261,56 @@ class PlotCanvasBasic(QWidget):
             self.canvas.axes.set_xlim(xlim)
         if ylim:
             self.canvas.axes.set_ylim(ylim)
+
+        lines = self.canvas.axes.get_lines()
+
+        if stats_df is not None:
+            try:
+                trans = df[df.columns[0]]
+                row = stats_df.index[0]
+                inflection_min = stats_df.loc[row]['Infl_L']
+                inflection_max = stats_df.loc[row]['Infl_R']
+                fwhm = stats_df.loc[row]['FWHM']
+                peak = stats_df.loc[row]['Peak']
+                height = stats_df.loc[row]['Height']
+
+                # Recalculate some FWHM details to position lines on plot
+                min = trans.min()
+                half_max=min+height/2
+                hm_range = trans[trans <= half_max].index
+                
+                self.ax.axvline(x=peak, label=f"Peak={peak}nm", color='r')
+                self.ax.axvline(x=inflection_min, label=f"Infl_L={inflection_min}nm", color='c')
+                self.ax.axvline(x=inflection_max, label=f"Infl_R={inflection_max}nm", color='c')
+                self.ax.hlines(y=half_max, xmin=hm_range[0], xmax=hm_range[-1], label=f"FWHM={fwhm}nm", color='m')
+                self.ax.axhline(y=min+height, label=f"Height={height}%", color='g')
+                # self.canvas.draw()
+            except Exception as e:
+                logging.warning(f'Could not plot stats: {e}') 
+
+            for legline, pltline in zip(self.ax.legend().get_lines(), lines):
+                legline.set_picker(True)  # Enable picking on the legend lines.
+
         self.canvas.draw()
 
 class Pyqtgraph_canvas(QWidget):
     def __init__(self):
         QWidget.__init__(self)
 
-        axis = pg.DateAxisItem(orientation='bottom')
+        pg.setConfigOption('background', 'w')
+        pg.setConfigOption('foreground', 'k')
 
-        self.lines = {}
+        # axis = pg.DateAxisItem(orientation='bottom')
+
+        self.lines = []
+        self.line_names = []
+        self.current_line = None
 
         self.graphWidget = pg.PlotWidget(
-            labels={'left': 'Peak Wavelength (nm)'},
-            axisItems={'bottom': axis},
+            labels={'left': 'Peak Wavelength (nm)', 'bottom': 'Time (minutes)'},
+            # axisItems={'bottom': axis},
         )
-        self.graphWidget.addLegend()
+        self.graphWidget.addLegend(labelTextSize='12pt')
 
         vbox = QtWidgets.QVBoxLayout(self)
         vbox.addWidget(self.graphWidget)
@@ -279,30 +318,53 @@ class Pyqtgraph_canvas(QWidget):
         self.setLayout(vbox)
         self.resize(1000,400)
 
+
     def add_line(self, name):
 
-        print(f'adding line {name=}')
-
-        self.lines[name] = {'line' : None,
+        self.lines.append({
+                        'line' : None,
                         'xdata' : np.array([]),
-                        'ydata' : np.array([])}
+                        'ydata' : np.array([])})
         
-        color = pg.intColor(list(self.lines.keys()).index(name))
-        self.lines[name]['line'] = self.graphWidget.plot([], [], name=name, pen={"color": color})
+        if name in self.line_names:
+            # create a new line but don't add it to the legend
+            legendname = None
+        else:
+            # create a new line and add it to the legend and list of line names
+            legendname = name
+            self.line_names.append(name)
+
+        # Keep track of the current line name so we can check if it changes
+        self.current_line = name
+
+        # Use the same colour if the line name has been seen before
+        color = pg.intColor(self.line_names.index(name))
+
+        pen = pg.mkPen(color=color, width=4)
+        self.lines[-1]['line'] = self.graphWidget.plot([], [], name=legendname, pen=pen)
+        
 
     def append_datapoint(self, x, y, name):
 
-        if not name in self.lines.keys():
+        # If there are no lines, create one
+        if len(self.lines) == 0:
             self.add_line(name)
 
-        self.lines[name]['xdata'] = np.append(self.lines[name]['xdata'], x)
-        self.lines[name]['ydata'] = np.append(self.lines[name]['ydata'], y)
+        # Or if the line name has changed, create a new one
+        elif name != self.current_line:
+            self.add_line(name)
 
-        self.lines[name]['line'].setData(x=self.lines[name]['xdata'], y=self.lines[name]['ydata'])
+        self.lines[-1]['xdata'] = np.append(self.lines[-1]['xdata'], x)
+        self.lines[-1]['ydata'] = np.append(self.lines[-1]['ydata'], y)
 
-        # self.yData = np.append(self.yData, y)
-        # self.xData = np.append(self.xData, x)
-        # self.line.setData(x=self.xData, y=self.yData)
+        self.lines[-1]['line'].setData(x=self.lines[-1]['xdata'], y=self.lines[-1]['ydata'])
+        print(f"{self.lines[-1]['xdata']=}")
+
+    def clear_data(self):
+        self.lines = []
+        self.line_names = []
+        self.graphWidget.clear()
+
 
 if __name__ == "__main__":
 
@@ -326,6 +388,8 @@ if __name__ == "__main__":
     
     df, title = csv.merge_dataframes(setup, selection_df)
 
+    print(f'{df=}')
+
     dp = lib.data_process.DataProcessor()
     dp.apply_avg_repeats = True
     dp.apply_normalise = False
@@ -335,18 +399,27 @@ if __name__ == "__main__":
     dp.apply_round = False
     df = dp.process_dataframe(df)
     stats_df = dp.get_stats(df)
-    # stats_df = None
-    # plot.set_data(df, title, stats_df=stats_df)
-    # plot.update()
+
+    plot = PlotCanvasBasic()
+    plot.resize(1024, 768)
+    plot.set_data(df, title, stats_df=stats_df)
+
+    print(f'{df=}')
 
    
-    plot = Pyqtgraph_canvas()
-    plot.append_datapoint(1, 2, "fluidZ")
-    plot.append_datapoint(2, 3, "fluidZ")
-    plot.append_datapoint(3, 4, "fluidX")
-    plot.append_datapoint(4, 3, "fluidX")
-    plot.append_datapoint(5, 4, "fluidY")
-    plot.append_datapoint(6, 3, "fluidY")
+    # plot = Pyqtgraph_canvas()
+    # plot.append_datapoint(1, 2, "fluidZ")
+    # plot.append_datapoint(2, 3, "fluidZ")
+    # plot.append_datapoint(3, 4, "fluidX")
+    # plot.append_datapoint(4, 3, "fluidX")
+    # plot.append_datapoint(5, 4, "fluidY")
+    # plot.append_datapoint(6, 3, "fluidY")
+    # plot.append_datapoint(7, 2, "fluidZ")
+    # plot.append_datapoint(8, 3, "fluidZ")
+    # plot.append_datapoint(9, 4, "fluidY")
+    # plot.append_datapoint(10, 3, "fluidY")
+    # plot.append_datapoint(11, 4, "fluidX")
+    # plot.append_datapoint(12, 3, "fluidX")
 
 
     plot.show()
