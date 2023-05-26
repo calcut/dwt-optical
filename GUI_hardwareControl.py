@@ -501,7 +501,7 @@ class HardwareControl(QWidget):
     def measure_no_move(self):
         self.check_status(stage=False)
         if self.ready:
-            logging.info(f"\n\nMeasuring without moving stage")
+            logging.debug(f"\n\nMeasuring without moving stage")
             df = self.spectrometerControl.spec.get_spectrum()
             self.spectrometerControl.plot()
             return df
