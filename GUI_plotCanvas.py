@@ -358,7 +358,6 @@ class Pyqtgraph_canvas(QWidget):
         self.lines[-1]['ydata'] = np.append(self.lines[-1]['ydata'], y)
 
         self.lines[-1]['line'].setData(x=self.lines[-1]['xdata'], y=self.lines[-1]['ydata'])
-        print(f"{self.lines[-1]['xdata']=}")
 
     def clear_data(self):
         self.lines = []
