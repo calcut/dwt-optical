@@ -12,7 +12,7 @@ import sys
 import os
 from PySide6.QtCore import QObject, QThread, Signal, QSize, QTimer, QTime, Qt
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget, QCheckBox,
-    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QProgressBar, QGridLayout, QTimeEdit)
+    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QProgressBar, QGridLayout, QTimeEdit, QRadioButton)
 import logging
 from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
@@ -23,7 +23,8 @@ import lib.data_process
 import signal
 import time
 import pandas as pd
-from GUI_plotCanvas import Pyqtgraph_canvas
+from GUI_plotCanvas import Pyqtgraph_canvas, PlotCanvasBasic
+from GUI_tableView import PreviewTable
 
 class EpisodicWorker(QObject):
     finished = Signal(str)
@@ -100,8 +101,9 @@ class EpisodicWorker(QObject):
             csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
 
             measurement_stats = self.dp.get_stats(df, peak_type='Min', round_digits=self.dp.round_decimals, std_deviation=False)
-            measurement_stats['timestamp'] = pd.to_datetime(measurement_stats.index,unit='s')
+            measurement_stats['timestamp'] = pd.Timestamp((measurement_stats.index[0]),unit='s').tz_localize('UTC')
             measurement_stats['fluid'] = self.meta_dict['fluid']
+            measurement_stats.index = [filename]
 
             self.progress.emit(self.runs)
             self.plotdata.emit((df, f'{filename} run{self.runs}', measurement_stats))
@@ -165,6 +167,7 @@ class EpisodicTab(QWidget):
 
         rungrid = QGridLayout()
         rungrid.setContentsMargins(0, 0, 0, 0)
+        rungrid.setColumnMinimumWidth(1, 100)
 
         self.time_interval = QTimeEdit()
         self.time_interval.setDisplayFormat("HH:mm:ss")
@@ -174,14 +177,25 @@ class EpisodicTab(QWidget):
         # self.time_interval.editingFinished.connect(self.interval_changed)
         self.time_interval.timeChanged.connect(self.interval_changed)
 
-        rungrid.addWidget(QLabel("Measurement Interval (HH:mm:ss)"), 0, 0, alignment=Qt.AlignRight)
-        rungrid.addWidget(self.time_interval, 0, 1)
+        rungrid.addWidget(QLabel("Measurement Interval (HH:mm:ss)"), 0, 0, 1, 1, alignment=Qt.AlignRight)
+        rungrid.addWidget(self.time_interval, 0, 1, 1, 2)
 
         btn_metadata_update = QPushButton("Update")
         btn_metadata_update.setFixedWidth(btn_width)
         btn_metadata_update.clicked.connect(self.generate_run_dict)
-        rungrid.addWidget(QLabel("Dynamically update Metadata"),1,0, alignment=Qt.AlignRight)
-        rungrid.addWidget(btn_metadata_update,1,1)
+        rungrid.addWidget(QLabel("Update Metadata during run"),1,0, alignment=Qt.AlignRight)
+        rungrid.addWidget(btn_metadata_update,1,2)
+
+        self.radio_spectrum = QRadioButton("Spectrum")
+        self.radio_spectrum.setChecked(True)
+        self.radio_spectrum.toggled.connect(lambda:self.plot_type(self.radio_spectrum))
+        self.radio_peak = QRadioButton("Peak")
+        self.radio_peak.setChecked(False)
+        self.radio_peak.toggled.connect(lambda:self.plot_type(self.radio_peak))
+
+        rungrid.addWidget(QLabel("Plot Type"),2,0, alignment=Qt.AlignRight)
+        rungrid.addWidget(self.radio_spectrum,2,1, Qt.AlignCenter)
+        rungrid.addWidget(self.radio_peak,2,2, Qt.AlignCenter)
 
 
        # Metadata
@@ -191,36 +205,19 @@ class EpisodicTab(QWidget):
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
 
-        self.tbox_instrument = QLineEdit()
-        grid.addWidget(QLabel("Instrument"), 0, 0)
-        grid.addWidget(self.tbox_instrument, 0, 1)
-
         self.tbox_sensor = QLineEdit()
         grid.addWidget(QLabel("Sensor"), 1, 0)
         grid.addWidget(self.tbox_sensor, 1, 1)    
 
         self.combo_element = QComboBox()
         self.combo_element.setEditable(True)
-        self.combo_element.currentTextChanged.connect(self.element_changed)
         grid.addWidget(QLabel("Element"), 2, 0)
         grid.addWidget(self.combo_element, 2, 1)
 
-        self.tbox_structure = QLineEdit()
-        grid.addWidget(QLabel("Structure"), 3, 0)
-        grid.addWidget(self.tbox_structure, 3, 1)
-
-        self.tbox_surface = QLineEdit()
-        grid.addWidget(QLabel("Surface"), 4, 0)
-        grid.addWidget(self.tbox_surface, 4, 1)
-
         self.combo_fluid = QComboBox()
         self.combo_fluid.setEditable(True)
-        grid.addWidget(QLabel("Fluid"), 5, 0)
-        grid.addWidget(self.combo_fluid, 5, 1) 
-
-        self.tbox_comment = QLineEdit()
-        grid.addWidget(QLabel("Comment"), 6, 0)
-        grid.addWidget(self.tbox_comment, 6, 1)
+        grid.addWidget(QLabel("Fluid"), 3, 0)
+        grid.addWidget(self.combo_fluid, 3, 1) 
 
         hbox_grid = QHBoxLayout()
         hbox_grid.addStretch(1)
@@ -229,11 +226,14 @@ class EpisodicTab(QWidget):
 
 
         # Output Path
-        label_output = QLabel("Output Directory Structure:")
+        label_output = QLabel("Output:")
         label_output.setStyleSheet("font-weight: bold")
 
         self.tbox_outpath = QLineEdit()
         self.tbox_outpath.setReadOnly(True)
+
+        self.tbox_statspath = QLineEdit()
+        self.tbox_statspath.setReadOnly(False)
 
         # Merge
         label_merge = QLabel('Merge into existing files')
@@ -259,7 +259,9 @@ class EpisodicTab(QWidget):
 
         self.elapsed_time = 0
 
-        self.plot = Pyqtgraph_canvas()
+        self.plot_peak = Pyqtgraph_canvas()
+        self.plot_peak.hide()
+        self.plot_spectrum = PlotCanvasBasic()
 
         hbox_run = QHBoxLayout()
         hbox_run.addStretch()
@@ -267,8 +269,28 @@ class EpisodicTab(QWidget):
         hbox_run.addWidget(self.btn_pause)
         hbox_run.addWidget(self.btn_stop)
 
+        btn_view_export= QPushButton("View")
+        btn_view_export.clicked.connect(self.view_export)
+        btn_view_export.setFixedWidth(btn_width)
+
+        browse_output = QPushButton("Browse")
+        browse_output.clicked.connect(self.get_output)
+        browse_output.setFixedWidth(btn_width)
+
+
+        hbox_outpath = QHBoxLayout()
+        hbox_outpath.addWidget(QLabel('Spectral Data:'))
+        hbox_outpath.addWidget(self.tbox_outpath)
+
+        hbox_statspath = QHBoxLayout()
+        hbox_statspath.addWidget(QLabel('Stats file:'))
+        hbox_statspath.addWidget(self.tbox_statspath, stretch=3)
+        hbox_statspath.addWidget(browse_output)
+        hbox_statspath.addWidget(btn_view_export)
+
         vbox_output = QVBoxLayout()
-        vbox_output.addWidget(self.tbox_outpath)
+        vbox_output.addLayout(hbox_outpath)
+        vbox_output.addLayout(hbox_statspath)
         vbox_output.addLayout(hbox_merge)
         vbox_output.addLayout(rungrid)
         vbox_output.addLayout(hbox_run)
@@ -286,7 +308,8 @@ class EpisodicTab(QWidget):
         vbox.addWidget(QHLine())
         vbox.addWidget(label_output)
         vbox.addLayout(hbox_output)
-        vbox.addWidget(self.plot)
+        vbox.addWidget(self.plot_spectrum)
+        vbox.addWidget(self.plot_peak)
         vbox.addStretch()
 
         self.setLayout(vbox)
@@ -296,15 +319,18 @@ class EpisodicTab(QWidget):
     
     def generate_run_dict(self):
 
+        element = self.combo_element.currentText()
+        sensor = self.tbox_sensor.text()
+
         self.run_dict = {
             'date'          : pd.Timestamp.utcnow().strftime('%Y-%m-%d'),
-            'instrument'    : self.tbox_instrument.text(),
-            'sensor'        : self.tbox_sensor.text(),
-            'element'       : self.combo_element.currentText(),
-            'structure'     : self.tbox_structure.text(),
-            'surface'       : self.tbox_surface.text(),
+            'instrument'    : self.setup['instrument']['name'],
+            'sensor'        : sensor,
+            'element'       : element,
+            'structure'     : self.setup['sensor']['structure_map']['map'][element][0],
+            'surface'       : self.setup['sensor']['surface_map']['map'][element][0],
             'fluid'         : self.combo_fluid.currentText(),
-            'comment'       : self.tbox_comment.text()
+            'comment'       : None,
         }
 
         # To allow dynamically updating while the thread is running.
@@ -318,6 +344,10 @@ class EpisodicTab(QWidget):
 
         interval = self.time_interval.time()
         interval_s = interval.hour()*60*60 + interval.minute()*60 + interval.second()
+
+        self.stats_df = None
+        self.plot_peak.clear_data()
+        self.run_starttime = pd.Timestamp.utcnow()
 
         self.thread = QThread()
 
@@ -341,11 +371,43 @@ class EpisodicTab(QWidget):
         data = plotdata[0]
         measurement_stats = plotdata[2]
 
-        self.stats_df = pd.concat([measurement_stats, self.stats_df])
-
         series = measurement_stats.iloc[0]
+        timestamp = measurement_stats.at[series.name, 'timestamp']
 
-        self.plot.append_datapoint(x = series['timestamp'].timestamp(), y = series["Peak"], name=series["fluid"])
+        delta = timestamp - self.run_starttime
+        runtime_s = delta.seconds
+
+        # Possibly bad practice to hard code time zone, but at least it has the UTC offset included
+        timestamp_str = timestamp.tz_convert('Europe/London').strftime('%Y-%m-%d %H:%M:%S%z')
+
+        # Don't know why this is necessary, but the value wouldn't update otherwise
+        measurement_stats.drop(columns=['timestamp'], inplace=True)
+
+        # Add runtime and timestamp to stats
+        measurement_stats.at[series.name, 'runtime_s'] = runtime_s
+        measurement_stats.at[series.name, 'timestamp'] = timestamp_str
+
+        self.plot_spectrum.set_data(data, title, stats_df=measurement_stats)
+
+        self.stats_df = pd.concat([measurement_stats, self.stats_df])
+        self.stats_df.to_csv(self.tbox_statspath.text(), sep='\t', na_rep='NA')
+
+        self.plot_peak.append_datapoint(x = runtime_s/60, y = series["Peak"], name=series["fluid"])
+
+    def plot_type(self, button):
+	
+        pass
+        if button.text() == "Spectrum":
+            if button.isChecked() == True:
+                self.plot_spectrum.show()
+            else:
+                self.plot_spectrum.hide()
+
+        if button.text() == "Peak":
+            if button.isChecked() == True:
+                self.plot_peak.show()
+            else:
+                self.plot_peak.hide()
 
     def run_complete(self, status):
         self.btn_run.setEnabled(True)
@@ -373,32 +435,11 @@ class EpisodicTab(QWidget):
             self.worker.interval_s = interval_s
             self.worker.timer_update_requested = True
 
-
-    def element_changed(self, element):
-        try:
-            surface = self.setup['sensor']['surface_map']['map'][element]
-            if type(surface) == list:
-                surface = f'{surface[0]}'
-        except KeyError:
-            pass
-            # surface = 'Unknown - Please update the setup file'
-
-        try:
-            structure = self.setup['sensor']['structure_map']['map'][element]
-            if type(structure) == list:
-                structure = f'{structure[0]}'
-        except KeyError:
-            pass
-            # structure = 'Unknown - Please update the setup file'
-        self.tbox_surface.setText(surface)
-        self.tbox_structure.setText(structure)
-
     def setup_changed(self, setup):
         logging.debug(f"episodicTab: got new setup {setup['name']}")
         self.setup = setup
 
         self.tbox_sensor.setText(setup['sensor']['name'])
-        self.tbox_instrument.setText(setup['instrument']['name'])
 
         # Update the fluid / element options
         fluids = setup['input_config']['fluids']
@@ -418,6 +459,20 @@ class EpisodicTab(QWidget):
         outpath = os.path.join(outpath, filename)
 
         self.tbox_outpath.setText(outpath)
+
+        self.tbox_statspath.setText(setup['output_config']['outfile'])
+
+    def view_export(self):
+        title = "Stats Data"
+        if self.stats_df is not None:
+            self.table = PreviewTable(self.stats_df, title, process_info=None)
+            self.table.show()
+        else:
+            logging.error("No Stats Data to view")
+
+    def get_output(self):
+        outfile, _ = QFileDialog.getSaveFileName(self, "Select Stats File:")
+        self.tbox_statspath.setText(outfile)
 
 if __name__ == "__main__":
 
