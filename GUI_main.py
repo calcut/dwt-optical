@@ -4,10 +4,7 @@ import logging
 import os
 import signal
 
-from PySide6 import QtGui, QtWidgets
-from PySide6.QtCore import QCoreApplication, QRect, QObject, QThread, Signal, Slot, Qt
-from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QMainWindow, QGridLayout, QApplication, QWidget, QTableView,
-QCheckBox, QVBoxLayout, QFileDialog, QPushButton, QLabel, QPlainTextEdit, QTabWidget, QSplitter)
+from PySide6 import QtGui, QtWidgets, QtCore
 from GUI_commonWidgets import SetupBrowse
 from GUI_measureTab import MeasureTab
 from GUI_episodicTab import EpisodicTab
@@ -19,21 +16,21 @@ from GUI_importTab import ImportTab
 from GUI_exportTab import ExportTab
 from GUI_hardwareControl import HardwareControl
 
-class MainWindow(QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         # self.ui = Ui_MainWindow()
         # self.ui.setupUi(self)
         btn_width = 80
-        centralwidget = QWidget()
+        centralwidget = QtWidgets.QWidget()
         centralwidget.setObjectName(u"centralwidget")
         self.setCentralWidget(centralwidget)
         self.resize(1024, 768)
 
-        vbox = QVBoxLayout(centralwidget)
+        vbox = QtWidgets.QVBoxLayout(centralwidget)
         vbox.setObjectName(u"verticalLayout")
 
-        splitter = QSplitter(Qt.Vertical)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
 
 
@@ -59,34 +56,38 @@ class MainWindow(QMainWindow):
         self.measureTab.run_finished.connect(setupBrowse.update_setup_json)
         self.episodicTab.run_finished.connect(setupBrowse.update_setup_json)
 
-        self.setupTab = QWidget()
-        self.runTab = QWidget()
-
         splitter.addWidget(setupBrowse)
         splitter.addWidget(self.log)
         splitter.setStretchFactor(0,0)
         splitter.setStretchFactor(1,1)
 
         # Add tab to the main tab widget, and give it a label
-        tabWidget = QTabWidget(centralwidget)
-        tabWidget.addTab(splitter, "Setup and Log")
-        tabWidget.addTab(self.hardwareTab, "Hardware")
-        tabWidget.addTab(self.singleMeasureTab, "Single Measure")
-        tabWidget.addTab(self.episodicTab, "Episodic Measure")
-        tabWidget.addTab(self.measureTab, "Batch Measure")
-        tabWidget.addTab(self.importTab, "Import")
-        tabWidget.addTab(self.exportTab, "Export")
+        self.tabWidget = QtWidgets.QTabWidget(centralwidget)
+        self.tabWidget.addTab(splitter, "Setup and Log")
+        self.tabWidget.addTab(self.hardwareTab, "Hardware")
+        self.tabWidget.addTab(self.singleMeasureTab, "Single Measure")
+        self.tabWidget.addTab(self.episodicTab, "Episodic Measure")
+        self.tabWidget.addTab(self.measureTab, "Batch Measure")
+        self.tabWidget.addTab(self.importTab, "Import")
+        self.tabWidget.addTab(self.exportTab, "Export")
 
-        vbox.addWidget(tabWidget)
+        self.log.new_icon.connect(self.change_log_icon)
+        self.change_log_icon()
+
+
+        vbox.addWidget(self.tabWidget)
 
         self.setWindowTitle("Optical Tongue Interface")
         self.show()
- 
+
+    def change_log_icon(self):
+        self.tabWidget.setTabIcon(0, self.log.pixmap)
+
 
 if __name__ == "__main__":
     
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    app = QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     app.setStyle('Fusion')
     window = MainWindow()
     app.setWindowIcon(QtGui.QIcon(":/icons/full-spectrum.png"))
