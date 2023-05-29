@@ -62,8 +62,14 @@ class MainWindow(QMainWindow):
         self.setupTab = QWidget()
         self.runTab = QWidget()
 
+        splitter.addWidget(setupBrowse)
+        splitter.addWidget(self.log)
+        splitter.setStretchFactor(0,0)
+        splitter.setStretchFactor(1,1)
+
         # Add tab to the main tab widget, and give it a label
         tabWidget = QTabWidget(centralwidget)
+        tabWidget.addTab(splitter, "Setup and Log")
         tabWidget.addTab(self.hardwareTab, "Hardware")
         tabWidget.addTab(self.singleMeasureTab, "Single Measure")
         tabWidget.addTab(self.episodicTab, "Episodic Measure")
@@ -71,14 +77,7 @@ class MainWindow(QMainWindow):
         tabWidget.addTab(self.importTab, "Import")
         tabWidget.addTab(self.exportTab, "Export")
 
-
-        splitter.addWidget(tabWidget)
-        splitter.addWidget(self.log)
-        splitter.setStretchFactor(0,0)
-        splitter.setStretchFactor(1,1)
-
-        vbox.addWidget(setupBrowse)
-        vbox.addWidget(splitter)
+        vbox.addWidget(tabWidget)
 
         self.setWindowTitle("Optical Tongue Interface")
         self.show()
