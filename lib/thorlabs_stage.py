@@ -40,7 +40,7 @@ class Thorlabs_Stage():
         ports = serial.tools.list_ports.comports()
         n =1 
         for port, desc, hwid in sorted(ports):
-            logging.info(f"{n}) {port}: {desc} [{hwid}]")
+            logging.debug(f"{n}) {port}: {desc} [{hwid}]")
             n+=1
         return ports
 
