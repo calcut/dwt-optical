@@ -42,6 +42,11 @@ class Stellarnet_Spectrometer():
         pass
 
     def connect(self):
+
+        if platform.system() == 'Darwin':
+            logging.warning('Stellarnet Driver not supported on Mac')
+            return
+    
         try:
             self.spectrometer, self.wav = sn.array_get_spec(0) #0 is first channel/spectrometer
             self.spectrometer['device'].set_config(int_time=self.int_time,
