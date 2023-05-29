@@ -331,7 +331,7 @@ class SpectrometerControl(QWidget):
 
         self.setLayout(hbox)
 
-        self.spec.connect()
+        # self.spec.connect()
 
     def update_settings_labels(self):
         self.label_scans_to_avg.setText(str(self.spec.scans_to_avg))
