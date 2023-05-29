@@ -28,7 +28,7 @@ class MainWindow(QMainWindow):
         centralwidget = QWidget()
         centralwidget.setObjectName(u"centralwidget")
         self.setCentralWidget(centralwidget)
-        self.resize(1024, 1024)
+        self.resize(1024, 768)
 
         vbox = QVBoxLayout(centralwidget)
         vbox.setObjectName(u"verticalLayout")
