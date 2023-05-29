@@ -77,7 +77,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         vbox.addWidget(self.tabWidget)
 
-        self.setWindowTitle("Optical Tongue Interface")
+        self.setWindowTitle("CC's Spectrometer Automation Tool")
         self.show()
 
     def change_log_icon(self):
