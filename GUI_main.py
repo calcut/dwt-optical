@@ -54,7 +54,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Allows the output tab to immediately update the combo boxes after a measurement run is complete.
         self.measureTab.run_finished.connect(setupBrowse.update_setup_json)
-        self.episodicTab.run_finished.connect(setupBrowse.update_setup_json)
+
+        # Commented out because it will reset the metadata fields in the episodic tab when run is complete
+        # self.episodicTab.run_finished.connect(setupBrowse.update_setup_json)
 
         splitter.addWidget(setupBrowse)
         splitter.addWidget(self.log)
