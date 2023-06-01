@@ -204,6 +204,11 @@ class SingleMeasureTab(QWidget):
         csv.write_meta_df_txt(self.setup, self.run_df, merge)
 
     def element_changed(self, element):
+        
+        if element == '':
+            # This happens when the combo box is cleared
+            # Just return to ignore this condition and prevent error messages
+            return
         try:
             layout = self.setup['sensor']['layout']['map'][element]
         except KeyError:
