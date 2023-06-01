@@ -221,6 +221,7 @@ class EpisodicTab(QWidget):
 
         self.tbox_statspath = QLineEdit()
         self.tbox_statspath.setReadOnly(False)
+        self.tbox_statspath.editingFinished.connect(self.check_statspath)
 
         btn_view_export= QPushButton("View")
         btn_view_export.clicked.connect(self.view_export)
@@ -388,7 +389,7 @@ class EpisodicTab(QWidget):
         data.columns = ['spectrum']
         self.plot_spectrum.set_data(data, title, stats_df=measurement_stats)
 
-        self.stats_df = pd.concat([measurement_stats, self.stats_df])
+        self.stats_df = pd.concat([measurement_stats, self.stats_df])            
         self.stats_df.to_csv(self.tbox_statspath.text(), sep='\t', na_rep='NA')
 
         self.plot_peak.append_datapoint(x = runtime_s/60, y = series["Peak"], name=series["fluid"])
@@ -412,6 +413,7 @@ class EpisodicTab(QWidget):
         self.btn_run.setEnabled(True)
         self.btn_pause.setText('Pause')
         self.run_finished.emit(status)
+        self.check_statspath()
         logging.info(status)
 
     def pause_resume(self):
@@ -457,9 +459,36 @@ class EpisodicTab(QWidget):
         filename = '-'.join(f'<{p}>' for p in setup['primary_metadata'])+".txt"
         outpath = os.path.join(outpath, filename)
 
-        self.tbox_outpath.setText(outpath)
+        statsname = "stats_01.txt"
+        statspath = os.path.join(os.path.abspath(setup['datadir']), setup['sensor']['name'], "episodic", statsname)
 
-        self.tbox_statspath.setText(setup['output_config']['outfile'])
+        self.tbox_outpath.setText(outpath)
+        self.tbox_statspath.setText(statspath)
+        self.check_statspath()
+
+    def check_statspath(self):
+        statspath = self.tbox_statspath.text()
+        statspath = self.uniquify(statspath)
+
+        statsdir = os.path.dirname(statspath)
+        if not os.path.exists(statsdir):
+            os.makedirs(statsdir, exist_ok=True)
+
+        self.tbox_statspath.setText(statspath)
+
+
+    def uniquify(self, path):
+        filename, extension = os.path.splitext(path)
+        counter = 0
+
+        while os.path.exists(path):
+            counter += 1
+            if filename[-3] == '_':
+               path = f"{filename[:-3]}_{counter:02d}{extension}"
+            else:
+               path = f"{filename}_{counter:02d}{extension}"
+
+        return path
 
     def view_export(self):
         title = "Stats Data"
