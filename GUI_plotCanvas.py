@@ -212,7 +212,7 @@ class PlotCanvas(QtWidgets.QMainWindow):
                 self.legline_dict[legline] = pltline
 
         self.canvas.draw()
-        # self.show()
+        self.show()
         self.plot_visible = True
 
         # crs = mplcursors.cursor(self.canvas.axes, hover=True)
