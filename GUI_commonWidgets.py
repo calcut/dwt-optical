@@ -138,9 +138,17 @@ class SetupBrowse(QWidget):
             self.rootpath = dir
             self.tbox_root.setText(dir)
             os.chdir(dir)
+            self.check_for_setup_dir()
             self.update_setup_combo()
             logging.debug(f'setting root directory: {dir}')
             self.update_cache_file()
+
+    def check_for_setup_dir(self):
+        if not os.path.isdir("setup"):
+            os.mkdir("setup")
+            logging.warning('No setup folder found, creating one with default setup files in')
+            json_setup.dict_to_json(csv.get_default_setup(), 'setup')
+
 
     def update_cache_file(self):
         cache_file = os.path.join(os.path.dirname(__file__), 'rootpath_cache')
