@@ -2,9 +2,9 @@ name: Build exe for windows
 
 on:
   workflow_dispatch:
-#   push:
-#     branches:
-#       - master
+  push:
+    tags:        
+      - '*' 
 
 jobs:
 
@@ -20,8 +20,14 @@ jobs:
     - run: pip install pyinstaller wheel
     - run: pip install -r ./requirements.txt
     - run: pyinstaller GUI_main.spec
-    - name: Upload exe and wheel
+    - name: Upload exe as artifact
       uses: actions/upload-artifact@v3
       with:
         name: spectool-windows
         path: dist/*
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          GUI_main.exe
