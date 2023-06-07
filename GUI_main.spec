@@ -8,7 +8,7 @@ a = Analysis(
     ['GUI_main.py'],
     pathex=[],
     binaries=[],
-    datas=[('C:\\Windows\\System32\\libusb0.dll', '.'),],
+    datas=[('lib\\libusb0.dll', '.'),],
     hiddenimports=['usb'],
     hookspath=[],
     hooksconfig={},
