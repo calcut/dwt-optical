@@ -29,19 +29,22 @@ class SetupBrowse(QWidget):
         self.rootpath = None
         previous_setup = None
 
+        app_cache_folder = AppDataPaths('cc-spectrometer-tool').app_data_path
+
+        if not os.path.isdir(app_cache_folder):
+            os.makedirs(app_cache_folder)
+
         try:
-            app_cache_folder = AppDataPaths('cc-spectrometer-tool').app_data_path
             cache_file = os.path.join(app_cache_folder, 'rootpath_cache')
             with open(cache_file, 'r') as f:
                 self.rootpath = f.readline().strip()
                 previous_setup = f.readline().strip()
-            try:
-                os.chdir(self.rootpath)
-            except FileNotFoundError:
-                logging.warning('Working directory not found, please browse and select one')
 
-        except FileNotFoundError:
-            logging.warning('rootpath cache file not found')
+        except FileNotFoundError as e:
+            logging.info(f'No rootpath cache file not found, using default: {app_cache_folder}')
+            self.rootpath = app_cache_folder
+        
+        os.chdir(self.rootpath)
 
         self.setup = csv.get_default_setup()
 
@@ -130,6 +133,9 @@ class SetupBrowse(QWidget):
 
         self.setLayout(vbox)
 
+        self.check_for_setup_dir()
+        self.update_cache_file()
+
         # Populate the fields:
         self.update_setup_combo(previous_setup)
         self.setup_combo.currentIndexChanged.connect(self.update_setup_json)
@@ -148,7 +154,7 @@ class SetupBrowse(QWidget):
     def check_for_setup_dir(self):
         if not os.path.isdir("setup"):
             os.mkdir("setup")
-            logging.warning('No setup folder found, creating one with default setup files in')
+            logging.warning(f'No setup folder found, creating one with default setup files in {os.getcwd()}')
             json_setup.dict_to_json(csv.get_default_setup(), 'setup')
 
 
