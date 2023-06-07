@@ -11,6 +11,7 @@ from GUI_tableView import SetupTable
 from GUI_setupEditor import SetupEditor
 import lib.csv_helpers as csv
 import lib.json_setup as json_setup
+from appdata import AppDataPaths
 
 class QHLine(QFrame):
     def __init__(self):
@@ -29,7 +30,8 @@ class SetupBrowse(QWidget):
         previous_setup = None
 
         try:
-            cache_file = os.path.join(os.path.dirname(__file__), 'rootpath_cache')
+            app_cache_folder = AppDataPaths('cc-spectrometer-tool').app_data_path
+            cache_file = os.path.join(app_cache_folder, 'rootpath_cache')
             with open(cache_file, 'r') as f:
                 self.rootpath = f.readline().strip()
                 previous_setup = f.readline().strip()
@@ -151,7 +153,8 @@ class SetupBrowse(QWidget):
 
 
     def update_cache_file(self):
-        cache_file = os.path.join(os.path.dirname(__file__), 'rootpath_cache')
+        app_cache_folder = AppDataPaths('cc-spectrometer-tool').app_data_path
+        cache_file = os.path.join(app_cache_folder, 'rootpath_cache')
         with open(cache_file, 'w') as f:
             f.write(self.rootpath+'\n')
             f.write(self.setup_combo.currentText())
