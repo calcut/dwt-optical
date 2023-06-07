@@ -1,0 +1,28 @@
+name: Build exe for windows
+
+on:
+  workflow_dispatch:
+#   push:
+#     branches:
+#       - master
+
+jobs:
+
+  build:
+    name: Build exe
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - run: pip install pyinstaller
+    - run: pip install -r ./requirements.txt
+#     - run: pyinstaller -F -n sr_u2s sr_u2s/__main__.py
+#     - run: python setup.py sdist bdist_wheel
+#     - name: Upload exe and wheel
+#       uses: actions/upload-artifact@v3
+#       with:
+#         name: sr_u2s
+#         path: dist/*
