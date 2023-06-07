@@ -9,4 +9,4 @@ scikit_learn==1.1.1
 scipy==1.8.1
 thorlabs_apt_protocol==29.0.0
 pyusb==1.2.1
-pyqtgraph=0.13.3
+pyqtgraph==0.13.3
