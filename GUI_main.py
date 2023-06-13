@@ -3,6 +3,7 @@ import sys
 import logging
 import os
 import signal
+import subprocess
 
 from PySide6 import QtGui, QtWidgets, QtCore
 from GUI_commonWidgets import SetupBrowse
@@ -26,6 +27,8 @@ class MainWindow(QtWidgets.QMainWindow):
         centralwidget.setObjectName(u"centralwidget")
         self.setCentralWidget(centralwidget)
         self.resize(1024, 768)
+
+        self.git_describe = subprocess.run(['git', 'describe', '--tags'], check=True, capture_output=True).stdout.decode('ascii').strip()
 
         vbox = QtWidgets.QVBoxLayout(centralwidget)
         vbox.setObjectName(u"verticalLayout")
@@ -79,7 +82,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         vbox.addWidget(self.tabWidget)
 
-        self.setWindowTitle("CC's Spectrometer Automation Tool")
+        self.setWindowTitle(f"CC's Spectrometer Automation Tool {self.git_describe}")
+
         self.show()
 
     def change_log_icon(self):
