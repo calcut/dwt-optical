@@ -20,6 +20,7 @@ jobs:
         cache: 'pip' # caching pip dependencies
     - run: pip install pyinstaller wheel
     - run: pip install -r ./requirements.txt
+    - run: git describe --tags > ./version.txt
     - run: pyinstaller GUI_main.spec
 #     - name: Upload exe as artifact
 #       uses: actions/upload-artifact@v3
