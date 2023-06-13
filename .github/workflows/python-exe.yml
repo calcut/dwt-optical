@@ -18,9 +18,8 @@ jobs:
       with:
         python-version: '3.10'
         cache: 'pip' # caching pip dependencies
-    - run: pip install pyinstaller wheel
+#     - run: pip install pyinstaller wheel
 #     - run: pip install -r ./requirements.txt
-    - run: git describe -- tags
     - run: $env:GITHUB_REF_NAME	 > version.txt
     - run: cat version.txt
     
