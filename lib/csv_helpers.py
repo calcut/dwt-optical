@@ -82,7 +82,7 @@ def find_datapath(setup, meta_df, row_index):
     return datapath
 
 
-def merge_dataframes(setup, meta_df):
+def merge_dataframes(setup, meta_df, posixtime_from=None, posixtime_until=None):
     '''
     Extracts dataframes from files and merges them into a single dataframe
     Requires a metadata frame to know which measurements to select
@@ -110,6 +110,12 @@ def merge_dataframes(setup, meta_df):
         # locate the datafile and read it in
         datapath = find_datapath(setup, meta_df, row)
         df = pd.read_csv(datapath, sep='\t', index_col='wavelength')
+
+        # Select only the columns that are within the specified time range
+        if posixtime_from is not None:
+            df = df.loc[:, df.columns.astype(float) >= posixtime_from]
+        if posixtime_until is not None:
+            df = df.loc[:, df.columns.astype(float) <= posixtime_until]
 
         # Name the output columns based on metadata
         col_names = []
