@@ -2,11 +2,9 @@
 Glasgow University Research Project - Optical Tongue
 
 ## Running the GUI
-
-- Complete the installation steps below
-- Run the `GUI_main.py` file
-   - either from the command line
-   - or from within an IDE (e.g [VS Code](https://code.visualstudio.com/))
+- Complete the Driver Installation steps below
+- Download and run the latest GUI_main.exe file available on the [releases page](https://github.com/calcut/dwt-optical/releases)
+   - Alternatively, the GUI_main.py file can be run from a python environment, see Python Installation below.
 
 ### Troubleshooting
    - Spectrometer not detected
@@ -19,7 +17,10 @@ Glasgow University Research Project - Optical Tongue
 
 
 
-## Installation
+## Driver Installation
+
+The software will run without these, but will fail to communicate with the hardware.
+e.g. Thorlabs drivers are optional if only using the Stellarnet spectrophotometer.
 
 ### Thorlabs Stage
 - Download and install Thorlabs [APT Software](https://www.thorlabs.com/software_pages/ViewSoftwarePage.cfm?Code=Motion_Control&viewtab=1)
@@ -54,7 +55,9 @@ Glasgow University Research Project - Optical Tongue
       - NB **This step will need repeated** if the hardware setup changes 
 
 
+## Python Environment
 
+These steps are not required if running from the .exe file
 
 ### Python
    - Code has been tested with Python 3.10.6
