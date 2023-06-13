@@ -3,10 +3,10 @@ import sys
 from PySide6 import QtWidgets
 import pandas as pd
 import PySide6.QtWidgets
-from PySide6.QtCore import Signal, Qt, QSize
+from PySide6.QtCore import Signal, Qt, QSize, QTime, QDateTime
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGridLayout,
     QHBoxLayout, QLineEdit, QMainWindow, QWidget, QFrame,
-    QVBoxLayout, QFileDialog, QPushButton, QLabel, QSpinBox)
+    QVBoxLayout, QFileDialog, QPushButton, QLabel, QSpinBox, QDateTimeEdit)
 import logging
 from GUI_plotCanvas import PlotCanvas
 from GUI_tableView import PreviewTable
@@ -76,12 +76,35 @@ class DataProcess(QWidget):
         self.grid.setColumnStretch(6,5) #Function Arg3 Name
         self.grid.setColumnStretch(7,5) #Function Arg3 Value
 
-        row_avg = 0
+        row_timerange = 0
+        self.timerange = QCheckBox()
+        self.grid.addWidget(self.timerange, row_timerange, 0)
+        self.grid.addWidget(QLabel("Time Range (local)"), row_timerange, 1, alignment=Qt.AlignLeft)
+        self.grid.addWidget(QLabel("From:"), row_timerange, 2, alignment=Qt.AlignRight)
+
+        self.time_from = QDateTimeEdit()
+        self.time_from.setDisplayFormat("yyyy-MM-dd HH:mm:ss")
+        self.time_from.setCalendarPopup(True)
+        self.time_from.setCurrentSectionIndex(2)
+        self.time_from.setFixedWidth = btn_width*2
+        self.time_from.setDateTime(QDateTime.currentDateTime())
+        self.time_from.setTime(QTime(0,0,0))
+        self.grid.addWidget(self.time_from, row_timerange, 3)
+        self.grid.addWidget(QLabel("Until:"), row_timerange, 4, alignment=Qt.AlignRight)
+        self.time_until = QDateTimeEdit()
+        self.time_until.setDisplayFormat("yyyy-MM-dd HH:mm:ss")
+        self.time_until.setCalendarPopup(True)
+        self.time_until.setCurrentSectionIndex(2)
+        self.time_until.setFixedWidth = btn_width*2
+        self.time_until.setDateTime(QDateTime.currentDateTime())
+        self.grid.addWidget(self.time_until, row_timerange, 5)
+
+        row_avg = 1
         self.avg_reps = QCheckBox()
         self.grid.addWidget(self.avg_reps, row_avg, 0)
         self.grid.addWidget(QLabel("Average Measurement Repeats"), row_avg, 1, alignment=Qt.AlignLeft)
     
-        row_trim = 1
+        row_trim = 2
         self.trim = QCheckBox()
         self.grid.addWidget(self.trim, row_trim, 0)
         self.grid.addWidget(QLabel("Wavelength Range"), row_trim, 1, alignment=Qt.AlignLeft)
@@ -96,7 +119,7 @@ class DataProcess(QWidget):
         self.trim_max_box.setValue(730)
         self.grid.addWidget(self.trim_max_box, row_trim, 5)
 
-        row_smooth = 2
+        row_smooth = 3
         self.smooth = QCheckBox()
         self.grid.addWidget(self.smooth, row_smooth, 0)
         self.grid.addWidget(QLabel("Smooth (rolling mean)"), row_smooth, 1, alignment=Qt.AlignLeft)
@@ -105,7 +128,7 @@ class DataProcess(QWidget):
         self.smoothpoints_box.setValue(3)
         self.grid.addWidget(self.smoothpoints_box, row_smooth, 3)
         
-        row_interpolate = 3
+        row_interpolate = 4
         self.interpolate = QCheckBox()
         self.grid.addWidget(self.interpolate, row_interpolate, 0)
         self.grid.addWidget(QLabel("Interpolate"), row_interpolate, 1, alignment=Qt.AlignLeft)
@@ -117,12 +140,12 @@ class DataProcess(QWidget):
         self.interpolate_sr_box.setStepType(QtWidgets.QAbstractSpinBox.StepType(1))
         self.grid.addWidget(self.interpolate_sr_box, row_interpolate, 3)
 
-        row_normalise = 4
+        row_normalise = 5
         self.normalise = QCheckBox()
         self.grid.addWidget(self.normalise, row_normalise, 0)
         self.grid.addWidget(QLabel("Normalise"), row_normalise, 1, alignment=Qt.AlignLeft)
 
-        row_round = 5
+        row_round = 6
         self.round = QCheckBox()
         self.grid.addWidget(self.round, row_round, 0)
         self.grid.addWidget(QLabel("Round"), row_round, 1, alignment=Qt.AlignLeft)
@@ -136,8 +159,14 @@ class DataProcess(QWidget):
         if self.selection_df is None:
             logging.error('Please select data first')
         else:
+            if self.timerange.isChecked():
+                posix_from = self.time_from.dateTime().toSecsSinceEpoch()
+                posix_until = self.time_until.dateTime().toSecsSinceEpoch()
+            else:
+                posix_from = None
+                posix_until = None
             logging.info('Merging selected data into single dataframe')
-            self.df, self.title = csv.merge_dataframes(self.setup, self.selection_df)
+            self.df, self.title = csv.merge_dataframes(self.setup, self.selection_df, posixtime_from=posix_from, posixtime_until=posix_until )
             self.df_orig = self.df.copy()
             self.title_orig = self.title
             logging.info(f'Selected data contains {len(self.df.columns)} measurements')

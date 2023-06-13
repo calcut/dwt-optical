@@ -123,7 +123,9 @@ def merge_dataframes(setup, meta_df, posixtime_from=None, posixtime_until=None):
         for col in df.columns:
             n += 1
             # Convert the timestamp to a human-readable format
-            timestamp = pd.to_datetime(col,unit='s').strftime('%Y-%m-%d_%H:%M:%S')
+            # Possibly bad practice to hard code time zone, but at least it has the UTC offset included
+            timestamp = pd.to_datetime(col,unit='s', utc=True)
+            timestamp = timestamp.tz_convert('Europe/London').strftime('%Y-%m-%d_%H:%M:%S%z')
 
             if len(individual_meta) > 0:
                 name = '_'.join(meta_df.loc[row][i] for i in individual_meta)
