@@ -35,3 +35,4 @@ jobs:
       with:
         files: |
           dist/GUI_main.exe
+          version.txt
