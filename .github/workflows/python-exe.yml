@@ -13,26 +13,26 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        cache: 'pip' # caching pip dependencies
-    - run: pip install pyinstaller wheel
-    - run: pip install -r ./requirements.txt
+#     - name: Set up Python 3.10
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: '3.10'
+#         cache: 'pip' # caching pip dependencies
+#     - run: pip install pyinstaller wheel
+#     - run: pip install -r ./requirements.txt
     - run: chcp 65001
     - run: $env:GITHUB_REF_NAME	 > version.txt
     - run: cat version.txt
-    - run: pyinstaller GUI_main.spec
-#     - name: Upload exe as artifact
-#       uses: actions/upload-artifact@v3
-#       with:
-#         name: spectool-windows
-#         path: dist/*
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
+#     - run: pyinstaller GUI_main.spec
+    - name: Upload exe as artifact
+      uses: actions/upload-artifact@v3
       with:
-        files: |
-          dist/GUI_main.exe
-          version.txt
+        name: debug
+        path: version.txt
+#     - name: Release
+#       uses: softprops/action-gh-release@v1
+#       if: startsWith(github.ref, 'refs/tags/')
+#       with:
+#         files: |
+#           version.txt
+#           dist/GUI_main.exe
