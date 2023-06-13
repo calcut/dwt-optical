@@ -20,6 +20,7 @@ jobs:
         cache: 'pip' # caching pip dependencies
     - run: pip install pyinstaller wheel
     - run: pip install -r ./requirements.txt
+    - run: chcp 65001
     - run: $env:GITHUB_REF_NAME	 > version.txt
     - run: cat version.txt
     - run: pyinstaller GUI_main.spec
