@@ -55,7 +55,7 @@ e.g. Thorlabs drivers are optional if only using the Stellarnet spectrophotomete
       - NB **This step will need repeated** if the hardware setup changes 
 
 
-## Python Environment
+## Python Installation
 
 These steps are not required if running from the .exe file
 
