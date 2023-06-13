@@ -34,17 +34,17 @@ class MainWindow(QtWidgets.QMainWindow):
             version_file = os.path.join(sys._MEIPASS,'version.txt')
             try:
                 logging.info(f"getting version from {version_file}")
-                with open(version_file, 'r', encoding='utf-16') as f:
+                with open(version_file, 'r', encoding='utf-8') as f:
                     self.version = f.read()
             except Exception as e:
-                logging.warning(f"error getting version number from {version_file} {e} {e.with_traceback()}")
+                logging.warning(f"error getting version number from {version_file} {e}")
                 self.version = 'Unknown Version'
         else:
             try:
                 # check if running from a git repo, get version info if so
                 self.version = subprocess.run(['git', 'describe', '--tags'], check=True, capture_output=True).stdout.decode('ascii').strip()
             except Exception as e:
-                logging.warning(f"error getting version number from git describe {e} {e.with_traceback()}")
+                logging.warning(f"error getting version number from git describe {e}")
                 self.version = 'Unknown Version'
 
         vbox = QtWidgets.QVBoxLayout(centralwidget)
