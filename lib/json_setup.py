@@ -215,15 +215,18 @@ def json_to_dict(filepath):
     # that need to be populated
     for key, setting in dictionary.items():
         if type(setting) == str:
-            if setting[0] == '*':
-                setting = setting[1:]
-                subpath = os.path.join(os.path.dirname(filepath), key)
-            # if os.path.exists(subpath):
-                sub_json = os.path.join(subpath, setting+'.json')
-                # logging.debug(f'Populating {key}:')
-                
-                # Recursively call this function to populate the sub-dictionary
-                dictionary[key] = json_to_dict(sub_json)
+            try:
+                if setting[0] == '*':
+                    setting = setting[1:]
+                    subpath = os.path.join(os.path.dirname(filepath), key)
+                # if os.path.exists(subpath):
+                    sub_json = os.path.join(subpath, setting+'.json')
+                    # logging.debug(f'Populating {key}:')
+                    
+                    # Recursively call this function to populate the sub-dictionary
+                    dictionary[key] = json_to_dict(sub_json)
+            except IndexError as e:
+                logging.error(f"Error parsing {filepath}, {key}={setting}")
 
     return dictionary
 
