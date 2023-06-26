@@ -7,3 +7,4 @@ venv
 dist
 venv-windows
 rootpath_cache
+sensor_data.mat
