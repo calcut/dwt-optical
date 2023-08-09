@@ -12,7 +12,7 @@ import sys
 import os
 from PySide6.QtCore import QObject, QThread, Signal, QSize, QTimer, QTime, Qt
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLineEdit, QWidget, QCheckBox,
-    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QProgressBar, QGridLayout, QTimeEdit, QRadioButton)
+    QVBoxLayout, QFileDialog, QPushButton, QLabel, QComboBox, QProgressBar, QGridLayout, QTimeEdit, QRadioButton, QDialogButtonBox, QDialog)
 import logging
 from GUI_commonWidgets import QHLine
 from GUI_tableView import MetaTable
@@ -25,6 +25,31 @@ import time
 import pandas as pd
 from GUI_plotCanvas import Pyqtgraph_canvas, PlotCanvasBasic
 from GUI_tableView import PreviewTable
+
+class IntervalWarningDialog(QDialog):
+    def __init__(self, int_time, scans_to_average, interval_s):
+        super().__init__()
+
+        self.setWindowTitle("Warning")
+
+        QBtn = QDialogButtonBox.Ignore | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.layout = QVBoxLayout()
+
+        text = (f"The requested interval ({interval_s}s) is shorter than can be achieved with:\n"
+            +f"integration_time = {int_time}ms\n"
+            +f"scans_to_average = {scans_to_average}\n")
+        logging.warning(text)
+        
+        message = QLabel(text)
+
+        self.layout.addWidget(message)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
 
 class EpisodicWorker(QObject):
     finished = Signal(str)
@@ -191,7 +216,7 @@ class EpisodicTab(QWidget):
 
 
         self.time_interval = QTimeEdit()
-        self.time_interval.setDisplayFormat("HH:mm:ss")
+        self.time_interval.setDisplayFormat("HH:mm:ss.zzz")
         self.time_interval.setCurrentSectionIndex(2)
         self.time_interval.setFixedWidth = btn_width*2
         self.time_interval.setTime(QTime(0,0,1))
@@ -261,7 +286,7 @@ class EpisodicTab(QWidget):
         rungrid.addWidget(browse_output,1, 4, 1, 1)
         rungrid.addWidget(btn_view_export, 1, 5, 1, 1)
 
-        rungrid.addWidget(QLabel("Measurement Interval (HH:mm:ss):"), 3, 3, 1, 1, alignment=Qt.AlignRight)
+        rungrid.addWidget(QLabel("Measurement Interval (HH:mm:ss.zzz):"), 3, 3, 1, 1, alignment=Qt.AlignRight)
         rungrid.addWidget(self.time_interval, 3, 4, 1, 2, alignment=Qt.AlignRight)
         rungrid.addWidget(QLabel("Update Metadata during run:"),4,3, alignment=Qt.AlignRight)
         rungrid.addWidget(btn_metadata_update,4,5)
@@ -343,7 +368,18 @@ class EpisodicTab(QWidget):
         self.generate_run_dict()
 
         interval = self.time_interval.time()
-        interval_s = interval.hour()*60*60 + interval.minute()*60 + interval.second()
+        interval_s = interval.hour()*60*60 + interval.minute()*60 + interval.second() + interval.msec()/1000
+
+        int_time = self.setup['input_config']['integration_time']
+        scans = self.setup['input_config']['scans_to_avg']
+
+        if int_time/1000 * scans > interval_s:
+            dlg = IntervalWarningDialog(int_time, scans, interval_s)
+            if dlg.exec():
+                logging.warning('Interval dialog ignored')
+            else:
+                logging.warning('Run cancelled via interval warning dialog')
+                return
 
         self.stats_df = None
         self.plot_peak.clear_data()
@@ -431,7 +467,7 @@ class EpisodicTab(QWidget):
 
     def interval_changed(self):
         interval = self.time_interval.time()
-        interval_s = interval.hour()*60*60 + interval.minute()*60 + interval.second()
+        interval_s = interval.hour()*60*60 + interval.minute()*60 + interval.second() + interval.msec()/1000
         if self.thread:
             self.worker.interval_s = interval_s
             self.worker.timer_update_requested = True
