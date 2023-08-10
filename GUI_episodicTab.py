@@ -413,7 +413,7 @@ class EpisodicTab(QWidget):
         runtime_s = delta.seconds
 
         # Possibly bad practice to hard code time zone, but at least it has the UTC offset included
-        timestamp_str = timestamp.tz_convert('Europe/London').strftime('%Y-%m-%d %H:%M:%S%z')
+        timestamp_str = timestamp.tz_convert('Europe/London').strftime('%Y-%m-%d %H:%M:%S.%f%z')
 
         # Don't know why this is necessary, but the value wouldn't update otherwise
         measurement_stats.drop(columns=['timestamp'], inplace=True)
