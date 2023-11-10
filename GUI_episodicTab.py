@@ -125,10 +125,21 @@ class EpisodicWorker(QObject):
             meta_df.index.name = 'index'
             csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
 
-            measurement_stats = self.dp.get_stats(df, peak_type='Min', round_digits=self.dp.round_decimals, std_deviation=False)
-            measurement_stats['timestamp'] = pd.Timestamp((measurement_stats.index[0]),unit='s').tz_localize('UTC')
-            measurement_stats['fluid'] = self.meta_dict['fluid']
-            measurement_stats.index = [filename]
+            try:
+                measurement_stats = self.dp.get_stats(df, peak_type='Min', round_digits=self.dp.round_decimals, std_deviation=False)
+                measurement_stats['timestamp'] = pd.Timestamp((measurement_stats.index[0]),unit='s').tz_localize('UTC')
+                measurement_stats['fluid'] = self.meta_dict['fluid']
+                measurement_stats.index = [filename]
+            except Exception as e:
+                logging.warning(f"Error processing stats: {e}")
+                logging.warning(f"This probably means the spectrum captured doesn't look like a typical peak")
+                measurement_stats = pd.DataFrame()
+
+            # calculate time since last run
+            if hasattr(self, 'last_run_time'):
+                time_since_last_run = time.time() - self.last_run_time
+                logging.info(f"Time since last run: {time_since_last_run:.2f} seconds")
+            self.last_run_time = time.time()
 
             self.progress.emit(self.runs)
             self.plotdata.emit((df, f'{filename} run{self.runs}', measurement_stats))
