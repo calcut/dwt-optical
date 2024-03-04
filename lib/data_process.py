@@ -159,7 +159,7 @@ class DataProcessor():
 
         return df
 
-    def get_stats(self, df, peak_type='Min', round_digits=3, std_deviation=False, peak_algo="poly51"):
+    def get_stats(self, df, peak_type='Min', round_digits=3, std_deviation=False, peak_algo="quadratic"):
 
         # this imports the example code rather than re-implementing it
         stats_df = pd.DataFrame(index=df.columns, dtype='float64')
