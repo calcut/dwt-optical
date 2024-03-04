@@ -126,7 +126,10 @@ class EpisodicWorker(QObject):
             csv.write_meta_df_txt(self.setup, meta_df, merge=self.merge)
 
             try:
-                measurement_stats = self.dp.get_stats(df, peak_type='Min', round_digits=self.dp.round_decimals, std_deviation=False)
+                measurement_stats = self.dp.get_stats(df, peak_type='Min',
+                                                       round_digits=self.dp.round_decimals,
+                                                        std_deviation=False,
+                                                        peak_algo="quadratic")
                 measurement_stats['timestamp'] = pd.Timestamp((measurement_stats.index[0]),unit='s').tz_localize('UTC')
                 measurement_stats['fluid'] = self.meta_dict['fluid']
                 measurement_stats.index = [filename]

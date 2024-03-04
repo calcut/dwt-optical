@@ -159,7 +159,7 @@ class DataProcessor():
 
         return df
 
-    def get_stats(self, df, peak_type='Min', round_digits=3, std_deviation=False):
+    def get_stats(self, df, peak_type='Min', round_digits=3, std_deviation=False, peak_algo="poly51"):
 
         # this imports the example code rather than re-implementing it
         stats_df = pd.DataFrame(index=df.columns, dtype='float64')
@@ -175,7 +175,11 @@ class DataProcessor():
 
             # fwhm, height, baseline = general_functions.FWHM(WavelengthArray, TransArray)
             fwhm, height, baseline = self.FWHM(df, col)
-            smoothed_peak = self._smoothed_peak(WavelengthArray, TransArray)
+
+            if peak_algo == "poly51":
+                smoothed_peak = self._smoothed_peak(WavelengthArray, TransArray)
+            elif peak_algo == "quadratic":
+                smoothed_peak = self.quadratic_peak(WavelengthArray, TransArray)
 
             if self.calc_min:
                 stats_df.at[col, 'Peak'] = round(smoothed_peak, round_digits)
@@ -205,6 +209,35 @@ class DataProcessor():
 
         else:
             return stats_df
+        
+    def quadratic_peak(self, Wavelength, TransArray, bandwidth=20):
+
+        # Use the raw minimum (no smoothing) initially
+        min_index = np.argmin(TransArray)
+
+        # Use pandas series to enable logical indexing
+        wl = pd.Series(Wavelength)
+        trans = pd.Series(TransArray)
+
+        # Get index of data within +/- bandwidth/2 from the minimum
+        index = abs(wl - wl[min_index]) < bandwidth/2
+
+        # Get the wavelength and transmission data within the bandwidth
+        WavelengthRange = wl[index]
+        TransRange = trans[index]
+
+        px = np.polyfit(WavelengthRange,TransRange,2)
+        a = px[0]
+        b = px[1]
+
+        # outputs are a bit of algebra based on quadratic fit
+        QuadraticFitParameter = a
+        ResonancePeak = -b/2/a
+        ResonancePeaksValue = np.polyval(px, -b/2/a)
+
+        # print(f'{QuadraticFitParameter=} {ResonancePeak=} {ResonancePeaksValue=}')
+
+        return ResonancePeak
 
     def _smoothed_peak(self, Wavelength, TransArray):
 
